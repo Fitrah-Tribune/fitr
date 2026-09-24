@@ -1,25 +1,25 @@
-function Archive() {
-  return (
-    <section className="page active">
-      <div className="section-head">
-        <h2>Archive</h2>
-        <span className="sub">— every edition, preserved as printed</span>
-      </div>
-      <div className="archive-intro">
-        The archive preserves each edition as it was originally published, including the quirks and imperfections that reflect the paper’s growth.
-      </div>
-      <div className="card-grid two-up">
-        <article className="story-card">
-          <h3>Edition 01</h3>
-          <p>Launch edition of the digital newspaper, focused on establishing editorial standards.</p>
-        </article>
-        <article className="story-card">
-          <h3>Edition 02</h3>
-          <p>Expanded coverage and more community participation in the correction process.</p>
-        </article>
-      </div>
-    </section>
-  )
-}
+import LegacyPage from '../lib/LegacyPage'
+import useLegacyPage from '../lib/useLegacyPage'
 
-export default Archive
+// Route: /archive
+// Content is filled in by the engine's Pages.archive.render().
+const html = `
+<section class="page active" id="page-archive">
+  <div class="section-head">
+    <h2>Archive</h2>
+    <span class="sub">— every edition, preserved as printed</span>
+    <div class="head-action admin-only">
+      <button class="btn-add" onclick="Editor.newEdition()">+ Archive Edition</button>
+    </div>
+  </div>
+  <div class="archive-intro">
+    The archive preserves each edition as it was originally published — including any grammatical quirks or formatting from the time. Articles on the rest of the site receive silent corrections; the archive does not. It is a record of how Fitrah Tribune has grown.
+  </div>
+  <div id="archive-grid-area"><!-- rendered --></div>
+</section>
+`
+
+export default function Archive() {
+  useLegacyPage('archive')
+  return <LegacyPage html={html} />
+}

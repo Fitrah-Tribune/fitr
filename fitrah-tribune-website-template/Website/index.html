@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fitrah Tribune — Documenting FIWA And Beyond</title>
+<meta name="description" content="The student-driven newspaper of Fitrah Islamic World Academy — documenting FIWA and beyond." />
+<link rel="icon" type="image/svg+xml" id="favicon" href="logo/mark.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,300..900;1,300..900&family=Bitter:ital,wght@0,100..900;1,100..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=IM+Fell+English+SC&family=Special+Elite&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
+<link rel="stylesheet" href="fitr.css" />
+</head>
+<body data-page="home">
+
+<!-- Header, nav and footer are injected by fitr.js — edit them there. -->
+
+<div class="page-shell">
+
+<section class="page" id="page-home">
+    <div class="section-head">
+      <h2>Front Page</h2>
+      <span class="sub">— from the latest edition</span>
+      <div class="head-action editable-only">
+        <button class="btn-add" onclick="Editor.featureArticle()">+ Feature Article</button>
+      </div>
+    </div>
+    <div id="home-featured-area"><!-- rendered by JS --></div>
+
+    <div class="section-head" style="margin-top: 3rem;">
+      <h2>More Stories</h2>
+      <span class="sub">— recent reportage</span>
+    </div>
+    <div id="home-stories-area"><!-- rendered by JS --></div>
+
+    <div class="home-strip" style="margin-top: 3rem;">
+      <div class="strip-block">
+        <div class="strip-head">
+          <h3>From the Forum</h3>
+          <a href="#" onclick="Router.go('forum'); return false;">View all →</a>
+        </div>
+        <div id="home-forum-preview"><!-- rendered by JS --></div>
+      </div>
+      <div class="strip-block">
+        <div class="strip-head">
+          <h3>Weather · Ciseeng</h3>
+          <span style="font-family: var(--mono); font-size: 0.7rem; color: var(--ink-muted); letter-spacing: 0.16em;">TODAY</span>
+        </div>
+        <div class="weather-now">
+          <div class="weather-icon"></div>
+          <div>
+            <div class="weather-temp">29<span class="unit">°C</span></div>
+            <div class="weather-cond">Partly Cloudy</div>
+            <div class="weather-loc">Bogor, West Java</div>
+          </div>
+        </div>
+        <div class="weather-note">"What is news without weather?" — A house tradition since Edition I.</div>
+      </div>
+    </div>
+
+    <div class="home-tipoff">
+      <div>
+        <h3>Spot Misinformation?</h3>
+        <p>Help us keep the lighthouse lit. Flag a rumor or an error directly to the editorial team — privately, and on the record only if it becomes a correction.</p>
+      </div>
+      <button onclick="Pages.corrections.openSubmit()">Report a Tip</button>
+    </div>
+  </section>
+
+</div>
+
+<script src="fitr.js"></script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>About — Fitrah Tribune</title>
+<meta name="description" content="The student-driven newspaper of Fitrah Islamic World Academy — documenting FIWA and beyond." />
+<link rel="icon" type="image/svg+xml" id="favicon" href="logo/mark.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,300..900;1,300..900&family=Bitter:ital,wght@0,100..900;1,100..900&family=Crimson+Pro:ital,wght@0,200..900;1,200..900&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=IM+Fell+English+SC&family=Special+Elite&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
+<link rel="stylesheet" href="fitr.css" />
+</head>
+<body data-page="about">
+
+<!-- Header, nav and footer are injected by fitr.js — edit them there. -->
+
+<div class="page-shell">
+
+<section class="page" id="page-about">
+    <div class="about-hero">
+      <div class="about-hero-img"><img data-asset="mark" alt="Fitrah Tribune lighthouse" /></div>
+      <div class="about-hero-text">
+        <div class="eyebrow">About Us · Fitrah Tribune</div>
+        <h2>A lighthouse in the <em>storm of misinformation.</em></h2>
+        <p class="lead">Fitrah Tribune is a student-driven newspaper community at Fitrah Islamic World Academy. We are the community's record of itself — written from within FIWA, for the readers who live it.</p>
+        <p>We were born out of frustration with the rumor-mills that travel faster than verified facts in any school. Our promise is simple: we publish what we can verify, we correct what we get wrong, and we leave the record for everyone to see.</p>
+        <p>Our newspapers ship every fortnight in English, with Indonesian translations following soon after. The website is a younger sibling — built to extend the reach of the print, host community discussion, and keep our corrections honest.</p>
+      </div>
+    </div>
+
+    <div class="section-head"><h2>Our Pillars</h2><span class="sub">— what guides every story we publish</span></div>
+    <div class="values-row">
+      <div class="value-card">
+        <h4>Clarity</h4>
+        <p>Every article is researched before it is written. Claims we cannot verify are not published as fact. Where uncertainty exists, we name it openly.</p>
+      </div>
+      <div class="value-card">
+        <h4>Approachability</h4>
+        <p>Not too professional, not too casual. We write the way a thoughtful older sibling would explain something — with care, but without stiffness.</p>
+      </div>
+      <div class="value-card">
+        <h4>Trustedness</h4>
+        <p>Trust is built slowly, through consistency: doing what we say we will do, edition after edition. The Tribune you read next is built on the standard of the one before.</p>
+      </div>
+      <div class="value-card">
+        <h4>Transparency</h4>
+        <p>No fact is ever altered, fabricated, or misrepresented. Editorial judgment shapes which facts we foreground — never the underlying truth itself.</p>
+      </div>
+    </div>
+
+    <div class="standards-block">
+      <h3>Editorial Standards</h3>
+      <p class="standards-sub">The promises we hold ourselves to.</p>
+      <div class="standards-grid">
+        <div class="standards-col do">
+          <h5>What we do</h5>
+          <ul>
+            <li>Verify claims through at least one direct source before publishing.</li>
+            <li>Submit every article to the CAE for appropriateness review before publication.</li>
+            <li>Seek consent before naming individuals in sensitive coverage.</li>
+            <li>Disclose any AI assistance used in research or drafting.</li>
+            <li>Log every correction publicly on the Corrections page.</li>
+            <li>Preserve archived editions exactly as they were printed, errors included.</li>
+          </ul>
+        </div>
+        <div class="standards-col dont">
+          <h5>What we don't do</h5>
+          <ul>
+            <li>Publish unverified rumor, even when it's interesting.</li>
+            <li>Quietly edit print articles to hide past mistakes.</li>
+            <li>Name individuals in sensitive coverage without their consent.</li>
+            <li>Delete criticism from our public record simply because we disagree with it.</li>
+            <li>Accept payment, sponsorship, or favors that influence coverage.</li>
+            <li>Hide who wrote what — every article carries a byline.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-head" style="margin-top: 3.5rem;">
+      <h2>The Tribunees</h2>
+      <span class="sub">— our team of writers, editors, and translators</span>
+      <div class="head-action admin-only">
+        <button class="btn-add" onclick="Editor.newTribunee()">+ Add Tribunee</button>
+      </div>
+    </div>
+    <div id="tribunees-grid-area"><!-- rendered --></div>
+  </section>
+
+</div>
+
+<script src="fitr.js"></script>
+</body>
+</html>
