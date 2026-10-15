@@ -110,16 +110,22 @@ Note the one mismatch: URL `/feedback` → engine key `corrections`.
 All user-visible text on the site is tracked in one Google Sheet:
 https://docs.google.com/spreadsheets/d/1SfqBOvc5Zm0mwZZPsqN4sG_3wTZwD1o0loFL1hwLBXo/edit?usp=sharing
 
-Each row is one piece of text: ID, page, where on the page, current text,
-"Our version", a source file:line, and a status. `{name}`-style slots are
-filled in by the site; keep them when rewriting. `A / B` means one spot
-that switches between versions.
+File "FITR | Website Text Lists", tab "Main". One row per piece of text.
+Columns: **A** ID · **B** Page · **C** Where on the page · **D** Current
+text · **E** Our version · **F** Status · **G** Source (file:line).
+`{name}`-style slots are filled in by the site; keep them when rewriting.
+`A / B` means one spot that switches between versions.
 
-1. **"Apply the copy sheet"** means: apply every row marked **Ready** —
-   replace its current text with "Our version" — then set those rows to
-   **Applied**, and open a PR into `development`. Touch no other rows.
-   Engine strings live in `public/fitr-engine.js`; that is a text edit, not
-   a page conversion.
+1. **"Apply the copy sheet"** means: apply every row whose Status is
+   **Ready** — replace the site's text with "Our version" — then set those
+   rows to **Applied**, and open a PR into `development`. Touch no other
+   rows. Engine strings live in `public/fitr-engine.js`; that is a text
+   edit, not a page conversion.
+   - Find each string by its **Source** and **Where on the page**, not by
+     searching for "Current text": people edit that column in the sheet, so
+     it may not match the code. Line numbers drift as files change.
+   - In the PR, list every applied row whose code text didn't match
+     "Current text", so a person can check it.
 2. **Whenever you add or change visible text on the site**, add or update
    its row in the sheet in the same piece of work.
 
