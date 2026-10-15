@@ -105,6 +105,30 @@ Note the one mismatch: URL `/feedback` → engine key `corrections`.
 
 ---
 
+## Copy sheet
+
+All user-visible text on the site is tracked in one Google Sheet:
+https://docs.google.com/spreadsheets/d/1SfqBOvc5Zm0mwZZPsqN4sG_3wTZwD1o0loFL1hwLBXo/edit?usp=sharing
+
+Each row is one piece of text: ID, page, where on the page, current text,
+"Our version", a source file:line, and a status. `{name}`-style slots are
+filled in by the site; keep them when rewriting. `A / B` means one spot
+that switches between versions.
+
+1. **"Apply the copy sheet"** means: apply every row marked **Ready** —
+   replace its current text with "Our version" — then set those rows to
+   **Applied**, and open a PR into `development`. Touch no other rows.
+   Engine strings live in `public/fitr-engine.js`; that is a text edit, not
+   a page conversion.
+2. **Whenever you add or change visible text on the site**, add or update
+   its row in the sheet in the same piece of work.
+
+If you can't open or edit the sheet, don't guess its contents. Say so, and
+put the rows you would have added or changed in the PR description so a
+person can paste them in.
+
+---
+
 ## Permission rules — must never break
 
 These are promises the Tribune has made to readers. Any change touching the
