@@ -630,7 +630,7 @@ const Editor = {
           <div class="field" style="background: var(--paper-deep); padding: 0.9rem 1rem; border-left: 3px solid var(--gold);">
             <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
               <input type="checkbox" id="art-log-correction" style="width: auto;" />
-              <span style="text-transform: none; letter-spacing: 0; font-family: var(--sans); font-size: 0.9rem; color: var(--ink);">Log this edit as a public correction</span>
+              <span style="text-transform: none; letter-spacing: 0; font-family: var(--ui); font-size: 0.9rem; color: var(--ink);">Log this edit as a public correction</span>
             </label>
             <div class="field-hint" style="margin-top: 0.4rem;">If checked, this change appears on the Corrections page (article itself stays clean).</div>
             <input type="text" id="art-correction-note" placeholder="What was corrected? (e.g. 'Misspelled name', 'Wrong date')" style="margin-top: 0.6rem; display: none;" />
@@ -1118,7 +1118,7 @@ const Editor = {
     Modal.open({
       title: `Remove Edition ${e.number}?`,
       body: `
-        <p style="font-family: var(--serif); line-height: 1.5; margin-bottom: 1.1rem; font-size: 1rem; color: var(--ink-soft);">
+        <p style="font-family: var(--ui); line-height: 1.5; margin-bottom: 1.1rem; font-size: 1rem; color: var(--ink-soft);">
           You're about to remove <strong style="color: var(--ink);">"${escapeHtml(e.title)}"</strong> from the archive. The entry on this site will be wiped — including the front-page screenshot if you uploaded one.
         </p>
         <div class="signin-tier-info" style="background: rgba(192, 57, 62, 0.08); border-left: 3px solid #c0392b;">
@@ -1531,7 +1531,7 @@ const Editor = {
               <label style="display: flex; gap: 0.7rem; padding: 0.6rem; border: 1px solid var(--rule); border-radius: 2px; cursor: pointer; background: ${fIdx >= 0 ? 'var(--paper-deep)' : 'var(--paper-lift)'};">
                 <input type="checkbox" data-article-id="${a.id}" ${fIdx >= 0 ? 'checked' : ''} style="width: auto;" />
                 <div style="flex: 1;">
-                  <div style="font-family: var(--serif); font-weight: 500; color: var(--ink);">${escapeHtml(a.title)}</div>
+                  <div style="font-family: var(--headline); font-weight: 700; color: var(--ink);">${escapeHtml(a.title)}</div>
                   <div style="font-size: 0.78rem; color: var(--ink-muted); margin-top: 0.2rem;">By ${escapeHtml(a.author)} · ${escapeHtml(a.tabLabel || '—')}</div>
                 </div>
               </label>
@@ -2039,9 +2039,10 @@ const RichEditor = {
           document.execCommand('formatBlock', false, value);
           sel.selectedIndex = 0;
         } else if (cmd === 'fontName') {
-          this._applyInlineStyle(editor, 'font-family', `'${value}', serif`);
+          const fallback = value === 'Work Sans' ? 'sans-serif' : 'serif';
+          this._applyInlineStyle(editor, 'font-family', `'${value}', ${fallback}`);
           // Reflect the chosen font in the closed dropdown's own appearance.
-          sel.style.fontFamily = `'${value}', serif`;
+          sel.style.fontFamily = `'${value}', ${fallback}`;
         } else if (cmd === 'fontSize') {
           // Map old execCommand sizes (1–7) to readable rem sizes
           const pxMap = { '1': '0.7rem', '2': '0.85rem', '3': '1rem', '4': '1.15rem', '5': '1.4rem', '6': '1.7rem', '7': '2.1rem' };
@@ -2106,17 +2107,9 @@ const RichEditor = {
       </div>
       <div class="rte-tool-group">
         <select class="rte-tool" data-cmd="fontName" title="Font" style="min-width: 130px;">
-          <optgroup label="Site fonts">
-            <option value="Fraunces" style="font-family:'Fraunces',serif">Fraunces</option>
-            <option value="Albert Sans" style="font-family:'Albert Sans',sans-serif">Albert Sans</option>
-            <option value="Bitter" style="font-family:'Bitter',serif">Bitter</option>
-          </optgroup>
-          <optgroup label="Editorial">
-            <option value="IM Fell English SC" style="font-family:'IM Fell English SC',serif">IM Fell English SC</option>
-            <option value="Special Elite" style="font-family:'Special Elite',monospace">Special Elite</option>
-            <option value="Crimson Pro" style="font-family:'Crimson Pro',serif">Crimson Pro</option>
-            <option value="Times New Roman" style="font-family:'Times New Roman',serif">Times New Roman</option>
-          </optgroup>
+          <option value="Times New Roman" style="font-family:var(--article)">Times New Roman</option>
+          <option value="Libre Baskerville" style="font-family:var(--headline)">Libre Baskerville</option>
+          <option value="Work Sans" style="font-family:var(--ui)">Work Sans</option>
         </select>
         <select class="rte-tool" data-cmd="fontSize" title="Size">
           <option value="2">XS</option>
@@ -2152,7 +2145,7 @@ const RichEditor = {
       </div>
       ${allowImages ? `
       <div class="rte-tool-group">
-        <button class="rte-tool" data-cmd="image" title="Insert image" style="font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.1em;">+ IMG</button>
+        <button class="rte-tool" data-cmd="image" title="Insert image" style="font-family: var(--ui); font-size: 0.72rem; letter-spacing: 0.1em;">+ IMG</button>
       </div>
       ` : ''}
     `;
@@ -2380,7 +2373,7 @@ Pages.home = {
     const posts = (await Store.list('threads')).sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
     const fp = $('#home-forum-preview');
     if (posts.length === 0) {
-      fp.innerHTML = `<p style="font-family: var(--serif); font-style: italic; color: var(--ink-muted); padding: 1rem 0;">Nothing posted yet. Announcements and notices from the Tribune will appear here.</p>`;
+      fp.innerHTML = `<p style="font-family: var(--ui); font-style: italic; color: var(--ink-muted); padding: 1rem 0;">Nothing posted yet. Announcements and notices from the Tribune will appear here.</p>`;
     } else {
       fp.innerHTML = posts.map(p => {
         const isAnn = p.category === 'announcement';
@@ -2388,7 +2381,7 @@ Pages.home = {
           <div onclick="Router.go('forum/${p.id}')" style="display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; padding: 0.7rem 0; border-bottom: 1px dashed var(--rule); cursor: pointer; align-items: center;">
             <div class="thread-avatar" style="width: 36px; height: 36px; font-size: 0.85rem;">${initials(p.author)}</div>
             <div>
-              <div style="font-family: var(--serif); font-weight: 500; font-size: 0.95rem; line-height: 1.2;">${escapeHtml(p.title)}</div>
+              <div style="font-family: var(--headline); font-weight: 700; font-size: 0.95rem; line-height: 1.2;">${escapeHtml(p.title)}</div>
               <div style="font-size: 0.76rem; color: var(--ink-muted); margin-top: 0.2rem;">By <span style="color: var(--navy);">${escapeHtml(p.author)}</span> · ${relativeTime(p.createdAt)}</div>
             </div>
             <span class="post-cat ${isAnn ? 'announcement' : ''}">${isAnn ? 'Announcement' : 'General'}</span>
@@ -2685,7 +2678,7 @@ Pages.forum = {
         <div class="forum-compose">
           <div class="compose-head">
             <h3>New Post</h3>
-            <span style="font-family: var(--mono); font-size: 0.7rem; color: var(--ink-muted); letter-spacing: 0.14em;">Posting as ${escapeHtml(Auth.current().name)}</span>
+            <span style="font-family: var(--ui); font-size: 0.7rem; color: var(--ink-muted); letter-spacing: 0.14em;">Posting as ${escapeHtml(Auth.current().name)}</span>
           </div>
           <input type="text" class="compose-title" id="post-title" placeholder="Title — what is this about?" />
           <textarea class="compose-body" id="post-body" placeholder="Write your post…"></textarea>
