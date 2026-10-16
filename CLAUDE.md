@@ -112,13 +112,18 @@ Each has one job. Use the CSS variables in `fitr.css`, never a font name.
 
 | Variable | Font | Job |
 |---|---|---|
-| `--headline` | Libre Baskerville | **Bold:** headlines and big titles — section rubrics, article and card titles, box headers, person names, big-number callouts. **Italic:** pull quotes only. |
-| `--article` | Times New Roman | All article body text (also bios and the text editor). Italic only for official citations and the line under a big-number callout. |
-| `--ui` | Work Sans | Everything around the article: nav, buttons, labels, decks (bold italic), in-article subheads (uppercase), category labels, captions, bylines, forms, toasts. |
+| `--headline` | Libre Baskerville | **Bold:** the masthead, page titles, and article headlines (including headlines on article cards). **Italic:** pull quotes inside an article. Keep it big and rare, as in print. |
+| `--article` | Times New Roman | Only the body of an article being read (and the article editor), so reading on the site feels like reading the paper. |
+| `--ui` | Work Sans | Everything else, which is most of the site: nav, buttons, menus, cards, box headers, dates, categories, bylines, captions, decks (bold italic), in-article subheads (uppercase), forum posts, bios, forms, footer. |
+
+The rule is the print rule; only the proportions change. A website is
+mostly navigation, labels, cards and buttons, all "around the article"
+work, so Work Sans dominates.
 
 - Libre Baskerville has **no bold italic**. Never make a headline italic;
   a highlighted word inside a headline stays upright (colour only).
 - New element? Decide which of the three jobs it does and use that variable.
+  When unsure, it's Work Sans.
 - Times New Roman isn't on every device; `--article` falls back to Tinos,
   its free metric twin, which `index.html` loads.
 

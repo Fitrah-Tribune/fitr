@@ -281,8 +281,8 @@ body.editing .user-name { color: var(--navy-deep); }
   background: linear-gradient(135deg, var(--navy) 0%, var(--gold) 100%);
   display: flex; align-items: center; justify-content: center;
   color: var(--paper);
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
+  font-weight: 600;
   font-size: 0.85rem;
   border: 2px solid var(--paper);
   box-shadow: 0 0 0 1px var(--rule);
@@ -367,7 +367,7 @@ body.editing .user-name { color: var(--navy-deep); }
   font-style: italic;
   font-size: 1rem;
   color: var(--ink-muted);
-  font-weight: 700;
+  font-weight: 300;
 }
 .section-head .head-action { margin-left: auto; }
 
@@ -386,8 +386,8 @@ body.editing .user-name { color: var(--navy-deep); }
   opacity: 0.55;
 }
 .empty-state h3 {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
+  font-weight: 400;
   font-size: 1.4rem;
   color: var(--ink);
   margin-bottom: 0.5rem;
@@ -623,12 +623,12 @@ body.editing .user-name { color: var(--navy-deep); }
   border-bottom: 1px solid var(--rule);
 }
 .strip-head h3 {
-  font-family: var(--headline);
+  font-family: var(--ui);
   font-size: 1rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink);
-  font-weight: 700;
+  font-weight: 400;
 }
 .strip-head a {
   font-family: var(--ui);
@@ -649,8 +649,8 @@ body.editing .user-name { color: var(--navy-deep); }
   box-shadow: 0 0 24px rgba(216, 169, 86, 0.4);
 }
 .weather-temp {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
+  font-weight: 300;
   font-size: 2.2rem;
   line-height: 1;
 }
@@ -829,8 +829,7 @@ body.editing .user-name { color: var(--navy-deep); }
   background: var(--navy);
 }
 .archive-cover .ac-name {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
   font-size: 0.55rem;
   letter-spacing: 0.16em;
   color: var(--navy);
@@ -838,11 +837,11 @@ body.editing .user-name { color: var(--navy-deep); }
   margin-top: 0.4rem;
 }
 .archive-cover .ac-num {
-  font-family: var(--headline);
+  font-family: var(--ui);
   font-size: 1.8rem;
   line-height: 1;
   color: var(--navy-deep);
-  font-weight: 700;
+  font-weight: 600;
   margin-top: 0.6rem;
 }
 .archive-cover .ac-num span {
@@ -866,8 +865,8 @@ body.editing .user-name { color: var(--navy-deep); }
   margin-bottom: 0.3rem;
 }
 .archive-info .ai-title {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
+  font-weight: 500;
   font-size: 1rem;
   line-height: 1.2;
   color: var(--ink);
@@ -918,8 +917,7 @@ body.editing .user-name { color: var(--navy-deep); }
   margin-bottom: 0.9rem;
 }
 .compose-head h3 {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
   font-size: 0.88rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1031,7 +1029,7 @@ body.editing .user-name { color: var(--navy-deep); }
   background: linear-gradient(135deg, var(--navy) 0%, var(--gold) 100%);
   color: var(--paper);
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--headline); font-weight: 700;
+  font-family: var(--ui); font-weight: 600;
   flex-shrink: 0;
 }
 .post-meta {
@@ -1060,8 +1058,8 @@ body.editing .user-name { color: var(--navy-deep); }
   font-weight: 600;
 }
 .post-body h4 {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
+  font-weight: 500;
   font-size: 1.15rem;
   line-height: 1.25;
   color: var(--ink);
@@ -1104,8 +1102,7 @@ body.editing .user-name { color: var(--navy-deep); }
   padding: 1.1rem 1.2rem;
 }
 .fs-block h4 {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
   font-size: 0.78rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1188,8 +1185,8 @@ body.editing .user-name { color: var(--navy-deep); }
   margin-bottom: 0.3rem;
 }
 .correction-body h4 {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
+  font-weight: 500;
   font-size: 1.05rem;
   color: var(--ink);
   margin-bottom: 0.4rem;
@@ -1245,8 +1242,7 @@ body.editing .user-name { color: var(--navy-deep); }
   margin-bottom: 2rem;
 }
 .fc-privacy h4 {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
   font-size: 0.76rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1345,8 +1341,8 @@ body.editing .user-name { color: var(--navy-deep); }
   white-space: nowrap;
 }
 .case-summary h4 {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
+  font-weight: 500;
   font-size: 1.02rem;
   line-height: 1.25;
   color: var(--ink);
@@ -1499,8 +1495,7 @@ body.editing .user-name { color: var(--navy-deep); }
   align-items: center;
 }
 .home-tipoff h3 {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
   font-size: 0.8rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1605,8 +1600,7 @@ body.editing .user-name { color: var(--navy-deep); }
   padding: 1.6rem;
 }
 .value-card h4 {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
   font-size: 0.92rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -1640,8 +1634,7 @@ body.editing .user-name { color: var(--navy-deep); }
   gap: 2rem;
 }
 .standards-col h5 {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
   font-size: 0.78rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1690,8 +1683,8 @@ body.editing .user-name { color: var(--navy-deep); }
   align-items: center;
   justify-content: center;
   color: var(--paper);
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
+  font-weight: 600;
   font-size: 2.2rem;
   position: relative;
   overflow: hidden;
@@ -1703,8 +1696,8 @@ body.editing .user-name { color: var(--navy-deep); }
   background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.18), transparent 50%);
 }
 .tribunee-name {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
+  font-weight: 600;
   font-size: 1rem;
   color: var(--ink);
   line-height: 1.2;
@@ -1722,9 +1715,9 @@ body.editing .user-name { color: var(--navy-deep); }
   font-family: var(--ui);
 }
 .tribunee-bio {
-  font-family: var(--headline);
+  font-family: var(--ui);
   font-style: italic;
-  font-weight: 400;
+  font-weight: 300;
   font-size: 0.85rem;
   color: var(--ink-soft);
   line-height: 1.45;
@@ -1807,9 +1800,9 @@ footer.tribune-footer {
 }
 .footer-brand .footer-mark img { width: 38px; height: 38px; }
 .footer-brand .footer-mark .name {
-  font-family: var(--headline);
+  font-family: var(--ui);
   font-size: 1.4rem;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--paper-lift);
 }
 .footer-brand p {
@@ -1890,8 +1883,8 @@ footer.tribune-footer {
   align-items: center;
 }
 .modal-head h3 {
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
+  font-weight: 500;
   font-size: 1.4rem;
   color: var(--navy-deep);
 }
@@ -2192,8 +2185,7 @@ body.editing [data-editable]:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
   color: var(--paper);
   font-size: 5rem;
   background: linear-gradient(135deg, var(--navy) 0%, var(--gold) 100%);
@@ -2236,7 +2228,7 @@ body.editing [data-editable]:hover {
   border-bottom: 1px solid var(--rule);
 }
 .tp-bio {
-  font-family: var(--article);
+  font-family: var(--ui);
   font-size: 1.05rem;
   line-height: 1.7;
   color: var(--ink-soft);
@@ -2255,8 +2247,7 @@ body.editing [data-editable]:hover {
 .tp-bio h2 { font-size: 1.5rem; }
 .tp-bio h3 { font-size: 1.2rem; }
 .tp-bio blockquote {
-  font-family: var(--headline);
-  font-weight: 400;
+  font-family: var(--ui);
   border-left: 3px solid var(--gold);
   padding: 0.4rem 1rem;
   margin: 1rem 0;
@@ -2381,6 +2372,9 @@ body.editing [data-editable]:hover {
   color: var(--ink-soft);
   background: rgba(216, 169, 86, 0.06);
 }
+/* The bio editor shows bios as they appear on the profile: Work Sans. */
+#tr-bio-editor .rte-editor,
+#tr-bio-editor .rte-editor blockquote { font-family: var(--ui); }
 .rte-editor ul, .rte-editor ol { padding-left: 1.5rem; margin-bottom: 0.8rem; }
 .rte-editor img.rte-image {
   max-width: 100%;
@@ -2646,8 +2640,8 @@ body.editing [data-editable]:hover {
   background: linear-gradient(135deg, var(--navy), var(--gold));
   display: flex; align-items: center; justify-content: center;
   color: var(--paper);
-  font-family: var(--headline);
-  font-weight: 700;
+  font-family: var(--ui);
+  font-weight: 600;
   font-size: 2.4rem;
   border: 1px solid var(--rule);
   flex-shrink: 0;

@@ -2381,7 +2381,7 @@ Pages.home = {
           <div onclick="Router.go('forum/${p.id}')" style="display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; padding: 0.7rem 0; border-bottom: 1px dashed var(--rule); cursor: pointer; align-items: center;">
             <div class="thread-avatar" style="width: 36px; height: 36px; font-size: 0.85rem;">${initials(p.author)}</div>
             <div>
-              <div style="font-family: var(--headline); font-weight: 700; font-size: 0.95rem; line-height: 1.2;">${escapeHtml(p.title)}</div>
+              <div style="font-family: var(--ui); font-weight: 500; font-size: 0.95rem; line-height: 1.2;">${escapeHtml(p.title)}</div>
               <div style="font-size: 0.76rem; color: var(--ink-muted); margin-top: 0.2rem;">By <span style="color: var(--navy);">${escapeHtml(p.author)}</span> · ${relativeTime(p.createdAt)}</div>
             </div>
             <span class="post-cat ${isAnn ? 'announcement' : ''}">${isAnn ? 'Announcement' : 'General'}</span>
