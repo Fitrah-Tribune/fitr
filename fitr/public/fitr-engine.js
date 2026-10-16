@@ -1287,7 +1287,7 @@ const Editor = {
             <div class="field"><label>Full name</label><input type="text" id="tr-name" value="${escapeHtml(t.name || '')}" placeholder="e.g. Ammar Mufiid Johansyah" ${identityReadOnly} /></div>
             <div class="field"><label>FIWA email</label><input type="email" id="tr-email" value="${escapeHtml(t.email || '')}" placeholder="e.g. firstname.lastname@fiwa.sch.id" ${identityReadOnly} /></div>
             <div class="field-row">
-              <div class="field"><label>Role</label><input type="text" id="tr-role" value="${escapeHtml(t.role || '')}" placeholder="e.g. Writer, Translator" ${identityReadOnly} /></div>
+              <div class="field"><label>Role</label><input type="text" id="tr-role" value="${escapeHtml(t.role || '')}" placeholder="e.g. Writer, Journalist" ${identityReadOnly} /></div>
               <div class="field"><label>Grade</label><input type="text" id="tr-grade" value="${escapeHtml(t.grade || '')}" placeholder="e.g. G8" ${identityReadOnly} /></div>
             </div>
             <div class="field-hint">Click the portrait to upload a photo. If left empty, a placeholder with initials is used.</div>
