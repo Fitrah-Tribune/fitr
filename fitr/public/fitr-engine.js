@@ -3317,7 +3317,49 @@ Pages.about = {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
+
+/* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
+   One list for both the first-time seed and the migrations.
+   · email: their @fiwa.sch.id address, or null if we don't have it yet.
+     Only people WITH an email go on the allowlist (and so can unlock
+     editing mode). Someone without one still gets a card on the About page.
+   · admin: true for accounts that can manage the team, archive, and cases.
+   · order: About-page order — editors, then operations, then
+     journalists/writers, then production.
+   When this list changes, bump SCHEMA_VERSION and add a migration step.
+   ──────────────────────────────────────────────────────────────────── */
+const ROSTER = [
+  // Editors
+  { name: 'Ammar Mufiid Johansyah',          email: 'ammar.mufiid@fiwa.sch.id',     role: 'Founder · Editor-in-Chief', grade: 'G9',  admin: true  },
+  { name: 'Khalifah Agidra Filard',          email: 'khalifah.agidra@fiwa.sch.id',  role: 'Format Editor',             grade: 'G11', admin: false },
+  { name: 'Muhammad Ananda Syamsuddin',      email: null,                           role: 'Fact-Checking Editor',      grade: 'G7',  admin: false },
+  // Operations
+  { name: 'Fathan Assyauqi Hiliry',          email: 'fathan.assyauqi@fiwa.sch.id',  role: 'Administrator',             grade: 'G8',  admin: true  },
+  { name: 'Yahya Abdullah Mahmudi',          email: null,                           role: 'Coordinator',               grade: 'G8',  admin: false },
+  { name: 'Aldebaran Gibran Altaf',          email: 'aldebaran.gibran@fiwa.sch.id', role: 'IT & Coding · Writer',      grade: 'G8',  admin: true  },
+  { name: 'Muhammad Arza Zaydan Suralaga',   email: 'arza.zaydan1@fiwa.sch.id',     role: 'IT & Coding · Writer',      grade: 'G10', admin: false },
+  // Journalists and writers
+  { name: 'Akio Hideaka Takijoeddin',        email: 'akio.hideaka1@fiwa.sch.id',    role: 'Journalist',                grade: 'G9',  admin: false },
+  { name: 'Fathan Rasyid',                   email: null,                           role: 'Journalist',                grade: 'G7',  admin: false },
+  { name: 'Fathi Rizqi Ramadhan',            email: 'fathi.rizqi1@fiwa.sch.id',     role: 'Writer',                    grade: 'G12', admin: false },
+  { name: 'Muhammad Ziya Ibrahim',           email: null,                           role: 'Writer (Science)',          grade: 'G10', admin: false },
+  { name: 'Muhammad Baary Salman',           email: null,                           role: 'Writer',                    grade: 'G10', admin: false },
+  { name: 'Mohamad Zahran',                  email: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
+  { name: 'Kafa Althaf Habibi',              email: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
+  { name: 'Tubagus Attariza Rayyan Athaya',  email: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
+  { name: 'Yunus Mahdi Abdullah',            email: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
+  // Production
+  { name: 'Muhammad Shahza Kentzhad Sakrade', email: 'shahza.muhammad1@fiwa.sch.id', role: 'Photographer',             grade: 'G10', admin: false }
+].map((p, order) => ({ ...p, order }));
+
+/* Tribunee and allowlist records built from ROSTER. */
+const rosterTribunee = (p) => {
+  const t = { name: p.name, role: p.role, grade: p.grade, order: p.order };
+  if (p.email) t.email = p.email;
+  return t;
+};
+const rosterAllowlist = () => ROSTER.filter(p => p.email).map(p => ({ email: p.email, admin: p.admin }));
 
 async function migrateLegacyData() {
   const stored = localStorage.getItem('fitrah:schemaVersion');
@@ -3390,6 +3432,63 @@ async function migrateLegacyData() {
     for (const t of await Store.list('threads'))  await Store.remove('threads', t.id);
   }
 
+  // ─── v3 → v4 migration (roster update, Oct 2026) ───────────────────────
+  // People are matched by email. Bios and photos are always kept. Name,
+  // role and grade are overwritten only if they still hold the value the
+  // v3 seed gave them, so anything a tribunee or admin edited stays put.
+  // Runs only on browsers that already have data; a fresh browser gets
+  // the new roster from seedIfEmpty below.
+  if (current < 4) {
+    const V3_SEED = {
+      'ammar.mufiid@fiwa.sch.id':     { name: 'Ammar Mufiid Johansyah',  role: 'Founder · Graphics Designer',                grade: 'G9'  },
+      'aldebaran.gibran@fiwa.sch.id': { name: 'Aldebaraan Gibran Altaf', role: 'Lead Developer · IT',                        grade: 'G8'  },
+      'fathan.assyauqi@fiwa.sch.id':  { name: 'Fathan Assyauqi Hiliry',  role: 'Representative · Writer · EN/ID Translator', grade: 'G8'  },
+      'shahza.muhammad1@fiwa.sch.id': { name: 'Muhammad Shahza',         role: 'Photographer',                               grade: 'G10' },
+      'arza.zaydan1@fiwa.sch.id':     { name: 'Arza Zaydan',             role: 'Writer',                                     grade: 'G10' },
+      'akio.hideaka1@fiwa.sch.id':    { name: 'Akio Hideaka',            role: 'Writer',                                     grade: 'G9'  },
+      'khalifah.agidra@fiwa.sch.id':  { name: 'Khalifah Agidra',         role: 'Writer',                                     grade: 'G11' },
+      'fathi.rizqi1@fiwa.sch.id':     { name: 'Fathi Rizqi',             role: 'Writer',                                     grade: 'G12' }
+    };
+    const REMOVED = ['naufal.rian1@fiwa.sch.id', 'muhammad.razqa@fiwa.sch.id'];
+    const emailOf = (x) => (x.email || '').toLowerCase();
+
+    // Allowlist: drop the people who left; make sure everyone on the
+    // roster with an email is on it, with the right admin flag.
+    const allow = await Store.list('allowlist');
+    if (allow.length > 0) {
+      for (const a of allow) {
+        if (REMOVED.includes(emailOf(a))) await Store.remove('allowlist', a.id);
+      }
+      for (const want of rosterAllowlist()) {
+        const have = allow.find(a => emailOf(a) === want.email);
+        if (!have) await Store.save('allowlist', want);
+        else if (!!have.admin !== want.admin) await Store.save('allowlist', { ...have, admin: want.admin });
+      }
+    }
+
+    // Tribunees.
+    const people = await Store.list('tribunees');
+    if (people.length > 0) {
+      for (const t of people) {
+        if (REMOVED.includes(emailOf(t))) await Store.remove('tribunees', t.id);
+      }
+      for (const p of ROSTER) {
+        if (p.email) {
+          const t = people.find(x => emailOf(x) === p.email);
+          if (!t) { await Store.save('tribunees', rosterTribunee(p)); continue; }
+          const old = V3_SEED[p.email] || {};
+          if (t.name  === old.name)  t.name  = p.name;
+          if (t.role  === old.role)  t.role  = p.role;
+          if (t.grade === old.grade) t.grade = p.grade;
+          t.order = p.order;
+          await Store.save('tribunees', t);   // bio, photo, aspect/fit untouched
+        } else if (!people.some(x => x.name === p.name)) {
+          await Store.save('tribunees', rosterTribunee(p));
+        }
+      }
+    }
+  }
+
   localStorage.setItem('fitrah:schemaVersion', String(SCHEMA_VERSION));
 }
 
@@ -3404,45 +3503,19 @@ async function seedIfEmpty() {
   // Allowlist — at least one tribunee email so the editor role is reachable
   const allowlist = await Store.list('allowlist');
   if (allowlist.length === 0) {
-    /* ─── EDIT THIS LIST as new tribunees join ────────────────────────
-       Any email here, when paired with a FIWA-tier sign-in (the email
-       must end in @fiwa.sch.id), unlocks editing mode for that user.
-       Set admin: true on accounts that can also:
-         · add and remove tribunees
-         · edit OTHER tribunees' profiles (everyone can edit their own)
-         · create, edit, and remove archive editions
-       All emails are stored lowercase. Sign-in is case-insensitive.
-       ──────────────────────────────────────────────────────────────── */
-    const seedAllow = [
-      { email: 'ammar.mufiid@fiwa.sch.id',      admin: true  },
-      { email: 'aldebaran.gibran@fiwa.sch.id',  admin: true  },
-      { email: 'fathan.assyauqi@fiwa.sch.id',   admin: true  },
-      { email: 'shahza.muhammad1@fiwa.sch.id',  admin: false },
-      { email: 'arza.zaydan1@fiwa.sch.id',      admin: false },
-      { email: 'akio.hideaka1@fiwa.sch.id',     admin: false },
-      { email: 'khalifah.agidra@fiwa.sch.id',   admin: false },
-      { email: 'fathi.rizqi1@fiwa.sch.id',      admin: false },
-      { email: 'naufal.rian1@fiwa.sch.id',      admin: false },
-      { email: 'muhammad.razqa@fiwa.sch.id',    admin: false }
-    ];
+    /* Built from ROSTER (top of this section): everyone with an email.
+       An email here, paired with a FIWA-tier sign-in, unlocks editing mode.
+       admin: true accounts can also add/remove tribunees, edit other
+       tribunees' profiles, manage archive editions, and act on cases.
+       All emails are stored lowercase. Sign-in is case-insensitive. */
+    const seedAllow = rosterAllowlist();
     for (const a of seedAllow) await Store.save('allowlist', a);
   }
 
   // Tribunees — names + roles + grades only, no bios (they fill those in)
   const tribunees = await Store.list('tribunees');
   if (tribunees.length === 0) {
-    const seedT = [
-      { name: 'Ammar Mufiid Johansyah',  email: 'ammar.mufiid@fiwa.sch.id',      role: 'Founder · Graphics Designer',                  grade: 'G9',  order: 0 },
-      { name: 'Aldebaraan Gibran Altaf', email: 'aldebaran.gibran@fiwa.sch.id',  role: 'Lead Developer · IT',                          grade: 'G8',  order: 1 },
-      { name: 'Fathan Assyauqi Hiliry',  email: 'fathan.assyauqi@fiwa.sch.id',   role: 'Representative · Writer · EN/ID Translator',   grade: 'G8',  order: 2 },
-      { name: 'Muhammad Shahza',         email: 'shahza.muhammad1@fiwa.sch.id',  role: 'Photographer',                                 grade: 'G10',  order: 3 },
-      { name: 'Arza Zaydan',             email: 'arza.zaydan1@fiwa.sch.id',      role: 'Writer',                                       grade: 'G10',  order: 4 },
-      { name: 'Akio Hideaka',            email: 'akio.hideaka1@fiwa.sch.id',     role: 'Writer',                                       grade: 'G9',  order: 5 },
-      { name: 'Khalifah Agidra',         email: 'khalifah.agidra@fiwa.sch.id',   role: 'Writer',                                       grade: 'G11', order: 6 },
-      { name: 'Fathi Rizqi',             email: 'fathi.rizqi1@fiwa.sch.id',      role: 'Writer',                                       grade: 'G12', order: 7 },
-      { name: 'Naufal Rian',             email: 'naufal.rian1@fiwa.sch.id',      role: 'Writer',                                       grade: 'G12', order: 8 },
-      { name: 'Muhammad Razqa Abyan',    email: 'muhammad.razqa@fiwa.sch.id',    role: 'Writer',                                       grade: 'G8',  order: 9 }
-    ];
+    const seedT = ROSTER.map(rosterTribunee);
     for (const t of seedT) await Store.save('tribunees', t);
   }
 }
