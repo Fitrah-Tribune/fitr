@@ -105,6 +105,25 @@ Note the one mismatch: URL `/feedback` → engine key `corrections`.
 
 ---
 
+## Typography
+
+The site uses the same three fonts as the printed paper (since Edition 3.5).
+Each has one job. Use the CSS variables in `fitr.css`, never a font name.
+
+| Variable | Font | Job |
+|---|---|---|
+| `--headline` | Libre Baskerville | **Bold:** headlines and big titles — section rubrics, article and card titles, box headers, person names, big-number callouts. **Italic:** pull quotes only. |
+| `--article` | Times New Roman | All article body text (also bios and the text editor). Italic only for official citations and the line under a big-number callout. |
+| `--ui` | Work Sans | Everything around the article: nav, buttons, labels, decks (bold italic), in-article subheads (uppercase), category labels, captions, bylines, forms, toasts. |
+
+- Libre Baskerville has **no bold italic**. Never make a headline italic;
+  a highlighted word inside a headline stays upright (colour only).
+- New element? Decide which of the three jobs it does and use that variable.
+- Times New Roman isn't on every device; `--article` falls back to Tinos,
+  its free metric twin, which `index.html` loads.
+
+---
+
 ## Copy sheet
 
 All user-visible text on the site is tracked in one Google Sheet:
