@@ -3361,6 +3361,8 @@ const rosterTribunee = (p) => {
 };
 const rosterAllowlist = () => ROSTER.filter(p => p.email).map(p => ({ email: p.email, admin: p.admin }));
 
+const DEFAULT_NEWS_TABS = ['Indonesia', 'World', 'Technology/Science', 'Sports'];
+
 async function migrateLegacyData() {
   const stored = localStorage.getItem('fitrah:schemaVersion');
   const current = stored ? parseInt(stored, 10) : 0;
@@ -3486,6 +3488,11 @@ async function migrateLegacyData() {
           await Store.save('tribunees', rosterTribunee(p));
         }
       }
+    }
+
+    // News categories: seed the four defaults once, only if there are none.
+    if ((await Store.list('newsTabs')).length === 0) {
+      for (const label of DEFAULT_NEWS_TABS) await Store.save('newsTabs', { label, subtabs: [] });
     }
   }
 
