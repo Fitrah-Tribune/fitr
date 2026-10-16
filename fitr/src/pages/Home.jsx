@@ -31,7 +31,7 @@ const html = `
     <div class="strip-block">
       <div class="strip-head">
         <h3>Weather · Ciseeng</h3>
-        <span style="font-family: var(--mono); font-size: 0.7rem; color: var(--ink-muted); letter-spacing: 0.16em;">TODAY</span>
+        <span style="font-family: var(--ui); font-size: 0.7rem; color: var(--ink-muted); letter-spacing: 0.16em;">TODAY</span>
       </div>
       <div class="weather-now">
         <div class="weather-icon"></div>

@@ -105,6 +105,60 @@ Note the one mismatch: URL `/feedback` → engine key `corrections`.
 
 ---
 
+## Typography
+
+The site uses the same three fonts as the printed paper (since Edition 3.5).
+Each has one job. Use the CSS variables in `fitr.css`, never a font name.
+
+| Variable | Font | Job |
+|---|---|---|
+| `--headline` | Libre Baskerville | **Bold:** the masthead, page titles, and article headlines (including headlines on article cards). **Italic:** pull quotes inside an article. Keep it big and rare, as in print. |
+| `--article` | Times New Roman | Only the body of an article being read (and the article editor), so reading on the site feels like reading the paper. |
+| `--ui` | Work Sans | Everything else, which is most of the site: nav, buttons, menus, cards, box headers, dates, categories, bylines, captions, decks (bold italic), in-article subheads (uppercase), forum posts, bios, forms, footer. |
+
+The rule is the print rule; only the proportions change. A website is
+mostly navigation, labels, cards and buttons, all "around the article"
+work, so Work Sans dominates.
+
+- Libre Baskerville has **no bold italic**. Never make a headline italic;
+  a highlighted word inside a headline stays upright (colour only).
+- New element? Decide which of the three jobs it does and use that variable.
+  When unsure, it's Work Sans.
+- Times New Roman isn't on every device; `--article` falls back to Tinos,
+  its free metric twin, which `index.html` loads.
+
+---
+
+## Copy sheet
+
+All user-visible text on the site is tracked in one Google Sheet:
+https://docs.google.com/spreadsheets/d/1SfqBOvc5Zm0mwZZPsqN4sG_3wTZwD1o0loFL1hwLBXo/edit?usp=sharing
+
+File "FITR | Website Text Lists", tab "Main". One row per piece of text.
+Columns: **A** ID · **B** Page · **C** Where on the page · **D** Current
+text · **E** Our version · **F** Status · **G** Source (file:line).
+`{name}`-style slots are filled in by the site; keep them when rewriting.
+`A / B` means one spot that switches between versions.
+
+1. **"Apply the copy sheet"** means: apply every row whose Status is
+   **Ready** — replace the site's text with "Our version" — then set those
+   rows to **Applied**, and open a PR into `development`. Touch no other
+   rows. Engine strings live in `public/fitr-engine.js`; that is a text
+   edit, not a page conversion.
+   - Find each string by its **Source** and **Where on the page**, not by
+     searching for "Current text": people edit that column in the sheet, so
+     it may not match the code. Line numbers drift as files change.
+   - In the PR, list every applied row whose code text didn't match
+     "Current text", so a person can check it.
+2. **Whenever you add or change visible text on the site**, add or update
+   its row in the sheet in the same piece of work.
+
+If you can't open or edit the sheet, don't guess its contents. Say so, and
+put the rows you would have added or changed in the PR description so a
+person can paste them in.
+
+---
+
 ## Permission rules — must never break
 
 These are promises the Tribune has made to readers. Any change touching the
