@@ -386,17 +386,17 @@ body.editing .user-name { color: var(--navy-deep); }
   opacity: 0.55;
 }
 .empty-state h3 {
-  font-family: var(--ui);
-  font-weight: 400;
-  font-size: 1.4rem;
+  font-family: var(--headline);
+  font-weight: 700;
+  font-size: 1.3rem;
   color: var(--ink);
   margin-bottom: 0.5rem;
 }
 .empty-state p {
   color: var(--ink-muted);
-  font-family: var(--ui);
+  font-family: var(--article);
   font-style: italic;
-  font-size: 1rem;
+  font-size: 1.05rem;
   max-width: 44ch;
   margin: 0 auto 1.2rem;
   line-height: 1.5;
@@ -538,10 +538,10 @@ body.editing .user-name { color: var(--navy-deep); }
 }
 .featured-card .feat-title { font-size: 1.2rem; line-height: 1.18; }
 .feat-deck {
-  font-family: var(--ui);
+  font-family: var(--article);
   font-style: italic;
-  font-weight: 700;
-  font-size: 1rem;
+  font-weight: 400;
+  font-size: 1.1rem;
   line-height: 1.45;
   color: var(--ink-soft);
   margin-bottom: 1rem;
@@ -592,10 +592,10 @@ body.editing .user-name { color: var(--navy-deep); }
   transition: color 0.18s;
 }
 .story-deck {
-  font-family: var(--ui);
+  font-family: var(--article);
   font-style: italic;
-  font-weight: 700;
-  font-size: 0.92rem;
+  font-weight: 400;
+  font-size: 1rem;
   line-height: 1.45;
   color: var(--ink-soft);
   margin-bottom: 0.7rem;
@@ -623,12 +623,12 @@ body.editing .user-name { color: var(--navy-deep); }
   border-bottom: 1px solid var(--rule);
 }
 .strip-head h3 {
-  font-family: var(--ui);
+  font-family: var(--headline);
   font-size: 1rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--ink);
-  font-weight: 400;
+  font-weight: 700;
 }
 .strip-head a {
   font-family: var(--ui);
@@ -783,9 +783,9 @@ body.editing .user-name { color: var(--navy-deep); }
   border-left: 3px solid var(--gold);
   padding: 1.4rem 1.6rem;
   margin-bottom: 2rem;
-  font-family: var(--ui);
+  font-family: var(--article);
   font-style: italic;
-  font-size: 1rem;
+  font-size: 1.05rem;
   color: var(--ink-soft);
   line-height: 1.5;
 }
@@ -872,9 +872,9 @@ body.editing .user-name { color: var(--navy-deep); }
   color: var(--ink);
 }
 .archive-info .ai-desc {
-  font-family: var(--ui);
+  font-family: var(--article);
   font-style: italic;
-  font-size: 0.84rem;
+  font-size: 0.9rem;
   line-height: 1.4;
   color: var(--ink-muted);
   margin-top: 0.5rem;
@@ -1066,8 +1066,9 @@ body.editing .user-name { color: var(--navy-deep); }
   margin-bottom: 0.4rem;
 }
 .post-body p {
+  font-family: var(--article);
   color: var(--ink-soft);
-  font-size: 0.92rem;
+  font-size: 1rem;
   line-height: 1.6;
   white-space: pre-wrap;
 }
@@ -1102,9 +1103,10 @@ body.editing .user-name { color: var(--navy-deep); }
   padding: 1.1rem 1.2rem;
 }
 .fs-block h4 {
-  font-family: var(--ui);
-  font-size: 0.78rem;
-  letter-spacing: 0.06em;
+  font-family: var(--headline);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--ink);
   margin-bottom: 0.9rem;
@@ -1142,8 +1144,8 @@ body.editing .user-name { color: var(--navy-deep); }
   border-left: 3px solid var(--gold);
   padding: 1.4rem 1.6rem;
   margin-bottom: 2rem;
-  font-family: var(--ui);
-  font-size: 1rem;
+  font-family: var(--article);
+  font-size: 1.05rem;
   color: var(--ink-soft);
   line-height: 1.55;
 }
@@ -1185,15 +1187,16 @@ body.editing .user-name { color: var(--navy-deep); }
   margin-bottom: 0.3rem;
 }
 .correction-body h4 {
-  font-family: var(--ui);
-  font-weight: 500;
-  font-size: 1.05rem;
+  font-family: var(--headline);
+  font-weight: 700;
+  font-size: 1rem;
   color: var(--ink);
   margin-bottom: 0.4rem;
 }
 .correction-body p {
+  font-family: var(--article);
   color: var(--ink-soft);
-  font-size: 0.92rem;
+  font-size: 1rem;
   line-height: 1.5;
 }
 .correction-by {
@@ -1250,8 +1253,8 @@ body.editing .user-name { color: var(--navy-deep); }
   margin-bottom: 0.7rem;
 }
 .fc-privacy p {
-  font-family: var(--ui);
-  font-size: 1rem;
+  font-family: var(--article);
+  font-size: 1.05rem;
   line-height: 1.6;
   color: rgba(245, 236, 219, 0.92);
 }
@@ -1495,17 +1498,18 @@ body.editing .user-name { color: var(--navy-deep); }
   align-items: center;
 }
 .home-tipoff h3 {
-  font-family: var(--ui);
-  font-size: 0.8rem;
-  letter-spacing: 0.14em;
+  font-family: var(--headline);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--gold-bright);
   margin-bottom: 0.5rem;
 }
 .home-tipoff p {
-  font-family: var(--ui);
+  font-family: var(--article);
   font-style: italic;
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1.5;
   color: rgba(245, 236, 219, 0.88);
 }
@@ -1578,10 +1582,9 @@ body.editing .user-name { color: var(--navy-deep); }
   line-height: 1.45;
 }
 .about-hero-text p {
-  font-family: var(--ui);
+  font-family: var(--article);
   font-style: italic;
-  font-weight: 300;
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   line-height: 1.55;
   color: var(--ink-soft);
   margin-bottom: 0.9rem;
@@ -1600,14 +1603,15 @@ body.editing .user-name { color: var(--navy-deep); }
   padding: 1.6rem;
 }
 .value-card h4 {
-  font-family: var(--ui);
+  font-family: var(--headline);
   font-size: 0.92rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.04em;
   color: var(--navy);
   margin-bottom: 0.7rem;
 }
-.value-card p { color: var(--ink-soft); font-size: 0.93rem; line-height: 1.55; }
+.value-card p { font-family: var(--article); color: var(--ink-soft); font-size: 0.93rem; line-height: 1.55; }
 
 .standards-block {
   background: var(--paper-lift);
@@ -1715,10 +1719,9 @@ body.editing .user-name { color: var(--navy-deep); }
   font-family: var(--ui);
 }
 .tribunee-bio {
-  font-family: var(--ui);
+  font-family: var(--article);
   font-style: italic;
-  font-weight: 300;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   color: var(--ink-soft);
   line-height: 1.45;
   border-left: 2px solid var(--gold);
@@ -1807,9 +1810,9 @@ footer.tribune-footer {
 }
 .footer-brand p {
   color: rgba(245, 236, 219, 0.7);
-  font-family: var(--ui);
+  font-family: var(--article);
   font-style: italic;
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1.55;
   max-width: 36ch;
 }
@@ -2095,10 +2098,10 @@ body.editing [data-editable]:hover {
   margin-bottom: 1rem;
 }
 .article-deck {
-  font-family: var(--ui);
+  font-family: var(--article);
   font-style: italic;
-  font-weight: 700;
-  font-size: 1.25rem;
+  font-weight: 400;
+  font-size: 1.3rem;
   line-height: 1.4;
   color: var(--ink-soft);
   margin-bottom: 1.6rem;
@@ -2228,8 +2231,8 @@ body.editing [data-editable]:hover {
   border-bottom: 1px solid var(--rule);
 }
 .tp-bio {
-  font-family: var(--ui);
-  font-size: 1.05rem;
+  font-family: var(--article);
+  font-size: 1.1rem;
   line-height: 1.7;
   color: var(--ink-soft);
   text-transform: none;
