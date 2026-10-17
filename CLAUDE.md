@@ -112,18 +112,21 @@ Each has one job. Use the CSS variables in `fitr.css`, never a font name.
 
 | Variable | Font | Job |
 |---|---|---|
-| `--headline` | Libre Baskerville | **Bold:** the masthead, page titles, and article headlines (including headlines on article cards). **Italic:** pull quotes inside an article. Keep it big and rare, as in print. |
-| `--article` | Times New Roman | Only the body of an article being read (and the article editor), so reading on the site feels like reading the paper. |
-| `--ui` | Work Sans | Everything else, which is most of the site: nav, buttons, menus, cards, box headers, dates, categories, bylines, captions, decks (bold italic), in-article subheads (uppercase), forum posts, bios, forms, footer. |
+| `--headline` | Libre Baskerville | **Bold:** the masthead, page titles, section heads, box headers (e.g. "From the Forum"), and article headlines (including headlines on article cards). **Italic:** pull quotes inside an article. |
+| `--article` | Times New Roman | Text people actually read: the body of an article (and the article editor), decks/summaries (italic, regular weight) on cards and article pages, forum posts, bios, intro and explainer paragraphs, empty-state messages, the footer blurb. Reading on the site should feel like reading the paper. |
+| `--ui` | Work Sans | The site's machinery: nav, buttons, menus, tabs, dates, categories, bylines, captions, small labels and kicker lines, in-article subheads (uppercase), forms, editor dialogs, footer links. |
 
-The rule is the print rule; only the proportions change. A website is
-mostly navigation, labels, cards and buttons, all "around the article"
-work, so Work Sans dominates.
+The rule is the print rule: headline, article, everything around the
+article. On the web, anything a reader settles in to read counts as
+"article" text, so the serifs carry most of the words and Work Sans is
+kept for navigation, labels and controls. (Changed Oct 2026: Work Sans
+felt too dominant.)
 
 - Libre Baskerville has **no bold italic**. Never make a headline italic;
   a highlighted word inside a headline stays upright (colour only).
 - New element? Decide which of the three jobs it does and use that variable.
-  When unsure, it's Work Sans.
+  If people read it as sentences, it's `--article`; if it's a label or
+  control, it's Work Sans.
 - Times New Roman isn't on every device; `--article` falls back to Tinos,
   its free metric twin, which `index.html` loads.
 
