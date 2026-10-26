@@ -14,7 +14,7 @@ window.FITR_DEMO_ARTICLES = [
   {
     id: 'demo-ed5-building-h',
     featured: 0,
-    tabLabel: 'Indonesia',
+    section: 'internal',
     edition: 5,
     title: 'Building H Is Officially... Not Finished.',
     deck: 'Building H update sneak peek, version 2.0.26.',
@@ -49,7 +49,7 @@ window.FITR_DEMO_ARTICLES = [
   {
     id: 'demo-ed5-water-treatment-plant',
     featured: 1,
-    tabLabel: 'Indonesia',
+    section: 'internal',
     edition: 5,
     title: 'Water Treatment Plant Moved & Improved!',
     deck: 'Water Treatment Plant (WTP) relocated to next to Gedung B, Water Capacity Increased, and all school water-related problems fixed since the 28th of September',
@@ -73,7 +73,7 @@ window.FITR_DEMO_ARTICLES = [
   {
     id: 'demo-ed5-transformer',
     featured: 2,
-    tabLabel: 'Indonesia',
+    section: 'internal',
     edition: 5,
     title: 'A New Transformer Has Arrived!',
     deck: 'A new transformer has Arrived, but will it be able to fix the problems?',
@@ -93,7 +93,7 @@ window.FITR_DEMO_ARTICLES = [
   },
   {
     id: 'demo-ed5-thunderstorm',
-    tabLabel: 'Indonesia',
+    section: 'internal',
     edition: 5,
     title: 'What a VERY thundery afternoon. huh?',
     deck: 'A big thunderstorm on the 26th of September, and weather updates',
@@ -111,7 +111,7 @@ window.FITR_DEMO_ARTICLES = [
   },
   {
     id: 'demo-ed5-wice',
-    tabLabel: 'Indonesia',
+    section: 'internal',
     edition: 5,
     title: 'To Malasyia, for WICE!',
     deck: 'FIWA Students head to Malasyia for WICE (World Invention Competition and Exhibition)',

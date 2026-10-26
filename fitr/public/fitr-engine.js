@@ -2342,7 +2342,7 @@ Pages.home = {
             </div>
           </article>
           ${single ? '' : `<div class="featured-side">
-            <h3 class="feat-side-head">In This Edition</h3>
+            <h3 class="feat-side-head">Also Featured</h3>
             ${sides.length ? sides.map(a => `
               <article class="featured-card" onclick="Pages.news.openArticle('${a.id}')">
                 <div class="feat-cat">${escapeHtml(a.tabLabel || 'News')}</div>
@@ -3582,7 +3582,7 @@ async function seedDemoArticles() {
     const { featured, tabLabel, ...article } = d;
     await Store.save('articles', {
       ...article,
-      tab: tabs.find(t => t.label === tabLabel)?.id || tabs[0]?.id || '',
+      tab: tabs.find(t => t.label === tabLabel)?.id || '',
       subtab: '',
       visibility: 'public',
       lang: 'en',
