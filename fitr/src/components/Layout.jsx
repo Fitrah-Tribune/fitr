@@ -13,12 +13,15 @@ import Mark from './Mark'
 export default function Layout() {
   useEffect(() => { window.FITR.mountChrome() }, [])
   const F = () => window.FITR
+  const today = new Date().toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
 
   return (
     <>
       <div className="tribune-band">
-        <span className="band-name">Fitrah Tribune</span>
-        <span>EST. 2026</span>
+        <span>{today}</span>
+        <span>Est. 2026</span>
       </div>
 
       <div className="edit-banner" id="edit-banner" style={{ display: 'none' }}>

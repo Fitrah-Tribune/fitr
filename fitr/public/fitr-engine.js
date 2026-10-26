@@ -2342,9 +2342,9 @@ Pages.home = {
             </div>
           </article>
           ${single ? '' : `<div class="featured-side">
+            <h3 class="feat-side-head">In This Edition</h3>
             ${sides.length ? sides.map(a => `
               <article class="featured-card" onclick="Pages.news.openArticle('${a.id}')">
-                <div class="feat-img ${coverClass(a)}" ${coverStyle(a)}></div>
                 <div class="feat-cat">${escapeHtml(a.tabLabel || 'News')}</div>
                 <h3 class="feat-title">${escapeHtml(a.title)}</h3>
                 <p class="feat-deck">${escapeHtml(a.deck || '')}</p>
@@ -2374,6 +2374,7 @@ Pages.home = {
     } else {
       sa.innerHTML = `<div class="stories-grid">${others.map(a => `
         <article class="story-card" onclick="Pages.news.openArticle('${a.id}')">
+          ${a.coverImage ? `<div class="story-img" style="background-image: url('${a.coverImage}');"></div>` : ''}
           <div class="story-cat">${escapeHtml(a.tabLabel || 'News')}</div>
           <h3 class="story-title">${escapeHtml(a.title)}</h3>
           <p class="story-deck">${escapeHtml(a.deck || '')}</p>
@@ -2386,7 +2387,7 @@ Pages.home = {
     const posts = (await Store.list('threads')).sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
     const fp = $('#home-forum-preview');
     if (posts.length === 0) {
-      fp.innerHTML = `<p style="font-family: var(--ui); font-style: italic; color: var(--ink-muted); padding: 1rem 0;">Nothing posted yet. Announcements and notices from the Tribune will appear here.</p>`;
+      fp.innerHTML = `<p style="font-family: var(--article); font-style: italic; font-size: 1.05rem; color: var(--ink-soft); padding: 1rem 0;">Nothing posted yet. Announcements and notices from the Tribune will appear here.</p>`;
     } else {
       fp.innerHTML = posts.map(p => {
         const isAnn = p.category === 'announcement';
