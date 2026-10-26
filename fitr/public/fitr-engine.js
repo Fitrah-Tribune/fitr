@@ -3563,6 +3563,37 @@ async function seedIfEmpty() {
     const seedT = ROSTER.map(rosterTribunee);
     for (const t of seedT) await Store.save('tribunees', t);
   }
+
+  await seedDemoArticles();
+}
+
+/* Placeholder articles from Edition 5 (public/fitr-demo-articles.js), so the
+   pages have something to show while the site is built. Seeded once, and
+   only into a browser with no articles of its own. Remove before launch. */
+async function seedDemoArticles() {
+  const demo = window.FITR_DEMO_ARTICLES;
+  if (!Array.isArray(demo) || localStorage.getItem('fitrah:demoSeeded')) return;
+  localStorage.setItem('fitrah:demoSeeded', '1');
+  if ((await Store.list('articles')).length > 0) return;
+
+  const tabs = await Store.list('newsTabs');
+  const published = Date.UTC(2026, 9, 21, 1, 0);   // 21 Oct 2026, 08:00 WIB
+  for (const [i, d] of demo.entries()) {
+    const { featured, tabLabel, ...article } = d;
+    await Store.save('articles', {
+      ...article,
+      tab: tabs.find(t => t.label === tabLabel)?.id || tabs[0]?.id || '',
+      subtab: '',
+      visibility: 'public',
+      lang: 'en',
+      coverAspect: 16 / 9,
+      coverFit: 'crop',
+      createdAt: published - i * 60000,
+    });
+    if (featured !== undefined) {
+      await Store.save('featured', { articleId: article.id, order: featured });
+    }
+  }
 }
 
 /* =====================================================================
