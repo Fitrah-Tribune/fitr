@@ -476,6 +476,9 @@ body.editing .user-name { color: var(--navy-deep); }
   gap: 1.8rem;
   margin-bottom: 3rem;
 }
+/* Only one story featured (and not in editing mode): let it take the row. */
+.featured-grid.single { grid-template-columns: 1fr; }
+.featured-grid.single .feat-img { aspect-ratio: 21/9; }
 .featured-main, .featured-card {
   background: var(--paper-lift);
   border: 1px solid var(--rule);
@@ -2701,9 +2704,14 @@ body.editing [data-editable]:hover {
   .masthead-inner { grid-template-columns: 1fr; padding: 2rem 1rem 1.6rem; gap: 1rem; text-align: center; }
   .masthead-edition, .masthead-meta { text-align: center; }
   .masthead-title { font-size: 2.6rem; }
+  /* Phone nav: sign-in on its own row, then all six tabs spread across
+     the full width so none hide off-screen. */
   .tabs-inner { padding: 0 0.4rem; flex-wrap: wrap; gap: 0; }
-  .tabs-list { overflow-x: auto; flex: 1; }
-  .tab-btn { padding: 0.85rem 0.7rem; font-size: 0.74rem; }
+  .tabs-user { order: 1; width: 100%; justify-content: flex-end; padding: 0.4rem 0.3rem 0; }
+  .tabs-list { order: 2; width: 100%; justify-content: space-between; overflow-x: auto; }
+  .tab-btn { padding: 0.75rem 0.35rem; font-size: 0.7rem; letter-spacing: 0.04em; }
+  .home-tipoff { grid-template-columns: 1fr; gap: 1rem; padding: 1.4rem 1.2rem; }
+  .home-tipoff button { justify-self: start; }
   .tab-btn .tab-icon { display: none; }
   .tier-badge, .user-name { display: none; }
   .page-shell { padding: 2rem 1rem 3rem; }
