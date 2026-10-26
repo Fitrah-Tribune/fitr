@@ -7,7 +7,7 @@ const html = `
 <section class="page active" id="page-home">
   <div class="section-head">
     <h2>Front Page</h2>
-    <span class="sub">— from the latest edition</span>
+    <span class="sub">— our top stories</span>
     <div class="head-action editable-only">
       <button class="btn-add" onclick="Editor.featureArticle()">+ Feature Article</button>
     </div>

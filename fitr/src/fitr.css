@@ -2686,11 +2686,160 @@ body.editing [data-editable]:hover {
 }
 
 /* ============ RESPONSIVE ============ */
+/* ============ HOME REDESIGN (Oct 2026) ============
+   Broadsheet look from the "FITR Website Redesign" canvas: centred
+   masthead and nav on ruled lines, flat front page, double rules
+   between sections. Nav and footer rules apply site-wide; the rest is
+   scoped to #page-home. */
+.masthead { background: var(--paper); border-bottom: none; }
+.masthead-inner { padding: 2.2rem 2rem 1.4rem; }
+nav.tabs {
+  border-top: 3px double var(--navy);
+  border-bottom: 1px solid var(--navy);
+}
+.tabs-inner { justify-content: center; }
+.tabs-list { justify-content: center; }
+
+/* Sign-in area lives in the top band so the nav always stays centred. */
+.tribune-band { gap: 1.5rem; min-height: 2.6rem; padding-top: 0.35rem; padding-bottom: 0.35rem; }
+.tribune-band .band-date, .tribune-band .tabs-user { flex: 1 1 0; }
+.tribune-band .band-mid { opacity: 0.8; font-size: 0.72rem; letter-spacing: 0.22em; }
+.tribune-band .tabs-user {
+  justify-content: flex-end;
+  gap: 0.6rem;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.82rem;
+}
+.tribune-band .tabs-user button { white-space: nowrap; }
+.tribune-band .user-name,
+body.editing .tribune-band .user-name {
+  color: var(--gold-soft);
+  max-width: 9.5em;
+  line-height: 1.2;
+  text-align: right;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.tribune-band .tier-badge.guest { background: rgba(232, 207, 148, 0.15); color: var(--gold-soft); }
+.tribune-band .user-avatar { width: 28px; height: 28px; font-size: 0.75rem; border-color: var(--navy-deep); box-shadow: none; flex-shrink: 0; }
+.tribune-band .btn-signin { background: var(--gold-bright); color: var(--navy-deep); font-weight: 600; }
+.tribune-band .btn-signin:hover { background: var(--gold-soft); }
+.tribune-band .btn-ghost, .tribune-band .btn-signout {
+  background: transparent;
+  color: var(--gold-soft);
+  border: 1px solid rgba(232, 207, 148, 0.4);
+  font-size: 0.68rem;
+  padding: 0.35rem 0.75rem;
+}
+.tribune-band .btn-ghost:hover, .tribune-band .btn-signout:hover { border-color: var(--gold-bright); color: var(--gold-bright); background: transparent; }
+.tribune-band .btn-ghost.editing-active { background: var(--gold-bright); color: var(--navy-deep); border-color: var(--gold-bright); }
+.tab-btn {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--ink-soft);
+  padding: 1rem 1.1rem;
+}
+.tab-btn.active { color: var(--navy); }
+.tab-btn.active::after { left: 1.1rem; right: 1.1rem; bottom: 0.55rem; }
+/* Less empty space between the page and the footer. */
+.page-shell { padding-bottom: 3rem; }
+footer.tribune-footer { margin-top: 0.5rem; }
+.footer-brand .footer-mark .name { font-family: var(--headline); font-weight: 700; color: var(--gold-soft); }
+
+#page-home .section-head {
+  border-bottom: none;
+  border-top: 3px double var(--navy);
+  padding: 0.9rem 0 0;
+  flex-wrap: wrap;
+  row-gap: 0.2rem;
+}
+#page-home .section-head::after { display: none; }
+#page-home .section-head h2 { text-transform: none; font-size: 1.5rem; letter-spacing: 0; }
+#page-home .section-head .sub { font-family: var(--article); font-weight: 400; color: var(--ink-soft); }
+
+#page-home .featured-grid { gap: 2.5rem; }
+#page-home .featured-main {
+  background: none; border: none; padding: 0;
+}
+#page-home .featured-main:hover, #page-home .featured-card:hover { transform: none; box-shadow: none; }
+#page-home .featured-main:hover .feat-title, #page-home .featured-card:hover .feat-title { color: var(--navy); }
+#page-home .feat-img { border-radius: 0; }
+#page-home .feat-cat { color: #8a6420; font-weight: 600; letter-spacing: 0.18em; }
+#page-home .feat-cat::before { content: none; }
+#page-home .featured-main .feat-title { font-size: 2.4rem; line-height: 1.15; }
+#page-home .featured-main .feat-deck { font-size: 1.3rem; }
+#page-home .feat-byline { border-top: none; padding-top: 0; justify-content: flex-start; gap: 1rem; color: #5c5446; }
+#page-home .featured-side {
+  gap: 0;
+  border-left: 1px solid var(--rule);
+  padding-left: 2rem;
+}
+.feat-side-head {
+  font-family: var(--headline);
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
+  border-bottom: 2px solid var(--gold);
+  align-self: flex-start;
+}
+#page-home .featured-card {
+  background: none; border: none; flex: 0 0 auto;
+  padding: 1.1rem 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+#page-home .featured-card:last-child { border-bottom: none; }
+#page-home .featured-card .feat-deck { margin-bottom: 0.5rem; }
+#page-home .featured-card .feat-byline { margin-top: 0; padding-top: 0; }
+
+#page-home .stories-grid { gap: 2rem; }
+#page-home .story-card { border-top: none; padding-top: 0; }
+.story-img {
+  aspect-ratio: 3/2;
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--rule);
+  margin-bottom: 0.9rem;
+}
+#page-home .story-cat { color: #8a6420; font-weight: 600; }
+#page-home .story-title { font-size: 1.3rem; line-height: 1.3; }
+#page-home .story-meta { color: #5c5446; }
+
+#page-home .home-strip { grid-template-columns: 1.4fr 1fr; gap: 2.5rem; border-top: 3px double var(--navy); padding-top: 0.9rem; }
+#page-home .strip-block:first-child { background: none; border: none; padding: 0; }
+#page-home .strip-head { border-bottom: none; }
+#page-home .strip-head h3 { text-transform: none; font-size: 1.5rem; letter-spacing: 0; }
+#page-home .strip-block:last-child .strip-head h3 { font-size: 1.2rem; }
+#page-home .weather-temp { font-family: var(--headline); font-weight: 700; }
+#page-home .weather-note { font-family: var(--article); font-size: 1rem; color: var(--ink-soft); border-top: none; padding-top: 0; }
+
+#page-home .home-tipoff {
+  margin-top: 2.5rem;
+  background: var(--navy-deep);
+  border: none;
+  padding: 1.1rem 1.6rem;
+  gap: 1.4rem;
+}
+#page-home .home-tipoff h3 { font-size: 1.1rem; text-transform: none; letter-spacing: 0; color: var(--gold-soft); margin-bottom: 0.25rem; }
+#page-home .home-tipoff p { font-style: normal; font-size: 0.98rem; line-height: 1.45; color: var(--paper-lift); max-width: 70ch; }
+#page-home .home-tipoff button {
+  min-height: 44px; padding: 0 1.3rem; font-size: 0.75rem;
+  background: var(--gold-bright);
+}
+#page-home .home-tipoff button:hover { background: var(--gold-soft); }
+
 @media (max-width: 1024px) {
   .tribunee-profile { grid-template-columns: 1fr; gap: 2rem; max-width: 600px; }
   .tp-portrait { max-width: 320px; margin: 0 auto; }
   .featured-grid { grid-template-columns: 1fr; }
   .home-strip { grid-template-columns: 1fr; }
+  #page-home .home-strip { grid-template-columns: 1fr; }
+  #page-home .featured-side { border-left: none; padding-left: 0; border-top: 3px double var(--navy); padding-top: 0.9rem; }
   .about-hero { grid-template-columns: 1fr; gap: 2rem; }
   .about-hero-img { max-width: 320px; margin: 0 auto; }
   .stories-grid, .news-grid { grid-template-columns: repeat(2, 1fr); }
@@ -2709,13 +2858,22 @@ body.editing [data-editable]:hover {
   /* Phone nav: sign-in on its own row, then all six tabs spread across
      the full width so none hide off-screen. */
   .tabs-inner { padding: 0 0.4rem; flex-wrap: wrap; gap: 0; }
-  .tabs-user { order: 1; width: 100%; justify-content: flex-end; padding: 0.4rem 0.3rem 0; }
   .tabs-list { order: 2; width: 100%; justify-content: space-between; overflow-x: auto; }
   .tab-btn { padding: 0.75rem 0.35rem; font-size: 0.7rem; letter-spacing: 0.04em; }
+  /* Phone nav: six tabs as a 3×2 grid, so nothing hides off-screen. */
+  .tabs-inner { display: flex; }
+  .tabs-list { display: grid; grid-template-columns: repeat(3, 1fr); overflow: visible; }
+  .tab-btn { justify-content: center; min-height: 44px; letter-spacing: 0.1em; }
+  .tab-btn.active::after { bottom: 0.4rem; left: 25%; right: 25%; }
+  #page-home .featured-main .feat-title { font-size: 1.6rem; }
+  #page-home .featured-main .feat-deck { font-size: 1.1rem; }
+  #page-home .home-tipoff { padding: 1.1rem; gap: 0.8rem; }
+  .masthead-inner { padding: 1.4rem 1rem 1rem; }
   .home-tipoff { grid-template-columns: 1fr; gap: 1rem; padding: 1.4rem 1.2rem; }
   .home-tipoff button { justify-self: start; }
-  .tab-btn .tab-icon { display: none; }
   .tier-badge, .user-name { display: none; }
+  .tribune-band .user-name, body.editing .tribune-band .user-name { display: none; }
+  .tribune-band .tabs-user { flex: 1 1 100%; }
   .page-shell { padding: 2rem 1rem 3rem; }
   .stories-grid, .news-grid, .archive-grid, .tribunees-grid, .values-row { grid-template-columns: 1fr; }
   .footer-inner { grid-template-columns: 1fr; gap: 2rem; }
