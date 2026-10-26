@@ -2695,9 +2695,46 @@ nav.tabs {
   border-top: 3px double var(--navy);
   border-bottom: 1px solid var(--navy);
 }
-.tabs-inner { display: grid; grid-template-columns: 1fr auto 1fr; }
-.tabs-list { grid-column: 2; justify-content: center; }
-.tabs-user { grid-column: 3; justify-self: end; }
+.tabs-inner { justify-content: center; }
+.tabs-list { justify-content: center; }
+
+/* Sign-in area lives in the top band so the nav always stays centred. */
+.tribune-band { gap: 1.5rem; min-height: 2.6rem; padding-top: 0.35rem; padding-bottom: 0.35rem; }
+.tribune-band .band-date, .tribune-band .tabs-user { flex: 1 1 0; }
+.tribune-band .band-mid { opacity: 0.8; font-size: 0.72rem; letter-spacing: 0.22em; }
+.tribune-band .tabs-user {
+  justify-content: flex-end;
+  gap: 0.6rem;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.82rem;
+}
+.tribune-band .tabs-user button { white-space: nowrap; }
+.tribune-band .user-name,
+body.editing .tribune-band .user-name {
+  color: var(--gold-soft);
+  max-width: 9.5em;
+  line-height: 1.2;
+  text-align: right;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.tribune-band .tier-badge.guest { background: rgba(232, 207, 148, 0.15); color: var(--gold-soft); }
+.tribune-band .user-avatar { width: 28px; height: 28px; font-size: 0.75rem; border-color: var(--navy-deep); box-shadow: none; flex-shrink: 0; }
+.tribune-band .btn-signin { background: var(--gold-bright); color: var(--navy-deep); font-weight: 600; }
+.tribune-band .btn-signin:hover { background: var(--gold-soft); }
+.tribune-band .btn-ghost, .tribune-band .btn-signout {
+  background: transparent;
+  color: var(--gold-soft);
+  border: 1px solid rgba(232, 207, 148, 0.4);
+  font-size: 0.68rem;
+  padding: 0.35rem 0.75rem;
+}
+.tribune-band .btn-ghost:hover, .tribune-band .btn-signout:hover { border-color: var(--gold-bright); color: var(--gold-bright); background: transparent; }
+.tribune-band .btn-ghost.editing-active { background: var(--gold-bright); color: var(--navy-deep); border-color: var(--gold-bright); }
 .tab-btn {
   font-size: 0.8rem;
   font-weight: 600;
@@ -2816,7 +2853,6 @@ nav.tabs {
   /* Phone nav: sign-in on its own row, then all six tabs spread across
      the full width so none hide off-screen. */
   .tabs-inner { padding: 0 0.4rem; flex-wrap: wrap; gap: 0; }
-  .tabs-user { order: 1; width: 100%; justify-content: flex-end; padding: 0.4rem 0.3rem 0; }
   .tabs-list { order: 2; width: 100%; justify-content: space-between; overflow-x: auto; }
   .tab-btn { padding: 0.75rem 0.35rem; font-size: 0.7rem; letter-spacing: 0.04em; }
   /* Phone nav: six tabs as a 3×2 grid, so nothing hides off-screen. */
@@ -2832,6 +2868,8 @@ nav.tabs {
   .home-tipoff button { justify-self: start; }
   .tab-btn .tab-icon { display: none; }
   .tier-badge, .user-name { display: none; }
+  .tribune-band .user-name, body.editing .tribune-band .user-name { display: none; }
+  .tribune-band .tabs-user { flex: 1 1 100%; }
   .page-shell { padding: 2rem 1rem 3rem; }
   .stories-grid, .news-grid, .archive-grid, .tribunees-grid, .values-row { grid-template-columns: 1fr; }
   .footer-inner { grid-template-columns: 1fr; gap: 2rem; }

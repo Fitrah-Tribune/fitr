@@ -7,7 +7,7 @@ import Mark from './Mark'
  * Everything around the page: top band, editing banner, masthead, nav,
  * footer, and the modal/toast hosts the engine draws into.
  *
- * #tabs-list and #tabs-user are left empty on purpose. The engine fills
+ * #tabs-list and #tabs-user (in the top band) are left empty on purpose. The engine fills
  * them (it knows who is signed in and whether they are a Tribunee).
  */
 export default function Layout() {
@@ -20,8 +20,9 @@ export default function Layout() {
   return (
     <>
       <div className="tribune-band">
-        <span>{today}</span>
-        <span>Est. 2026</span>
+        <span className="band-date">{today}</span>
+        <span className="band-mid">Est. 2026</span>
+        <div className="tabs-user" id="tabs-user"></div>
       </div>
 
       <div className="edit-banner" id="edit-banner" style={{ display: 'none' }}>
@@ -37,7 +38,6 @@ export default function Layout() {
       <nav className="tabs">
         <div className="tabs-inner">
           <div className="tabs-list" id="tabs-list"></div>
-          <div className="tabs-user" id="tabs-user"></div>
         </div>
       </nav>
 
