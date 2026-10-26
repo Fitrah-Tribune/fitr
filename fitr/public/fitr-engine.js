@@ -78,8 +78,11 @@ const localStorageDriver = {
   async signIn(email, password) {
     if (!email || !password) throw new Error('Email and password required');
     const tier = email.toLowerCase().endsWith('@fiwa.sch.id') ? 'fiwa' : 'public';
+    // Fallback name from the address ("akio.hideaka1" → "Akio Hideaka").
+    // Auth swaps in the roster name when the email belongs to a Tribunee.
     const name = email.split('@')[0]
-      .split(/[._-]/).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+      .split(/[._-]/).map(p => p.replace(/\d+$/, '')).filter(Boolean)
+      .map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
     const user = { email: email.toLowerCase(), tier, name };
     localStorage.setItem('fitrah:currentUser', JSON.stringify(user));
     return user;
@@ -172,7 +175,7 @@ const Auth = {
   _user: null,
 
   async refresh() {
-    this._user = await Store.getCurrentUser();
+    this._user = await this._withRosterName(await Store.getCurrentUser());
     await this._syncBodyClasses();
     return this.current();
   },
@@ -182,7 +185,7 @@ const Auth = {
   },
 
   async signIn(email, password) {
-    const user = await Store.signIn(email, password);
+    const user = await this._withRosterName(await Store.signIn(email, password));
     this._user = user;
     await this._syncBodyClasses();
     return user;
@@ -192,6 +195,15 @@ const Auth = {
     await Store.signOut();
     this._user = null;
     await this._syncBodyClasses();
+  },
+
+  /* A Tribunee signs in with their school email; show their roster name
+     (e.g. "Akio Hideaka Takijoeddin"), not one built from the address. */
+  async _withRosterName(user) {
+    if (!user || !user.email) return user;
+    const email = user.email.toLowerCase();
+    const t = (await Store.list('tribunees')).find(x => (x.email || '').toLowerCase() === email);
+    return t && t.name ? { ...user, name: t.name } : user;
   },
 
   isGuest()    { return this.current().tier === 'guest'; },
@@ -2316,8 +2328,9 @@ Pages.home = {
         ? `style="background-image: url('${a.coverImage}'); background-size: cover; background-position: center;"`
         : '';
       const coverClass = (a) => a.coverImage ? '' : 'placeholder';
+      const single = sides.length === 0 && !isEditing;
       fa.innerHTML = `
-        <div class="featured-grid">
+        <div class="featured-grid${single ? ' single' : ''}">
           <article class="featured-main" onclick="Pages.news.openArticle('${main.id}')">
             <div class="feat-img ${coverClass(main)}" ${coverStyle(main)}></div>
             <div class="feat-cat">${escapeHtml(main.tabLabel || 'News')}</div>
@@ -2328,7 +2341,7 @@ Pages.home = {
               <span>${formatDate(main.createdAt)}</span>
             </div>
           </article>
-          <div class="featured-side">
+          ${single ? '' : `<div class="featured-side">
             ${sides.length ? sides.map(a => `
               <article class="featured-card" onclick="Pages.news.openArticle('${a.id}')">
                 <div class="feat-img ${coverClass(a)}" ${coverStyle(a)}></div>
@@ -2341,7 +2354,7 @@ Pages.home = {
                 </div>
               </article>
             `).join('') : `<div class="empty-state" style="padding: 2rem 1rem;"><p style="font-size: 0.9rem;">Two more featured slots available.</p></div>`}
-          </div>
+          </div>`}
         </div>
       `;
     }
@@ -3317,7 +3330,7 @@ Pages.about = {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -3353,9 +3366,14 @@ const ROSTER = [
   { name: 'Muhammad Shahza Kentzhad Sakrade', email: 'shahza.muhammad1@fiwa.sch.id', role: 'Photographer',             grade: 'G10', admin: false }
 ].map((p, order) => ({ ...p, order }));
 
+/* Every roster member gets a fixed id made from their name, so a profile
+   link (/tribunee/ammar-mufiid-johansyah) opens the same page for anyone. */
+const tribuneeSlug = (name) => 'tri-' + name.toLowerCase().normalize('NFKD')
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
 /* Tribunee and allowlist records built from ROSTER. */
 const rosterTribunee = (p) => {
-  const t = { name: p.name, role: p.role, grade: p.grade, order: p.order };
+  const t = { id: tribuneeSlug(p.name), name: p.name, role: p.role, grade: p.grade, order: p.order };
   if (p.email) t.email = p.email;
   return t;
 };
@@ -3493,6 +3511,25 @@ async function migrateLegacyData() {
     // News categories: seed the four defaults once, only if there are none.
     if ((await Store.list('newsTabs')).length === 0) {
       for (const label of DEFAULT_NEWS_TABS) await Store.save('newsTabs', { label, subtabs: [] });
+    }
+  }
+
+  // ─── v4 → v5 migration (fixed profile ids, Oct 2026) ───────────────────
+  // Roster members used to get a random id per browser, so a shared profile
+  // link opened nothing for anyone else. Move each roster member's record to
+  // the fixed id from tribuneeSlug(), matched by email, else by roster name.
+  // The record itself (bio, photo, edits) moves across unchanged.
+  if (current < 5) {
+    const people = await Store.list('tribunees');
+    const emailOf = (x) => (x.email || '').toLowerCase();
+    for (const p of ROSTER) {
+      const id = tribuneeSlug(p.name);
+      if (people.some(x => x.id === id)) continue;
+      const t = people.find(x => (p.email && emailOf(x) === p.email)) || people.find(x => x.name === p.name);
+      if (!t) continue;
+      await Store.remove('tribunees', t.id);
+      t.id = id;
+      await Store.save('tribunees', t);
     }
   }
 
