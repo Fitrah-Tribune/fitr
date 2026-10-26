@@ -405,7 +405,7 @@ const Icons = {
 const NAV_TABS = [
   { id: 'home',        label: 'Home',        icon: 'home' },
   { id: 'news',        label: 'News',        icon: 'news' },
-  { id: 'archive',     label: 'Archive',     icon: 'archive' },
+  { id: 'archive',     label: 'Editions',    icon: 'archive' },
   { id: 'forum',       label: 'Forum',       icon: 'forum' },
   { id: 'corrections', label: 'Feedback',    icon: 'pencil' },
   { id: 'about',       label: 'About',       icon: 'about' }
@@ -2617,7 +2617,7 @@ Pages.archive = {
         <div class="empty-state">
           ${Icons.empty}
           <h3>No editions archived yet</h3>
-          <p>${canEdit ? 'Click "+ Archive Edition" up top to add a Canva or PDF link to the archive.' : 'The archive will fill as Fitrah Tribune publishes its first editions.'}</p>
+          <p>${canEdit ? 'Click "+ Add Edition" up top to add a Canva or PDF link to the archive.' : 'The archive will fill as Fitrah Tribune publishes its first editions.'}</p>
         </div>
       `;
       return;

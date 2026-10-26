@@ -59,7 +59,7 @@ export default function Layout() {
             <ul>
               <li><Link to="/">Front Page</Link></li>
               <li><Link to="/news">News</Link></li>
-              <li><Link to="/archive">Archive</Link></li>
+              <li><Link to="/archive">Editions</Link></li>
             </ul>
           </div>
           <div className="footer-col">
