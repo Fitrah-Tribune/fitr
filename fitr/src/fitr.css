@@ -2744,7 +2744,9 @@ body.editing .tribune-band .user-name {
 }
 .tab-btn.active { color: var(--navy); }
 .tab-btn.active::after { left: 1.1rem; right: 1.1rem; bottom: 0.55rem; }
-.tab-btn .tab-icon { display: none; }
+/* Less empty space between the page and the footer. */
+.page-shell { padding-bottom: 3rem; }
+footer.tribune-footer { margin-top: 0.5rem; }
 .footer-brand .footer-mark .name { font-family: var(--headline); font-weight: 700; color: var(--gold-soft); }
 
 #page-home .section-head {
@@ -2867,7 +2869,6 @@ body.editing .tribune-band .user-name {
   .masthead-inner { padding: 1.4rem 1rem 1rem; }
   .home-tipoff { grid-template-columns: 1fr; gap: 1rem; padding: 1.4rem 1.2rem; }
   .home-tipoff button { justify-self: start; }
-  .tab-btn .tab-icon { display: none; }
   .tier-badge, .user-name { display: none; }
   .tribune-band .user-name, body.editing .tribune-band .user-name { display: none; }
   .tribune-band .tabs-user { flex: 1 1 100%; }
