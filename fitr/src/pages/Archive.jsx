@@ -6,10 +6,10 @@ import useLegacyPage from '../lib/useLegacyPage'
 const html = `
 <section class="page active" id="page-archive">
   <div class="section-head">
-    <h2>Archive</h2>
+    <h2>Editions</h2>
     <span class="sub">— every edition, preserved as printed</span>
     <div class="head-action admin-only">
-      <button class="btn-add" onclick="Editor.newEdition()">+ Archive Edition</button>
+      <button class="btn-add" onclick="Editor.newEdition()">+ Add Edition</button>
     </div>
   </div>
   <div class="archive-intro">

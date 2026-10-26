@@ -405,7 +405,7 @@ const Icons = {
 const NAV_TABS = [
   { id: 'home',        label: 'Home',        icon: 'home' },
   { id: 'news',        label: 'News',        icon: 'news' },
-  { id: 'archive',     label: 'Archive',     icon: 'archive' },
+  { id: 'archive',     label: 'Editions',    icon: 'archive' },
   { id: 'forum',       label: 'Forum',       icon: 'forum' },
   { id: 'corrections', label: 'Feedback',    icon: 'pencil' },
   { id: 'about',       label: 'About',       icon: 'about' }
@@ -2342,9 +2342,9 @@ Pages.home = {
             </div>
           </article>
           ${single ? '' : `<div class="featured-side">
+            <h3 class="feat-side-head">Also Featured</h3>
             ${sides.length ? sides.map(a => `
               <article class="featured-card" onclick="Pages.news.openArticle('${a.id}')">
-                <div class="feat-img ${coverClass(a)}" ${coverStyle(a)}></div>
                 <div class="feat-cat">${escapeHtml(a.tabLabel || 'News')}</div>
                 <h3 class="feat-title">${escapeHtml(a.title)}</h3>
                 <p class="feat-deck">${escapeHtml(a.deck || '')}</p>
@@ -2374,6 +2374,7 @@ Pages.home = {
     } else {
       sa.innerHTML = `<div class="stories-grid">${others.map(a => `
         <article class="story-card" onclick="Pages.news.openArticle('${a.id}')">
+          ${a.coverImage ? `<div class="story-img" style="background-image: url('${a.coverImage}');"></div>` : ''}
           <div class="story-cat">${escapeHtml(a.tabLabel || 'News')}</div>
           <h3 class="story-title">${escapeHtml(a.title)}</h3>
           <p class="story-deck">${escapeHtml(a.deck || '')}</p>
@@ -2386,7 +2387,7 @@ Pages.home = {
     const posts = (await Store.list('threads')).sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
     const fp = $('#home-forum-preview');
     if (posts.length === 0) {
-      fp.innerHTML = `<p style="font-family: var(--ui); font-style: italic; color: var(--ink-muted); padding: 1rem 0;">Nothing posted yet. Announcements and notices from the Tribune will appear here.</p>`;
+      fp.innerHTML = `<p style="font-family: var(--article); font-style: italic; font-size: 1.05rem; color: var(--ink-soft); padding: 1rem 0;">Nothing posted yet. Announcements and notices from the Tribune will appear here.</p>`;
     } else {
       fp.innerHTML = posts.map(p => {
         const isAnn = p.category === 'announcement';
@@ -2616,7 +2617,7 @@ Pages.archive = {
         <div class="empty-state">
           ${Icons.empty}
           <h3>No editions archived yet</h3>
-          <p>${canEdit ? 'Click "+ Archive Edition" up top to add a Canva or PDF link to the archive.' : 'The archive will fill as Fitrah Tribune publishes its first editions.'}</p>
+          <p>${canEdit ? 'Click "+ Add Edition" up top to add a Canva or PDF link to the archive.' : 'The archive will fill as Fitrah Tribune publishes its first editions.'}</p>
         </div>
       `;
       return;
@@ -3561,6 +3562,37 @@ async function seedIfEmpty() {
   if (tribunees.length === 0) {
     const seedT = ROSTER.map(rosterTribunee);
     for (const t of seedT) await Store.save('tribunees', t);
+  }
+
+  await seedDemoArticles();
+}
+
+/* Placeholder articles from Edition 5 (public/fitr-demo-articles.js), so the
+   pages have something to show while the site is built. Seeded once, and
+   only into a browser with no articles of its own. Remove before launch. */
+async function seedDemoArticles() {
+  const demo = window.FITR_DEMO_ARTICLES;
+  if (!Array.isArray(demo) || localStorage.getItem('fitrah:demoSeeded')) return;
+  localStorage.setItem('fitrah:demoSeeded', '1');
+  if ((await Store.list('articles')).length > 0) return;
+
+  const tabs = await Store.list('newsTabs');
+  const published = Date.UTC(2026, 9, 21, 1, 0);   // 21 Oct 2026, 08:00 WIB
+  for (const [i, d] of demo.entries()) {
+    const { featured, tabLabel, ...article } = d;
+    await Store.save('articles', {
+      ...article,
+      tab: tabs.find(t => t.label === tabLabel)?.id || '',
+      subtab: '',
+      visibility: 'public',
+      lang: 'en',
+      coverAspect: 16 / 9,
+      coverFit: 'crop',
+      createdAt: published - i * 60000,
+    });
+    if (featured !== undefined) {
+      await Store.save('featured', { articleId: article.id, order: featured });
+    }
   }
 }
 
