@@ -2458,7 +2458,12 @@ Pages.news = {
   async render() {
     const isEditing = Editor.active;
     const sec = this.state.activeSection;
-    const tabs = (await Store.list('newsTabs')).filter(t => sec === 'all' || t.section === sec);
+    const allTabs = await Store.list('newsTabs');
+    // Under All News, categories with the same name in both sections
+    // (e.g. Sports) show as one pill and match both.
+    const tabs = allTabs.filter((t, i) => sec === 'all'
+      ? allTabs.findIndex(x => x.label === t.label) === i
+      : t.section === sec);
     if (this.state.activeTab !== 'all' && !tabs.some(t => t.id === this.state.activeTab)) {
       this.state.activeTab = 'all';
     }
@@ -2484,7 +2489,11 @@ Pages.news = {
     // Articles
     let articles = await listVisibleArticles();
     if (sec !== 'all') articles = articles.filter(a => a.section === sec);
-    if (this.state.activeTab !== 'all') articles = articles.filter(a => a.tab === this.state.activeTab);
+    if (this.state.activeTab !== 'all') {
+      const label = allTabs.find(t => t.id === this.state.activeTab)?.label;
+      const ids = sec === 'all' ? allTabs.filter(t => t.label === label).map(t => t.id) : [this.state.activeTab];
+      articles = articles.filter(a => ids.includes(a.tab));
+    }
     articles = articles.filter(a => (a.lang || 'en') === this.state.lang);
     if (this.state.search) {
       const q = this.state.search.toLowerCase();
@@ -3360,7 +3369,7 @@ Pages.about = {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -3412,6 +3421,7 @@ const rosterAllowlist = () => ROSTER.filter(p => p.email).map(p => ({ email: p.e
 // Default categories, each inside one section (decided by Ammar, Oct 2026).
 const DEFAULT_NEWS_TABS = [
   { label: 'Construction', section: 'internal' },
+  { label: 'Sports', section: 'internal' },
   { label: 'Science & Technology', section: 'external' },
   { label: 'World', section: 'external' },
   { label: 'Indonesia', section: 'external' },
@@ -3598,8 +3608,10 @@ async function migrateLegacyData() {
   // Sections → categories; sub-categories are gone. Every category now sits
   // in exactly one section: "Technology/Science" becomes "Science &
   // Technology", the old defaults and any "both" category go to External
-  // News, and Construction is added under Internal News. An article keeps
-  // its section; it loses a category that now belongs to the other section.
+  // News, and Construction and Sports are added under Internal News. An
+  // article keeps its section; if its category now sits in the other
+  // section, it moves to the category with the same name in its own
+  // section, or loses its category if there is none.
   if (current < 7) {
     const tabs = await Store.list('newsTabs');
     for (const t of tabs) {
@@ -3608,15 +3620,28 @@ async function migrateLegacyData() {
       t.subtabs = [];
       await Store.save('newsTabs', t);
     }
-    if (tabs.length && !tabs.some(t => t.label === 'Construction')) {
-      tabs.push(await Store.save('newsTabs', { label: 'Construction', section: 'internal', subtabs: [] }));
+    for (const label of ['Construction', 'Sports']) {
+      if (tabs.length && !tabs.some(t => t.label === label && t.section === 'internal')) {
+        tabs.push(await Store.save('newsTabs', { label, section: 'internal', subtabs: [] }));
+      }
     }
     for (const a of await Store.list('articles')) {
-      const tab = tabs.find(t => t && t.id === a.tab);
+      const tab = tabs.find(t => t.id === a.tab);
       if (!a.subtab && (!a.tab || (tab && tab.section === a.section))) continue;
       a.subtab = '';
-      if (a.tab && (!tab || tab.section !== a.section)) a.tab = '';
+      if (a.tab && (!tab || tab.section !== a.section)) {
+        a.tab = tabs.find(t => tab && t.label === tab.label && t.section === a.section)?.id || '';
+      }
       await Store.save('articles', a);
+    }
+  }
+
+  // ─── v7 → v8 migration (Sports under Internal News too, Oct 2026) ──────
+  // Browsers that already ran v7 before Sports was added to Internal News.
+  if (current < 8 && current >= 7) {
+    const tabs = await Store.list('newsTabs');
+    if (tabs.length && !tabs.some(t => t.label === 'Sports' && t.section === 'internal')) {
+      await Store.save('newsTabs', { label: 'Sports', section: 'internal', subtabs: [] });
     }
   }
 
@@ -3669,7 +3694,7 @@ async function seedDemoArticles() {
     const { featured, tabLabel, ...article } = d;
     await Store.save('articles', {
       ...article,
-      tab: tabs.find(t => t.label === tabLabel)?.id || '',
+      tab: tabs.find(t => t.label === tabLabel && t.section === article.section)?.id || '',
       subtab: '',
       visibility: 'public',
       lang: 'en',
@@ -3694,22 +3719,22 @@ async function seedDemoPlaceholders() {
   localStorage.setItem('fitrah:demoPlaceholders', '2');
 
   const tabs = await Store.list('newsTabs');
-  const tabFor = (label) => tabs.find(t => t.label === label)?.id || '';
+  const tabFor = (label, section) => tabs.find(t => t.label === label && t.section === section)?.id || '';
   const existing = await Store.list('articles');
   for (const { id, tabLabel } of Array.isArray(first) ? first : []) {
     const a = existing.find(x => x.id === id);
-    if (a) { a.tab = tabFor(tabLabel); a.subtab = ''; await Store.save('articles', a); }
+    if (a) { a.tab = tabFor(tabLabel, a.section); a.subtab = ''; await Store.save('articles', a); }
   }
   const published = Date.UTC(2026, 9, 21, 1, 0);   // 21 Oct 2026, 08:00 WIB
   for (const [i, { tabLabel, ...article }] of items.entries()) {
     const old = existing.find(x => x.id === article.id);
-    if (old) { old.tab = tabFor(tabLabel); old.subtab = ''; await Store.save('articles', old); continue; }
+    if (old) { old.tab = tabFor(tabLabel, old.section); old.subtab = ''; await Store.save('articles', old); continue; }
     await Store.save('articles', {
       coverAspect: 16 / 9,
       coverFit: 'crop',
       ...article,
       edition: 5,
-      tab: tabFor(tabLabel),
+      tab: tabFor(tabLabel, article.section),
       subtab: '',
       visibility: 'public',
       lang: 'en',
