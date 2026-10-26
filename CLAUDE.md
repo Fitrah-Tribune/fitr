@@ -85,6 +85,16 @@ fitr/
 
 Note the one mismatch: URL `/feedback` → engine key `corrections`.
 
+### Internal / External News
+
+Every article belongs to one of two **permanent sections**: Internal News
+(inside FIWA) or External News (everything outside FIWA). They sit above
+categories, are fixed in code (`NEWS_SECTIONS` in the engine), and are
+required. Categories and sub-categories are optional and can belong to one
+section or both. The website is the Tribune's main outlet, not a mirror of
+the printed editions, so don't describe articles as "from the latest
+edition" (decided by Ammar, Oct 2026).
+
 ---
 
 ## Rules for changing code
