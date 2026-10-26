@@ -503,22 +503,6 @@ body.editing .user-name { color: var(--navy-deep); }
   overflow: hidden;
   border-radius: 2px;
 }
-.feat-img.placeholder::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 30% 30%, rgba(216, 169, 86, 0.25) 0, transparent 60%),
-    radial-gradient(ellipse at 70% 70%, rgba(255,255,255,0.08) 0, transparent 50%);
-}
-.feat-img.placeholder::after {
-  content: "✦";
-  position: absolute;
-  inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 2.4rem;
-  color: rgba(216, 169, 86, 0.4);
-}
 .featured-card .feat-img { aspect-ratio: 5/3; margin-bottom: 0.9rem; }
 
 .feat-cat {
@@ -2096,20 +2080,6 @@ body.editing [data-editable]:hover {
 .article-cover.aspect-16-9 { aspect-ratio: 16/9; }
 .article-cover.aspect-4-3  { aspect-ratio: 4/3; }
 .article-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.article-cover.placeholder::before {
-  content: "";
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(ellipse at 30% 30%, rgba(216, 169, 86, 0.25) 0, transparent 60%),
-    radial-gradient(ellipse at 70% 70%, rgba(255,255,255,0.08) 0, transparent 50%);
-}
-.article-cover.placeholder::after {
-  content: "✦";
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 4rem;
-  color: rgba(216, 169, 86, 0.4);
-}
 .article-page .ar-cat {
   font-family: var(--ui);
   font-size: 0.78rem;

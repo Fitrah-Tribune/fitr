@@ -2395,12 +2395,11 @@ Pages.home = {
       const coverStyle = (a) => a.coverImage
         ? `style="background-image: url('${a.coverImage}'); background-size: cover; background-position: center;"`
         : '';
-      const coverClass = (a) => a.coverImage ? '' : 'placeholder';
       const single = sides.length === 0 && !isEditing;
       fa.innerHTML = `
         <div class="featured-grid${single ? ' single' : ''}">
           <article class="featured-main" onclick="Pages.news.openArticle('${main.id}')">
-            <div class="feat-img ${coverClass(main)}" ${coverStyle(main)}></div>
+            ${main.coverImage ? `<div class="feat-img" ${coverStyle(main)}></div>` : ''}
             <div class="feat-cat">${escapeHtml(articleKicker(main))}</div>
             <h3 class="feat-title">${escapeHtml(main.title)}</h3>
             <p class="feat-deck">${escapeHtml(main.deck || '')}</p>
@@ -2548,13 +2547,11 @@ Pages.news = {
     } else {
       const newsCoverStyle = (a) => {
         const ar = parseAspect(a.coverAspect, 16/9);
-        return a.coverImage
-          ? `style="background-image: url('${a.coverImage}'); background-size: cover; background-position: center; aspect-ratio: ${ar};"`
-          : `style="aspect-ratio: ${ar};"`;
+        return `style="background-image: url('${a.coverImage}'); background-size: cover; background-position: center; aspect-ratio: ${ar};"`;
       };
       grid.innerHTML = `<div class="news-grid">${articles.map(a => `
         <article class="story-card" onclick="Pages.news.openArticle('${a.id}')">
-          <div class="feat-img ${a.coverImage ? '' : 'placeholder'}" ${newsCoverStyle(a)}></div>
+          ${a.coverImage ? `<div class="feat-img" ${newsCoverStyle(a)}></div>` : ''}
           <div class="story-cat">${escapeHtml(articleKicker(a))}</div>
           <h3 class="story-title">${escapeHtml(a.title)}</h3>
           <p class="story-deck">${escapeHtml(a.deck || '')}</p>
@@ -2620,9 +2617,9 @@ Pages.article = {
     root.innerHTML = `
       <div class="article-page">
         <a class="ar-back" onclick="Router.go('news')">← Back to News</a>
-        <div class="article-cover ${a.coverImage ? '' : 'placeholder'}" style="aspect-ratio: ${coverAspect};">
-          ${a.coverImage ? `<img src="${a.coverImage}" alt="" />` : ''}
-        </div>
+        ${a.coverImage ? `<div class="article-cover" style="aspect-ratio: ${coverAspect};">
+          <img src="${a.coverImage}" alt="" />
+        </div>` : ''}
         <div class="ar-cat">${escapeHtml(articleKicker({ ...a, tabLabel }, { fiwaLabel: 'FIWA-only' }))}</div>
         <h1 class="article-headline">${escapeHtml(a.title)}</h1>
         ${a.deck ? `<p class="article-deck">${escapeHtml(a.deck)}</p>` : ''}
