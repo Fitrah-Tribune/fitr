@@ -7,12 +7,13 @@ const html = `
 <section class="page active" id="page-news">
   <div class="section-head">
     <h2>News</h2>
-    <span class="sub">— articles from every edition</span>
+    <span class="sub">— all our reporting</span>
     <div class="head-action editable-only">
       <button class="btn-add" onclick="Editor.newArticle()">+ New Article</button>
     </div>
   </div>
 
+  <div class="section-tabs" id="news-sections"><!-- rendered --></div>
   <div class="news-toolbar">
     <div class="filter-pills" id="news-tabs"><!-- rendered --></div>
     <div style="display: flex; gap: 0.7rem; align-items: center;">

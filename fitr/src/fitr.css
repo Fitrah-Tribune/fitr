@@ -678,6 +678,34 @@ body.editing .user-name { color: var(--navy-deep); }
 }
 
 /* ============ NEWS PAGE ============ */
+/* Internal / External News: the two permanent sections, above categories */
+.section-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  border-bottom: 1px solid var(--rule);
+  margin: 0 0 1.2rem;
+}
+.section-tab {
+  font-family: var(--ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-soft);
+  padding: 0.7rem 1.2rem;
+  margin-bottom: -1px;
+  cursor: pointer;
+  min-height: 44px;
+}
+.section-tab:hover { color: var(--navy); }
+.section-tab.active { color: var(--navy); border-bottom-color: var(--gold); }
+@media (max-width: 640px) {
+  .section-tab { flex: 1; padding: 0.6rem 0.3rem; font-size: 0.7rem; letter-spacing: 0.08em; }
+}
 .news-toolbar {
   display: flex;
   justify-content: space-between;
@@ -2128,39 +2156,31 @@ body.editing [data-editable]:hover {
 }
 .article-body p { margin-bottom: 1.1rem; }
 .article-body h2 {
-  font-family: var(--ui);
-  text-transform: uppercase;
-  font-weight: 600;
+  font-weight: normal;
   font-size: 1.7rem;
-  line-height: 1.2;
-  color: var(--navy-deep);
+  line-height: 1.25;
   margin: 2rem 0 0.8rem;
 }
 .article-body h3 {
-  font-family: var(--ui);
-  text-transform: uppercase;
-  font-weight: 600;
+  font-weight: normal;
   font-size: 1.35rem;
-  color: var(--navy);
+  line-height: 1.3;
   margin: 1.6rem 0 0.7rem;
 }
 .article-body blockquote {
-  font-family: var(--headline);
-  font-weight: 400;
   border-left: 3px solid var(--gold);
   padding: 0.6rem 1.2rem;
   margin: 1.4rem 0;
-  font-style: italic;
-  color: var(--ink-soft);
-  background: rgba(216, 169, 86, 0.06);
 }
 .article-body ul, .article-body ol { padding-left: 1.6rem; margin-bottom: 1.1rem; }
 .article-body li { margin-bottom: 0.4rem; }
+.article-body p:has(> img) { text-align: center; }
 .article-body img {
   max-width: 100%;
   height: auto;
-  display: block;
-  margin: 1.4rem auto;
+  display: inline-block;
+  vertical-align: top;
+  margin: 0.6rem 0.25%;
   border-radius: 2px;
 }
 .article-edit-bar {
@@ -2352,41 +2372,36 @@ body.editing [data-editable]:hover {
 }
 .rte-editor p { margin-bottom: 0.8rem; }
 .rte-editor p:last-child { margin-bottom: 0; }
+/* Text styles only set size and spacing. Bold, italics, caps, font and
+   colour are left to the writer's own formatting. */
 .rte-editor h2 {
-  font-family: var(--ui);
-  text-transform: uppercase;
   font-size: 1.5rem;
+  line-height: 1.25;
   margin: 1.2rem 0 0.6rem;
-  font-weight: 600;
-  color: var(--navy-deep);
+  font-weight: normal;
 }
 .rte-editor h3 {
-  font-family: var(--ui);
-  text-transform: uppercase;
   font-size: 1.2rem;
+  line-height: 1.3;
   margin: 1rem 0 0.5rem;
-  font-weight: 600;
-  color: var(--navy);
+  font-weight: normal;
 }
 .rte-editor blockquote {
-  font-family: var(--headline);
-  font-weight: 400;
   border-left: 3px solid var(--gold);
   padding: 0.4rem 1rem;
   margin: 0.9rem 0;
-  font-style: italic;
-  color: var(--ink-soft);
-  background: rgba(216, 169, 86, 0.06);
 }
 /* The bio editor shows bios as they appear on the profile: Work Sans. */
 #tr-bio-editor .rte-editor,
 #tr-bio-editor .rte-editor blockquote { font-family: var(--ui); }
 .rte-editor ul, .rte-editor ol { padding-left: 1.5rem; margin-bottom: 0.8rem; }
+.rte-editor p:has(> img.rte-image) { text-align: center; }
 .rte-editor img.rte-image {
   max-width: 100%;
   height: auto;
-  display: block;
-  margin: 1rem auto;
+  display: inline-block;
+  vertical-align: top;
+  margin: 0.5rem 0.25%;
   cursor: pointer;
   border: 2px solid transparent;
   transition: border-color 0.15s;
@@ -2405,6 +2420,21 @@ body.editing [data-editable]:hover {
   cursor: nwse-resize;
   z-index: 10;
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  touch-action: none;
+}
+.rte-resize-handle { width: 18px; height: 18px; }
+.rte-resize-hint {
+  position: absolute;
+  z-index: 10;
+  font-family: var(--ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--paper-lift);
+  background: var(--navy-deep);
+  padding: 0.2rem 0.5rem;
+  border-radius: 2px;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 /* PDF import row */

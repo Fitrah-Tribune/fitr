@@ -85,6 +85,16 @@ fitr/
 
 Note the one mismatch: URL `/feedback` → engine key `corrections`.
 
+### Internal / External News
+
+Every article belongs to one of two **permanent sections**: Internal News
+(inside FIWA) or External News (everything outside FIWA). They sit above
+categories, are fixed in code (`NEWS_SECTIONS` in the engine), and are
+required. Categories and sub-categories are optional and can belong to one
+section or both. The website is the Tribune's main outlet, not a mirror of
+the printed editions, so don't describe articles as "from the latest
+edition" (decided by Ammar, Oct 2026).
+
 ---
 
 ## Rules for changing code
@@ -114,7 +124,7 @@ Each has one job. Use the CSS variables in `fitr.css`, never a font name.
 |---|---|---|
 | `--headline` | Libre Baskerville | **Bold:** the masthead, page titles, section heads, box headers (e.g. "From the Forum"), and article headlines (including headlines on article cards). **Italic:** pull quotes inside an article. |
 | `--article` | Times New Roman | Text people actually read: the body of an article (and the article editor), decks/summaries (italic, regular weight) on cards and article pages, forum posts, bios, intro and explainer paragraphs, empty-state messages, the footer blurb. Reading on the site should feel like reading the paper. |
-| `--ui` | Work Sans | The site's machinery: nav, buttons, menus, tabs, dates, categories, bylines, captions, small labels and kicker lines, in-article subheads (uppercase), forms, editor dialogs, footer links. |
+| `--ui` | Work Sans | The site's machinery: nav, buttons, menus, tabs, dates, categories, bylines, captions, small labels and kicker lines, forms, editor dialogs, footer links. |
 
 The rule is the print rule: headline, article, everything around the
 article. On the web, anything a reader settles in to read counts as
@@ -122,6 +132,10 @@ article. On the web, anything a reader settles in to read counts as
 kept for navigation, labels and controls. (Changed Oct 2026: Work Sans
 felt too dominant.)
 
+- Inside an article body, the editor's text styles (Heading, Subheading,
+  Quote) set size and spacing only. Bold, italics, caps, font and colour
+  come from the writer's own formatting, never from the style (decided
+  Oct 2026).
 - Libre Baskerville has **no bold italic**. Never make a headline italic;
   a highlighted word inside a headline stays upright (colour only).
 - New element? Decide which of the three jobs it does and use that variable.

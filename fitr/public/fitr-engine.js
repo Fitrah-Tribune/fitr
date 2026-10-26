@@ -593,7 +593,14 @@ const Editor = {
         </div>
 
         <div class="field">
-          <label>Category (top-level tab)</label>
+          <label>Section</label>
+          <select id="art-section">
+            <option value="">— Select section —</option>
+            ${NEWS_SECTIONS.map(x => `<option value="${x.id}" ${a.section === x.id ? 'selected' : ''}>${x.label}: ${x.hint}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Category (optional)</label>
           <select id="art-tab"></select>
         </div>
         <div class="field">
@@ -672,8 +679,17 @@ const Editor = {
       // Wire tab dropdown
       const tabs = await Store.list('newsTabs');
       const tabSelect = $('#art-tab');
-      tabSelect.innerHTML = '<option value="">— Select category —</option>' +
-        tabs.map(t => `<option value="${t.id}" ${a.tab === t.id ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
+      const sectionSelect = $('#art-section');
+      // Only offer categories that belong to the chosen section (or to both).
+      const refreshTabs = () => {
+        const sec = sectionSelect.value;
+        const keep = tabSelect.value || a.tab;
+        const fits = tabs.filter(t => !t.section || !sec || t.section === sec);
+        tabSelect.innerHTML = '<option value="">— None —</option>' +
+          fits.map(t => `<option value="${t.id}" ${keep === t.id ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
+      };
+      refreshTabs();
+      sectionSelect.onchange = () => { refreshTabs(); refreshSubtabs(); };
       const refreshSubtabs = () => {
         const subSelect = $('#art-subtab');
         const tab = tabs.find(t => t.id === tabSelect.value);
@@ -787,6 +803,7 @@ const Editor = {
     item.body = state.bodyEditor ? state.bodyEditor.getHTML() : '';
     item.author = $('#art-author').value.trim();
     item.authorEmail = item.authorEmail || Auth.current().email;
+    item.section = $('#art-section').value;
     item.tab = $('#art-tab').value;
     item.subtab = $('#art-subtab').value;
     item.visibility = $('#art-visibility').value;
@@ -798,7 +815,7 @@ const Editor = {
     item.edition = ed ? parseInt(ed, 10) : null;
 
     if (!item.title) { toast('Title is required', 'error'); return; }
-    if (!item.tab)   { toast('Category is required', 'error'); return; }
+    if (!item.section) { toast('Choose Internal or External News', 'error'); return; }
 
     if (id) item.id = id;
     const saved = await Store.save('articles', item);
@@ -1456,17 +1473,23 @@ const Editor = {
 
   /* Tabs ─────────────────────────────── */
   manageTabs() {
+    const sectionOptions = (cur) => `<option value="" ${!cur ? 'selected' : ''}>Both</option>` +
+      NEWS_SECTIONS.map(x => `<option value="${x.id}" ${cur === x.id ? 'selected' : ''}>${x.label}</option>`).join('');
     Store.list('newsTabs').then(tabs => {
       Modal.open({
         title: 'Manage News Categories',
         body: `
-          <div class="field-hint" style="margin-bottom: 1rem;">Add top-level tabs. Each tab can have sub-tabs (e.g. "Sports" → "Football", "Motorsport").</div>
+          <div class="field-hint" style="margin-bottom: 1rem;">Categories sit inside Internal or External News (or both). Each can have sub-categories (e.g. "Sports" → "Football", "Motorsport").</div>
           <div id="tab-list">
             ${tabs.map(t => `
-              <div class="field" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: end;" data-tab-id="${t.id}">
+              <div class="field" style="display: grid; grid-template-columns: 1fr 0.8fr 1fr auto; gap: 0.5rem; align-items: end;" data-tab-id="${t.id}">
                 <div>
                   <label>Label</label>
                   <input type="text" value="${escapeHtml(t.label)}" data-tab-label />
+                </div>
+                <div>
+                  <label>Section</label>
+                  <select data-tab-section>${sectionOptions(t.section)}</select>
                 </div>
                 <div>
                   <label>Sub-tabs (comma separated)</label>
@@ -1476,8 +1499,9 @@ const Editor = {
               </div>
             `).join('')}
           </div>
-          <div class="field" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: end; padding-top: 1rem; border-top: 1px dashed var(--rule);">
+          <div class="field" style="display: grid; grid-template-columns: 1fr 0.8fr 1fr auto; gap: 0.5rem; align-items: end; padding-top: 1rem; border-top: 1px dashed var(--rule);">
             <div><label>New label</label><input type="text" id="new-tab-label" placeholder="e.g. Sports" /></div>
+            <div><label>Section</label><select id="new-tab-section">${sectionOptions('')}</select></div>
             <div><label>Sub-tabs</label><input type="text" id="new-tab-subs" placeholder="e.g. Football, Motorsport" /></div>
             <button class="btn-add" onclick="Editor.addTab()">+ Add</button>
           </div>
@@ -1495,7 +1519,8 @@ const Editor = {
     const subsRaw = $('#new-tab-subs').value.trim();
     if (!label) { toast('Label required', 'error'); return; }
     const subs = subsRaw ? subsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
-    await Store.save('newsTabs', { label, subtabs: subs });
+    const section = $('#new-tab-section').value;
+    await Store.save('newsTabs', { label, section, subtabs: subs });
     Editor.manageTabs();
     Pages.news.render();
     toast('Category added', 'success');
@@ -1518,6 +1543,7 @@ const Editor = {
       const t = await Store.get('newsTabs', id);
       if (t) {
         t.label = label;
+        t.section = row.querySelector('[data-tab-section]').value;
         t.subtabs = subs;
         await Store.save('newsTabs', t);
       }
@@ -1544,7 +1570,7 @@ const Editor = {
                 <input type="checkbox" data-article-id="${a.id}" ${fIdx >= 0 ? 'checked' : ''} style="width: auto;" />
                 <div style="flex: 1;">
                   <div style="font-family: var(--headline); font-weight: 700; color: var(--ink);">${escapeHtml(a.title)}</div>
-                  <div style="font-size: 0.78rem; color: var(--ink-muted); margin-top: 0.2rem;">By ${escapeHtml(a.author)} · ${escapeHtml(a.tabLabel || '—')}</div>
+                  <div style="font-size: 0.78rem; color: var(--ink-muted); margin-top: 0.2rem;">By ${escapeHtml(a.author)} · ${escapeHtml(articleKicker(a))}</div>
                 </div>
               </label>
             `;
@@ -1579,6 +1605,22 @@ const Editor = {
 /* =====================================================================
    ARTICLE LIST HELPERS (apply tier filtering)
    ===================================================================== */
+
+/* Every article belongs to one of two permanent sections. Categories
+   (newsTabs) are optional and sit inside a section; a category with no
+   section shows under both. */
+const NEWS_SECTIONS = [
+  { id: 'internal', label: 'Internal News', hint: 'What happens inside FIWA' },
+  { id: 'external', label: 'External News', hint: 'Everything outside FIWA' }
+];
+const sectionLabel = (id) => NEWS_SECTIONS.find(x => x.id === id)?.label || '';
+
+/* Kicker line on cards and article pages: "Internal News · Sports · Football". */
+function articleKicker(a, { fiwaLabel = 'FIWA' } = {}) {
+  const parts = [sectionLabel(a.section), a.tabLabel, a.subtab].filter(Boolean);
+  if (a.visibility === 'fiwa') parts.push(fiwaLabel);
+  return parts.join(' · ') || 'News';
+}
 
 async function listVisibleArticles(filter = null) {
   const all = await Store.list('articles');
@@ -2230,6 +2272,14 @@ const RichEditor = {
     editor.dispatchEvent(new Event('input', { bubbles: true }));
   },
 
+  /* Image resizing, Canva-style, from the gold corner handle:
+     · drag        crop: the frame changes shape, the picture is never
+                   stretched (object-fit: cover keeps it filled).
+     · Shift+drag  scale: the whole image grows or shrinks, keeping its
+                   current shape.
+     Size is saved as a % of the column width plus an aspect ratio, so the
+     image keeps its look on phones, and two or more small images sit side
+     by side in the same row. */
   _attachResizeHandle(img, editor) {
     this._removeHandles();
     const wrap = editor.parentElement;
@@ -2238,51 +2288,69 @@ const RichEditor = {
 
     const handle = document.createElement('div');
     handle.className = 'rte-resize-handle';
+    handle.title = 'Drag to crop · Shift + drag to resize';
+    const hint = document.createElement('div');
+    hint.className = 'rte-resize-hint';
+    hint.textContent = 'Drag: crop · Shift + drag: resize';
     wrap.appendChild(handle);
+    wrap.appendChild(hint);
 
     const positionHandle = () => {
       const imgRect = img.getBoundingClientRect();
       const wrapRect = wrap.getBoundingClientRect();
-      handle.style.left = (imgRect.right - wrapRect.left - 7) + 'px';
-      handle.style.top  = (imgRect.bottom - wrapRect.top - 7) + 'px';
+      handle.style.left = (imgRect.right - wrapRect.left - 9) + 'px';
+      handle.style.top  = (imgRect.bottom - wrapRect.top - 9) + 'px';
+      hint.style.left = (imgRect.left - wrapRect.left) + 'px';
+      hint.style.top  = (imgRect.bottom - wrapRect.top + 8) + 'px';
     };
     positionHandle();
 
-    let resizing = false;
-    let startX = 0, startW = 0, startH = 0, ratio = 1, freeAspect = false;
+    const columnWidth = () => {
+      const cs = getComputedStyle(editor);
+      return editor.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    };
 
-    handle.addEventListener('mousedown', (e) => {
+    let drag = null;
+    const onDown = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      resizing = true;
-      startX = e.clientX;
-      startW = img.offsetWidth;
-      startH = img.offsetHeight;
-      ratio = startW / startH;
-      freeAspect = e.shiftKey;
-    });
-
+      const w = img.offsetWidth, h = img.offsetHeight;
+      drag = { x: e.clientX, y: e.clientY, w, h, ratio: w / h, col: columnWidth() };
+      handle.setPointerCapture?.(e.pointerId);
+    };
     const onMove = (e) => {
-      if (!resizing) return;
-      const dx = e.clientX - startX;
-      const newW = Math.max(80, startW + dx);
-      img.style.width = newW + 'px';
-      if (!freeAspect) {
-        img.style.height = (newW / ratio) + 'px';
+      if (!drag) return;
+      const maxW = drag.col;
+      let w = Math.min(maxW, Math.max(60, drag.w + (e.clientX - drag.x)));
+      let h;
+      if (e.shiftKey) {
+        h = w / drag.ratio;                                   // scale
+      } else {
+        h = Math.max(40, drag.h + (e.clientY - drag.y));      // crop
       }
+      img.style.width = (w / maxW * 100).toFixed(2) + '%';
+      img.style.height = '';
+      img.style.aspectRatio = `${Math.round(w)} / ${Math.round(h)}`;
+      img.style.objectFit = 'cover';
       positionHandle();
     };
     const onUp = () => {
-      if (resizing) {
-        resizing = false;
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-      }
+      if (!drag) return;
+      drag = null;
+      positionHandle();
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
     };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    handle.addEventListener('pointerdown', onDown);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    editor.addEventListener('scroll', positionHandle);
+    window.addEventListener('resize', positionHandle);
     handle._cleanup = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      editor.removeEventListener('scroll', positionHandle);
+      window.removeEventListener('resize', positionHandle);
+      hint.remove();
     };
   },
 
@@ -2333,7 +2401,7 @@ Pages.home = {
         <div class="featured-grid${single ? ' single' : ''}">
           <article class="featured-main" onclick="Pages.news.openArticle('${main.id}')">
             <div class="feat-img ${coverClass(main)}" ${coverStyle(main)}></div>
-            <div class="feat-cat">${escapeHtml(main.tabLabel || 'News')}</div>
+            <div class="feat-cat">${escapeHtml(articleKicker(main))}</div>
             <h3 class="feat-title">${escapeHtml(main.title)}</h3>
             <p class="feat-deck">${escapeHtml(main.deck || '')}</p>
             <div class="feat-byline">
@@ -2345,7 +2413,7 @@ Pages.home = {
             <h3 class="feat-side-head">Also Featured</h3>
             ${sides.length ? sides.map(a => `
               <article class="featured-card" onclick="Pages.news.openArticle('${a.id}')">
-                <div class="feat-cat">${escapeHtml(a.tabLabel || 'News')}</div>
+                <div class="feat-cat">${escapeHtml(articleKicker(a))}</div>
                 <h3 class="feat-title">${escapeHtml(a.title)}</h3>
                 <p class="feat-deck">${escapeHtml(a.deck || '')}</p>
                 <div class="feat-byline">
@@ -2375,7 +2443,7 @@ Pages.home = {
       sa.innerHTML = `<div class="stories-grid">${others.map(a => `
         <article class="story-card" onclick="Pages.news.openArticle('${a.id}')">
           ${a.coverImage ? `<div class="story-img" style="background-image: url('${a.coverImage}');"></div>` : ''}
-          <div class="story-cat">${escapeHtml(a.tabLabel || 'News')}</div>
+          <div class="story-cat">${escapeHtml(articleKicker(a))}</div>
           <h3 class="story-title">${escapeHtml(a.title)}</h3>
           <p class="story-deck">${escapeHtml(a.deck || '')}</p>
           <div class="story-meta">By <span class="author">${escapeHtml(a.author)}</span> · ${formatDate(a.createdAt)}</div>
@@ -2408,11 +2476,21 @@ Pages.home = {
 
 /* ── NEWS ────────────────────────────────────────────────────────────── */
 Pages.news = {
-  state: { activeTab: 'all', activeSubtab: null, lang: 'en', search: '' },
+  state: { activeSection: 'all', activeTab: 'all', activeSubtab: null, lang: 'en', search: '' },
 
   async render() {
     const isEditing = Editor.active;
-    const tabs = await Store.list('newsTabs');
+    const sec = this.state.activeSection;
+    const tabs = (await Store.list('newsTabs')).filter(t => sec === 'all' || !t.section || t.section === sec);
+    if (this.state.activeTab !== 'all' && !tabs.some(t => t.id === this.state.activeTab)) {
+      this.state.activeTab = 'all';
+      this.state.activeSubtab = null;
+    }
+
+    // Section switch: Internal / External News
+    $('#news-sections').innerHTML = [{ id: 'all', label: 'All News' }, ...NEWS_SECTIONS].map(x => `
+      <button class="section-tab ${sec === x.id ? 'active' : ''}" onclick="Pages.news.setSection('${x.id}')">${x.label}</button>
+    `).join('');
 
     // Tab pills
     const tabsEl = $('#news-tabs');
@@ -2444,6 +2522,7 @@ Pages.news = {
 
     // Articles
     let articles = await listVisibleArticles();
+    if (sec !== 'all') articles = articles.filter(a => a.section === sec);
     if (this.state.activeTab !== 'all') articles = articles.filter(a => a.tab === this.state.activeTab);
     if (this.state.activeSubtab) articles = articles.filter(a => a.subtab === this.state.activeSubtab);
     articles = articles.filter(a => (a.lang || 'en') === this.state.lang);
@@ -2476,7 +2555,7 @@ Pages.news = {
       grid.innerHTML = `<div class="news-grid">${articles.map(a => `
         <article class="story-card" onclick="Pages.news.openArticle('${a.id}')">
           <div class="feat-img ${a.coverImage ? '' : 'placeholder'}" ${newsCoverStyle(a)}></div>
-          <div class="story-cat">${escapeHtml(a.tabLabel || 'News')}${a.subtab ? ' · ' + escapeHtml(a.subtab) : ''}${a.visibility === 'fiwa' ? ' · FIWA' : ''}</div>
+          <div class="story-cat">${escapeHtml(articleKicker(a))}</div>
           <h3 class="story-title">${escapeHtml(a.title)}</h3>
           <p class="story-deck">${escapeHtml(a.deck || '')}</p>
           <div class="story-meta">By <span class="author">${escapeHtml(a.author)}</span> · ${formatDate(a.createdAt)}</div>
@@ -2485,6 +2564,7 @@ Pages.news = {
     }
   },
 
+  setSection(id) { this.state.activeSection = id; this.render(); },
   setTab(id) { this.state.activeTab = id; this.state.activeSubtab = null; this.render(); },
   setSubtab(s) { this.state.activeSubtab = s; this.render(); },
   async setSubtabByIndex(i) {
@@ -2543,7 +2623,7 @@ Pages.article = {
         <div class="article-cover ${a.coverImage ? '' : 'placeholder'}" style="aspect-ratio: ${coverAspect};">
           ${a.coverImage ? `<img src="${a.coverImage}" alt="" />` : ''}
         </div>
-        <div class="ar-cat">${escapeHtml(tabLabel)}${a.subtab ? ' · ' + escapeHtml(a.subtab) : ''}${a.visibility === 'fiwa' ? ' · FIWA-only' : ''}</div>
+        <div class="ar-cat">${escapeHtml(articleKicker({ ...a, tabLabel }, { fiwaLabel: 'FIWA-only' }))}</div>
         <h1 class="article-headline">${escapeHtml(a.title)}</h1>
         ${a.deck ? `<p class="article-deck">${escapeHtml(a.deck)}</p>` : ''}
         <div class="article-byline">By <span class="author">${escapeHtml(a.author)}</span> · ${formatDate(a.createdAt)}${a.edition ? ` · From Edition ${a.edition}` : ''}</div>
@@ -3331,7 +3411,7 @@ Pages.about = {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -3381,6 +3461,8 @@ const rosterTribunee = (p) => {
 const rosterAllowlist = () => ROSTER.filter(p => p.email).map(p => ({ email: p.email, admin: p.admin }));
 
 const DEFAULT_NEWS_TABS = ['Indonesia', 'World', 'Technology/Science', 'Sports'];
+// Default categories that only make sense outside FIWA. The rest show under both.
+const EXTERNAL_NEWS_TABS = ['Indonesia', 'World'];
 
 async function migrateLegacyData() {
   const stored = localStorage.getItem('fitrah:schemaVersion');
@@ -3511,7 +3593,9 @@ async function migrateLegacyData() {
 
     // News categories: seed the four defaults once, only if there are none.
     if ((await Store.list('newsTabs')).length === 0) {
-      for (const label of DEFAULT_NEWS_TABS) await Store.save('newsTabs', { label, subtabs: [] });
+      for (const label of DEFAULT_NEWS_TABS) {
+        await Store.save('newsTabs', { label, section: EXTERNAL_NEWS_TABS.includes(label) ? 'external' : '', subtabs: [] });
+      }
     }
   }
 
@@ -3531,6 +3615,26 @@ async function migrateLegacyData() {
       await Store.remove('tribunees', t.id);
       t.id = id;
       await Store.save('tribunees', t);
+    }
+  }
+
+  // ─── v5 → v6 migration (Internal / External News, Oct 2026) ───────────
+  // Articles now sit in one of two sections and categories are optional.
+  // Indonesia and World stories become External News, the rest Internal;
+  // those two categories move into External News, the rest show in both.
+  if (current < 6) {
+    const tabs = await Store.list('newsTabs');
+    for (const t of tabs) {
+      if (t.section === undefined) {
+        t.section = EXTERNAL_NEWS_TABS.includes(t.label) ? 'external' : '';
+        await Store.save('newsTabs', t);
+      }
+    }
+    for (const a of await Store.list('articles')) {
+      if (a.section) continue;
+      const label = tabs.find(t => t.id === a.tab)?.label;
+      a.section = EXTERNAL_NEWS_TABS.includes(label) ? 'external' : 'internal';
+      await Store.save('articles', a);
     }
   }
 
