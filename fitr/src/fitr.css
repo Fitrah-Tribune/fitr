@@ -2815,15 +2815,16 @@ body.editing .tribune-band .user-name {
 #page-home .weather-note { font-family: var(--article); font-size: 1rem; color: var(--ink-soft); border-top: none; padding-top: 0; }
 
 #page-home .home-tipoff {
-  margin-top: 3.5rem;
+  margin-top: 2.5rem;
   background: var(--navy-deep);
   border: none;
-  padding: 2.2rem 2.5rem;
+  padding: 1.1rem 1.6rem;
+  gap: 1.4rem;
 }
-#page-home .home-tipoff h3 { font-size: 1.6rem; text-transform: none; letter-spacing: 0; color: var(--gold-soft); }
-#page-home .home-tipoff p { font-style: normal; font-size: 1.1rem; color: var(--paper-lift); }
+#page-home .home-tipoff h3 { font-size: 1.1rem; text-transform: none; letter-spacing: 0; color: var(--gold-soft); margin-bottom: 0.25rem; }
+#page-home .home-tipoff p { font-style: normal; font-size: 0.98rem; line-height: 1.45; color: var(--paper-lift); max-width: 70ch; }
 #page-home .home-tipoff button {
-  min-height: 48px; padding: 0 1.8rem; font-size: 0.85rem;
+  min-height: 44px; padding: 0 1.3rem; font-size: 0.75rem;
   background: var(--gold-bright);
 }
 #page-home .home-tipoff button:hover { background: var(--gold-soft); }
@@ -2862,7 +2863,7 @@ body.editing .tribune-band .user-name {
   .tab-btn.active::after { bottom: 0.4rem; left: 25%; right: 25%; }
   #page-home .featured-main .feat-title { font-size: 1.6rem; }
   #page-home .featured-main .feat-deck { font-size: 1.1rem; }
-  #page-home .home-tipoff { padding: 1.6rem 1.2rem; }
+  #page-home .home-tipoff { padding: 1.1rem; gap: 0.8rem; }
   .masthead-inner { padding: 1.4rem 1rem 1rem; }
   .home-tipoff { grid-template-columns: 1fr; gap: 1rem; padding: 1.4rem 1.2rem; }
   .home-tipoff button { justify-self: start; }
