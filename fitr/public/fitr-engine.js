@@ -2230,6 +2230,14 @@ const RichEditor = {
     editor.dispatchEvent(new Event('input', { bubbles: true }));
   },
 
+  /* Image resizing, Canva-style, from the gold corner handle:
+     · drag        crop: the frame changes shape, the picture is never
+                   stretched (object-fit: cover keeps it filled).
+     · Shift+drag  scale: the whole image grows or shrinks, keeping its
+                   current shape.
+     Size is saved as a % of the column width plus an aspect ratio, so the
+     image keeps its look on phones, and two or more small images sit side
+     by side in the same row. */
   _attachResizeHandle(img, editor) {
     this._removeHandles();
     const wrap = editor.parentElement;
@@ -2238,51 +2246,69 @@ const RichEditor = {
 
     const handle = document.createElement('div');
     handle.className = 'rte-resize-handle';
+    handle.title = 'Drag to crop · Shift + drag to resize';
+    const hint = document.createElement('div');
+    hint.className = 'rte-resize-hint';
+    hint.textContent = 'Drag: crop · Shift + drag: resize';
     wrap.appendChild(handle);
+    wrap.appendChild(hint);
 
     const positionHandle = () => {
       const imgRect = img.getBoundingClientRect();
       const wrapRect = wrap.getBoundingClientRect();
-      handle.style.left = (imgRect.right - wrapRect.left - 7) + 'px';
-      handle.style.top  = (imgRect.bottom - wrapRect.top - 7) + 'px';
+      handle.style.left = (imgRect.right - wrapRect.left - 9) + 'px';
+      handle.style.top  = (imgRect.bottom - wrapRect.top - 9) + 'px';
+      hint.style.left = (imgRect.left - wrapRect.left) + 'px';
+      hint.style.top  = (imgRect.bottom - wrapRect.top + 8) + 'px';
     };
     positionHandle();
 
-    let resizing = false;
-    let startX = 0, startW = 0, startH = 0, ratio = 1, freeAspect = false;
+    const columnWidth = () => {
+      const cs = getComputedStyle(editor);
+      return editor.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    };
 
-    handle.addEventListener('mousedown', (e) => {
+    let drag = null;
+    const onDown = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      resizing = true;
-      startX = e.clientX;
-      startW = img.offsetWidth;
-      startH = img.offsetHeight;
-      ratio = startW / startH;
-      freeAspect = e.shiftKey;
-    });
-
+      const w = img.offsetWidth, h = img.offsetHeight;
+      drag = { x: e.clientX, y: e.clientY, w, h, ratio: w / h, col: columnWidth() };
+      handle.setPointerCapture?.(e.pointerId);
+    };
     const onMove = (e) => {
-      if (!resizing) return;
-      const dx = e.clientX - startX;
-      const newW = Math.max(80, startW + dx);
-      img.style.width = newW + 'px';
-      if (!freeAspect) {
-        img.style.height = (newW / ratio) + 'px';
+      if (!drag) return;
+      const maxW = drag.col;
+      let w = Math.min(maxW, Math.max(60, drag.w + (e.clientX - drag.x)));
+      let h;
+      if (e.shiftKey) {
+        h = w / drag.ratio;                                   // scale
+      } else {
+        h = Math.max(40, drag.h + (e.clientY - drag.y));      // crop
       }
+      img.style.width = (w / maxW * 100).toFixed(2) + '%';
+      img.style.height = '';
+      img.style.aspectRatio = `${Math.round(w)} / ${Math.round(h)}`;
+      img.style.objectFit = 'cover';
       positionHandle();
     };
     const onUp = () => {
-      if (resizing) {
-        resizing = false;
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-      }
+      if (!drag) return;
+      drag = null;
+      positionHandle();
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
     };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    handle.addEventListener('pointerdown', onDown);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    editor.addEventListener('scroll', positionHandle);
+    window.addEventListener('resize', positionHandle);
     handle._cleanup = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      editor.removeEventListener('scroll', positionHandle);
+      window.removeEventListener('resize', positionHandle);
+      hint.remove();
     };
   },
 
