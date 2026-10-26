@@ -603,10 +603,6 @@ const Editor = {
           <label>Category (optional)</label>
           <select id="art-tab"></select>
         </div>
-        <div class="field">
-          <label>Sub-category (optional)</label>
-          <select id="art-subtab"><option value="">— None —</option></select>
-        </div>
         <div class="field-row">
           <div class="field">
             <label>Visibility</label>
@@ -680,25 +676,16 @@ const Editor = {
       const tabs = await Store.list('newsTabs');
       const tabSelect = $('#art-tab');
       const sectionSelect = $('#art-section');
-      // Only offer categories that belong to the chosen section (or to both).
+      // Only offer categories that belong to the chosen section.
       const refreshTabs = () => {
         const sec = sectionSelect.value;
         const keep = tabSelect.value || a.tab;
-        const fits = tabs.filter(t => !t.section || !sec || t.section === sec);
+        const fits = tabs.filter(t => !sec || t.section === sec);
         tabSelect.innerHTML = '<option value="">— None —</option>' +
           fits.map(t => `<option value="${t.id}" ${keep === t.id ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
       };
       refreshTabs();
-      sectionSelect.onchange = () => { refreshTabs(); refreshSubtabs(); };
-      const refreshSubtabs = () => {
-        const subSelect = $('#art-subtab');
-        const tab = tabs.find(t => t.id === tabSelect.value);
-        const subs = tab && tab.subtabs ? tab.subtabs : [];
-        subSelect.innerHTML = '<option value="">— None —</option>' +
-          subs.map(s => `<option value="${escapeHtml(s)}" ${a.subtab === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
-      };
-      tabSelect.onchange = refreshSubtabs;
-      refreshSubtabs();
+      sectionSelect.onchange = refreshTabs;
 
       // Cover image: aspect + fit picker
       const previewEl = $('#cover-preview');
@@ -805,7 +792,7 @@ const Editor = {
     item.authorEmail = item.authorEmail || Auth.current().email;
     item.section = $('#art-section').value;
     item.tab = $('#art-tab').value;
-    item.subtab = $('#art-subtab').value;
+    item.subtab = '';
     item.visibility = $('#art-visibility').value;
     item.lang = $('#art-lang').value;
     item.coverImage = state.coverImage || null;
@@ -1473,16 +1460,16 @@ const Editor = {
 
   /* Tabs ─────────────────────────────── */
   manageTabs() {
-    const sectionOptions = (cur) => `<option value="" ${!cur ? 'selected' : ''}>Both</option>` +
+    const sectionOptions = (cur) =>
       NEWS_SECTIONS.map(x => `<option value="${x.id}" ${cur === x.id ? 'selected' : ''}>${x.label}</option>`).join('');
     Store.list('newsTabs').then(tabs => {
       Modal.open({
         title: 'Manage News Categories',
         body: `
-          <div class="field-hint" style="margin-bottom: 1rem;">Categories sit inside Internal or External News (or both). Each can have sub-categories (e.g. "Sports" → "Football", "Motorsport").</div>
+          <div class="field-hint" style="margin-bottom: 1rem;">Each category sits inside Internal or External News (e.g. Internal News → Construction, External News → Sports).</div>
           <div id="tab-list">
             ${tabs.map(t => `
-              <div class="field" style="display: grid; grid-template-columns: 1fr 0.8fr 1fr auto; gap: 0.5rem; align-items: end;" data-tab-id="${t.id}">
+              <div class="field" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: end;" data-tab-id="${t.id}">
                 <div>
                   <label>Label</label>
                   <input type="text" value="${escapeHtml(t.label)}" data-tab-label />
@@ -1491,18 +1478,13 @@ const Editor = {
                   <label>Section</label>
                   <select data-tab-section>${sectionOptions(t.section)}</select>
                 </div>
-                <div>
-                  <label>Sub-tabs (comma separated)</label>
-                  <input type="text" value="${escapeHtml((t.subtabs || []).join(', '))}" data-tab-subs />
-                </div>
                 <button class="btn-ghost" onclick="Editor.removeTab('${t.id}')" style="padding: 0.7rem;">×</button>
               </div>
             `).join('')}
           </div>
-          <div class="field" style="display: grid; grid-template-columns: 1fr 0.8fr 1fr auto; gap: 0.5rem; align-items: end; padding-top: 1rem; border-top: 1px dashed var(--rule);">
+          <div class="field" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: end; padding-top: 1rem; border-top: 1px dashed var(--rule);">
             <div><label>New label</label><input type="text" id="new-tab-label" placeholder="e.g. Sports" /></div>
             <div><label>Section</label><select id="new-tab-section">${sectionOptions('')}</select></div>
-            <div><label>Sub-tabs</label><input type="text" id="new-tab-subs" placeholder="e.g. Football, Motorsport" /></div>
             <button class="btn-add" onclick="Editor.addTab()">+ Add</button>
           </div>
         `,
@@ -1516,11 +1498,9 @@ const Editor = {
 
   async addTab() {
     const label = $('#new-tab-label').value.trim();
-    const subsRaw = $('#new-tab-subs').value.trim();
     if (!label) { toast('Label required', 'error'); return; }
-    const subs = subsRaw ? subsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
     const section = $('#new-tab-section').value;
-    await Store.save('newsTabs', { label, section, subtabs: subs });
+    await Store.save('newsTabs', { label, section, subtabs: [] });
     Editor.manageTabs();
     Pages.news.render();
     toast('Category added', 'success');
@@ -1538,13 +1518,11 @@ const Editor = {
     for (const row of rows) {
       const id = row.dataset.tabId;
       const label = row.querySelector('[data-tab-label]').value.trim();
-      const subsRaw = row.querySelector('[data-tab-subs]').value.trim();
-      const subs = subsRaw ? subsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
       const t = await Store.get('newsTabs', id);
       if (t) {
         t.label = label;
         t.section = row.querySelector('[data-tab-section]').value;
-        t.subtabs = subs;
+        t.subtabs = [];
         await Store.save('newsTabs', t);
       }
     }
@@ -1617,7 +1595,7 @@ const sectionLabel = (id) => NEWS_SECTIONS.find(x => x.id === id)?.label || '';
 
 /* Kicker line on cards and article pages: "Internal News · Sports · Football". */
 function articleKicker(a, { fiwaLabel = 'FIWA' } = {}) {
-  const parts = [sectionLabel(a.section), a.tabLabel, a.subtab].filter(Boolean);
+  const parts = [sectionLabel(a.section), a.tabLabel].filter(Boolean);
   if (a.visibility === 'fiwa') parts.push(fiwaLabel);
   return parts.join(' · ') || 'News';
 }
@@ -2475,15 +2453,14 @@ Pages.home = {
 
 /* ── NEWS ────────────────────────────────────────────────────────────── */
 Pages.news = {
-  state: { activeSection: 'all', activeTab: 'all', activeSubtab: null, lang: 'en', search: '' },
+  state: { activeSection: 'all', activeTab: 'all', lang: 'en', search: '' },
 
   async render() {
     const isEditing = Editor.active;
     const sec = this.state.activeSection;
-    const tabs = (await Store.list('newsTabs')).filter(t => sec === 'all' || !t.section || t.section === sec);
+    const tabs = (await Store.list('newsTabs')).filter(t => sec === 'all' || t.section === sec);
     if (this.state.activeTab !== 'all' && !tabs.some(t => t.id === this.state.activeTab)) {
       this.state.activeTab = 'all';
-      this.state.activeSubtab = null;
     }
 
     // Section switch: Internal / External News
@@ -2504,26 +2481,10 @@ Pages.news = {
       ${isEditing ? `<button class="filter-pill" style="border-style: dashed; color: var(--gold);" onclick="Editor.manageTabs()">+ Manage tabs</button>` : ''}
     `;
 
-    // Sub-tabs
-    const subs = $('#news-subtabs');
-    const activeTab = tabs.find(t => t.id === this.state.activeTab);
-    if (activeTab && activeTab.subtabs && activeTab.subtabs.length) {
-      subs.style.display = 'flex';
-      subs.innerHTML = `
-        <button class="subtab-pill ${!this.state.activeSubtab ? 'active' : ''}" onclick="Pages.news.setSubtab(null)">All</button>
-        ${activeTab.subtabs.map((s, i) => `
-          <button class="subtab-pill ${this.state.activeSubtab === s ? 'active' : ''}" onclick="Pages.news.setSubtabByIndex(${i})">${escapeHtml(s)}</button>
-        `).join('')}
-      `;
-    } else {
-      subs.style.display = 'none';
-    }
-
     // Articles
     let articles = await listVisibleArticles();
     if (sec !== 'all') articles = articles.filter(a => a.section === sec);
     if (this.state.activeTab !== 'all') articles = articles.filter(a => a.tab === this.state.activeTab);
-    if (this.state.activeSubtab) articles = articles.filter(a => a.subtab === this.state.activeSubtab);
     articles = articles.filter(a => (a.lang || 'en') === this.state.lang);
     if (this.state.search) {
       const q = this.state.search.toLowerCase();
@@ -2562,16 +2523,7 @@ Pages.news = {
   },
 
   setSection(id) { this.state.activeSection = id; this.render(); },
-  setTab(id) { this.state.activeTab = id; this.state.activeSubtab = null; this.render(); },
-  setSubtab(s) { this.state.activeSubtab = s; this.render(); },
-  async setSubtabByIndex(i) {
-    const tabs = await Store.list('newsTabs');
-    const tab = tabs.find(t => t.id === this.state.activeTab);
-    if (tab && tab.subtabs && tab.subtabs[i] != null) {
-      this.state.activeSubtab = tab.subtabs[i];
-      this.render();
-    }
-  },
+  setTab(id) { this.state.activeTab = id; this.render(); },
   setLang(lang) {
     this.state.lang = lang;
     $$('.lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
@@ -3408,7 +3360,7 @@ Pages.about = {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -3457,8 +3409,15 @@ const rosterTribunee = (p) => {
 };
 const rosterAllowlist = () => ROSTER.filter(p => p.email).map(p => ({ email: p.email, admin: p.admin }));
 
-const DEFAULT_NEWS_TABS = ['Indonesia', 'World', 'Technology/Science', 'Sports'];
-// Default categories that only make sense outside FIWA. The rest show under both.
+// Default categories, each inside one section (decided by Ammar, Oct 2026).
+const DEFAULT_NEWS_TABS = [
+  { label: 'Construction', section: 'internal' },
+  { label: 'Science & Technology', section: 'external' },
+  { label: 'World', section: 'external' },
+  { label: 'Indonesia', section: 'external' },
+  { label: 'Sports', section: 'external' },
+];
+// Used by the v6 migration: the categories that were External News then.
 const EXTERNAL_NEWS_TABS = ['Indonesia', 'World'];
 
 async function migrateLegacyData() {
@@ -3590,8 +3549,8 @@ async function migrateLegacyData() {
 
     // News categories: seed the four defaults once, only if there are none.
     if ((await Store.list('newsTabs')).length === 0) {
-      for (const label of DEFAULT_NEWS_TABS) {
-        await Store.save('newsTabs', { label, section: EXTERNAL_NEWS_TABS.includes(label) ? 'external' : '', subtabs: [] });
+      for (const { label, section } of DEFAULT_NEWS_TABS) {
+        await Store.save('newsTabs', { label, section, subtabs: [] });
       }
     }
   }
@@ -3631,6 +3590,32 @@ async function migrateLegacyData() {
       if (a.section) continue;
       const label = tabs.find(t => t.id === a.tab)?.label;
       a.section = EXTERNAL_NEWS_TABS.includes(label) ? 'external' : 'internal';
+      await Store.save('articles', a);
+    }
+  }
+
+  // ─── v6 → v7 migration (two tiers only, Oct 2026) ─────────────────────
+  // Sections → categories; sub-categories are gone. Every category now sits
+  // in exactly one section: "Technology/Science" becomes "Science &
+  // Technology", the old defaults and any "both" category go to External
+  // News, and Construction is added under Internal News. An article keeps
+  // its section; it loses a category that now belongs to the other section.
+  if (current < 7) {
+    const tabs = await Store.list('newsTabs');
+    for (const t of tabs) {
+      if (t.label === 'Technology/Science') t.label = 'Science & Technology';
+      if (t.section !== 'internal') t.section = 'external';
+      t.subtabs = [];
+      await Store.save('newsTabs', t);
+    }
+    if (tabs.length && !tabs.some(t => t.label === 'Construction')) {
+      tabs.push(await Store.save('newsTabs', { label: 'Construction', section: 'internal', subtabs: [] }));
+    }
+    for (const a of await Store.list('articles')) {
+      const tab = tabs.find(t => t && t.id === a.tab);
+      if (!a.subtab && (!a.tab || (tab && tab.section === a.section))) continue;
+      a.subtab = '';
+      if (a.tab && (!tab || tab.section !== a.section)) a.tab = '';
       await Store.save('articles', a);
     }
   }
@@ -3698,35 +3683,34 @@ async function seedDemoArticles() {
   }
 }
 
-// Second demo step (Oct 2026): example sub-categories and the rest of the
-// Edition 5 stories, so every category and sub-category has an article.
-// Runs once per browser, even if it already has articles; skips any story
-// that is already there.
+// Second demo step (Oct 2026): the rest of Edition 5, so every category has
+// an article. It also files all the demo stories under the current
+// categories (they changed in v7). Runs once per browser per version
+// (fitrah:demoPlaceholders), even if the browser already has articles.
 async function seedDemoPlaceholders() {
-  const subtabs = window.FITR_DEMO_SUBTABS;
   const items = window.FITR_DEMO_PLACEHOLDERS;
-  if (!subtabs || !Array.isArray(items) || localStorage.getItem('fitrah:demoPlaceholders')) return;
-  localStorage.setItem('fitrah:demoPlaceholders', '1');
+  const first = window.FITR_DEMO_ARTICLES;
+  if (!Array.isArray(items) || localStorage.getItem('fitrah:demoPlaceholders') === '2') return;
+  localStorage.setItem('fitrah:demoPlaceholders', '2');
 
   const tabs = await Store.list('newsTabs');
-  for (const t of tabs) {
-    if (subtabs[t.label] && !(t.subtabs || []).length) {
-      t.subtabs = subtabs[t.label];
-      await Store.save('newsTabs', t);
-    }
+  const tabFor = (label) => tabs.find(t => t.label === label)?.id || '';
+  const existing = await Store.list('articles');
+  for (const { id, tabLabel } of Array.isArray(first) ? first : []) {
+    const a = existing.find(x => x.id === id);
+    if (a) { a.tab = tabFor(tabLabel); a.subtab = ''; await Store.save('articles', a); }
   }
-  const existing = new Set((await Store.list('articles')).map(a => a.id));
   const published = Date.UTC(2026, 9, 21, 1, 0);   // 21 Oct 2026, 08:00 WIB
-  for (const [i, { tabLabel, subtab = '', ...article }] of items.entries()) {
-    if (existing.has(article.id)) continue;
-    const tab = tabs.find(t => t.label === tabLabel);
+  for (const [i, { tabLabel, ...article }] of items.entries()) {
+    const old = existing.find(x => x.id === article.id);
+    if (old) { old.tab = tabFor(tabLabel); old.subtab = ''; await Store.save('articles', old); continue; }
     await Store.save('articles', {
       coverAspect: 16 / 9,
       coverFit: 'crop',
       ...article,
       edition: 5,
-      tab: tab?.id || '',
-      subtab: tab && (tab.subtabs || []).includes(subtab) ? subtab : '',
+      tab: tabFor(tabLabel),
+      subtab: '',
       visibility: 'public',
       lang: 'en',
       createdAt: published - (10 + i) * 60000,

@@ -13,6 +13,7 @@
 window.FITR_DEMO_ARTICLES = [
   {
     id: 'demo-ed5-building-h',
+    tabLabel: 'Construction',
     featured: 0,
     section: 'internal',
     edition: 5,
@@ -48,6 +49,7 @@ window.FITR_DEMO_ARTICLES = [
   },
   {
     id: 'demo-ed5-water-treatment-plant',
+    tabLabel: 'Construction',
     featured: 1,
     section: 'internal',
     edition: 5,
@@ -72,6 +74,7 @@ window.FITR_DEMO_ARTICLES = [
   },
   {
     id: 'demo-ed5-transformer',
+    tabLabel: 'Construction',
     featured: 2,
     section: 'internal',
     edition: 5,
@@ -129,22 +132,13 @@ window.FITR_DEMO_ARTICLES = [
 ];
 
 /* =====================================================================
-   MORE EDITION 5 STORIES — so every category and sub-category has one
+   MORE EDITION 5 STORIES — so every category has at least one
    ─────────────────────────────────────────────────────────────────────
    The rest of Edition 5, copied from the printed paper. Where the PDF's
    columns made the text hard to recover, the story stops with a note
-   pointing to the paper. FITR_DEMO_SUBTABS are example sub-categories:
-   seedDemoPlaceholders adds them only to a category that has none.
-   Sports has no Edition 5 story outside Motorsport.
+   pointing to the paper. tabLabel files a story under a category.
    Delete with the rest of this file before launch.
    ===================================================================== */
-
-window.FITR_DEMO_SUBTABS = {
-  'Indonesia': ['Environment'],
-  'World': ['Middle East'],
-  'Technology/Science': ['Space', 'Energy'],
-  'Sports': ['Motorsport']
-};
 
 const ED5_MORE = '<p><i>[Placeholder: the full story is in Edition 5.]</i></p>';
 
@@ -165,6 +159,7 @@ window.FITR_DEMO_PLACEHOLDERS = [
   },
   {
     id: 'demo-ed5-b1-rooms',
+    tabLabel: 'Construction',
     section: 'internal',
     title: 'Ooooh.. new rooms in B1?',
     deck: 'The old laundry rooms in B1 are now dorm rooms for G12, and they are different.',
@@ -185,7 +180,6 @@ window.FITR_DEMO_PLACEHOLDERS = [
   },
   {
     id: 'demo-ed5-robotics-lab',
-    tabLabel: 'Technology/Science',
     section: 'internal',
     title: 'Robotics Lab Opened?',
     deck: 'The Robotics Lab is finally open after 2 months of waiting.',
@@ -217,7 +211,6 @@ window.FITR_DEMO_PLACEHOLDERS = [
   {
     id: 'demo-ed5-houthis',
     tabLabel: 'World',
-    subtab: 'Middle East',
     section: 'external',
     title: 'Surge on Riyadh: The Houthis Strike Once More',
     deck: 'Houthis’ Attacks on Saudi Arabia',
@@ -259,7 +252,6 @@ ${ED5_MORE}
   {
     id: 'demo-ed5-el-nino',
     tabLabel: 'Indonesia',
-    subtab: 'Environment',
     section: 'external',
     title: 'Earth on Its Highest Boiling Point: The Super El Niño',
     deck: 'This year\'s El Niño is on track to be the strongest since records began in 1950, and its effects are already reaching Indonesia.',
@@ -276,8 +268,7 @@ ${ED5_MORE}
   },
   {
     id: 'demo-ed5-ammonia',
-    tabLabel: 'Technology/Science',
-    subtab: 'Energy',
+    tabLabel: 'Science & Technology',
     section: 'external',
     title: 'Turning Ammonia Into Hydrogen',
     deck: 'SO SCIENTISTS FOUND OUT THAT WE CAN TRANSFORM TOXIC AMMONIA INTO USEFUL HYDROGEN OMG.',
@@ -293,8 +284,7 @@ ${ED5_MORE}
   },
   {
     id: 'demo-ed5-orionids',
-    tabLabel: 'Technology/Science',
-    subtab: 'Space',
+    tabLabel: 'Science & Technology',
     section: 'external',
     title: 'Meteor showers at the end of October; A Magnificent sight on a Majestic Night.',
     deck: 'The Orionids peak before subuh on the 21st–22nd of October, and World Space Week explained.',
@@ -317,7 +307,6 @@ ${ED5_MORE}
   {
     id: 'demo-ed5-f1',
     tabLabel: 'Sports',
-    subtab: 'Motorsport',
     section: 'external',
     title: 'Triple-Header, All Asia, Extreme climates? Must be an experience.',
     deck: 'Baku, Sepang and Singapore: three races in a row.',

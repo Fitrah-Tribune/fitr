@@ -24,7 +24,6 @@ const html = `
       <input type="search" class="news-search" placeholder="Search articles…" oninput="Pages.news.search(this.value)" />
     </div>
   </div>
-  <div class="subtab-bar" id="news-subtabs"><!-- rendered --></div>
   <div id="news-grid"><!-- rendered --></div>
 </section>
 `

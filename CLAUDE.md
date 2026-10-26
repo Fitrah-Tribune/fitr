@@ -90,8 +90,11 @@ Note the one mismatch: URL `/feedback` → engine key `corrections`.
 Every article belongs to one of two **permanent sections**: Internal News
 (inside FIWA) or External News (everything outside FIWA). They sit above
 categories, are fixed in code (`NEWS_SECTIONS` in the engine), and are
-required. Categories and sub-categories are optional and can belong to one
-section or both. The website is the Tribune's main outlet, not a mirror of
+required. There are only two tiers: section, then category. Each category
+belongs to exactly one section, and an article's category is optional.
+There are no sub-categories (removed Oct 2026). Defaults: Internal News →
+Construction; External News → Science & Technology, World, Indonesia,
+Sports. Editors add more in "Manage categories". The website is the Tribune's main outlet, not a mirror of
 the printed editions, so don't describe articles as "from the latest
 edition" (decided by Ammar, Oct 2026).
 
