@@ -3666,6 +3666,7 @@ async function seedIfEmpty() {
   }
 
   await seedDemoArticles();
+  await seedDemoPlaceholders();
 }
 
 /* Placeholder articles from Edition 5 (public/fitr-demo-articles.js), so the
@@ -3694,6 +3695,42 @@ async function seedDemoArticles() {
     if (featured !== undefined) {
       await Store.save('featured', { articleId: article.id, order: featured });
     }
+  }
+}
+
+// Second demo step (Oct 2026): example sub-categories and the rest of the
+// Edition 5 stories, so every category and sub-category has an article.
+// Runs once per browser, even if it already has articles; skips any story
+// that is already there.
+async function seedDemoPlaceholders() {
+  const subtabs = window.FITR_DEMO_SUBTABS;
+  const items = window.FITR_DEMO_PLACEHOLDERS;
+  if (!subtabs || !Array.isArray(items) || localStorage.getItem('fitrah:demoPlaceholders')) return;
+  localStorage.setItem('fitrah:demoPlaceholders', '1');
+
+  const tabs = await Store.list('newsTabs');
+  for (const t of tabs) {
+    if (subtabs[t.label] && !(t.subtabs || []).length) {
+      t.subtabs = subtabs[t.label];
+      await Store.save('newsTabs', t);
+    }
+  }
+  const existing = new Set((await Store.list('articles')).map(a => a.id));
+  const published = Date.UTC(2026, 9, 21, 1, 0);   // 21 Oct 2026, 08:00 WIB
+  for (const [i, { tabLabel, subtab = '', ...article }] of items.entries()) {
+    if (existing.has(article.id)) continue;
+    const tab = tabs.find(t => t.label === tabLabel);
+    await Store.save('articles', {
+      coverAspect: 16 / 9,
+      coverFit: 'crop',
+      ...article,
+      edition: 5,
+      tab: tab?.id || '',
+      subtab: tab && (tab.subtabs || []).includes(subtab) ? subtab : '',
+      visibility: 'public',
+      lang: 'en',
+      createdAt: published - (10 + i) * 60000,
+    });
   }
 }
 
