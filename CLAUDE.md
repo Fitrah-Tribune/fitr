@@ -82,6 +82,7 @@ fitr/
 | `/about`, `/about/standards`, `/about/tribunees` | `about` | `About.jsx` |
 | `/article/:id` | `article` | `Article.jsx` |
 | `/tribunee/:id` | `tribunee` | `Tribunee.jsx` |
+| `/write`, `/write/:id` | `write` | `Write.jsx` (the Writer's desk; Tribunees only) |
 
 Note the one mismatch: URL `/feedback` → engine key `corrections`.
 

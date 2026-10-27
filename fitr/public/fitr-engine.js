@@ -308,10 +308,6 @@ const Modal = {
   close() {
     // Tear down any active rich editor BEFORE removing modal DOM, otherwise
     // the document-level click listeners pile up across modal opens.
-    if (Editor._articleState && Editor._articleState.bodyEditor && Editor._articleState.bodyEditor.destroy) {
-      try { Editor._articleState.bodyEditor.destroy(); } catch (e) {}
-      Editor._articleState.bodyEditor = null;
-    }
     if (Editor._tribuneeState && Editor._tribuneeState.bioEditor && Editor._tribuneeState.bioEditor.destroy) {
       try { Editor._tribuneeState.bioEditor.destroy(); } catch (e) {}
       Editor._tribuneeState.bioEditor = null;
@@ -344,7 +340,8 @@ const ROUTE_PATHS = {
   corrections: '/feedback',
   about:       '/about',
   article:     '/article',
-  tribunee:    '/tribunee'
+  tribunee:    '/tribunee',
+  write:       '/write'
 };
 
 const Router = {
@@ -534,7 +531,24 @@ const Editor = {
     if (a) this.newArticle(a);
   },
 
+  // Articles are written on the Writer's desk, a page of its own
+  // (/write and /write/:id). See Pages.write and mountDesk below.
   newArticle(existing = null) {
+    Router.go(existing && existing.id ? `write/${existing.id}` : 'write');
+  },
+
+  _teardownDesk() {
+    const s = Editor._articleState;
+    if (s && s.bodyEditor && s.bodyEditor.destroy) {
+      try { s.bodyEditor.destroy(); } catch (e) {}
+    }
+    Editor._articleState = null;
+  },
+
+  /* Builds the Writer's desk into `root`. The page column shows the story in
+     the reader's own fonts; settings sit in the side panel. Field ids
+     (#art-*) are what saveArticle reads. */
+  async mountDesk(root, existing = null) {
     const a = existing || {};
     const isEditing = !!(existing && a.id);
     const articleState = {
@@ -543,247 +557,317 @@ const Editor = {
       coverFit: a.coverFit === 'letterbox' ? 'letterbox' : 'crop',
       bodyEditor: null
     };
+    Editor._articleState = articleState;
 
-    Modal.open({
-      title: isEditing ? 'Edit article' : 'New article',
-      wide: true,
-      body: `
-        ${!isEditing ? `
-          <div class="pdf-import-row">
-            <div class="pdf-icon">PDF</div>
-            <div class="pdf-text">
-              <strong>Import from PDF</strong> — text gets dropped into the editor; images go at the bottom for you to place.
-            </div>
-            <button id="pdf-import-btn">Choose PDF</button>
-          </div>
-        ` : ''}
+    const tribunees = (await Store.list('tribunees')).slice().sort((x, y) => (x.name || '').localeCompare(y.name || ''));
+    const writers = (a.author || Auth.current().name || '').split(/\s*(?:&|,|\band\b)\s*/).filter(Boolean);
+    const emptyCover = 'Click to add a cover photo (optional)';
 
-        <div class="field">
-          <label>Cover image (optional)</label>
-          <div class="afp-picker" id="art-afp">
-            <div class="afp-row">
-              <label>Aspect</label>
-              <div class="afp-pills">
-                <button type="button" data-w="16" data-h="9">16:9</button>
-                <button type="button" data-w="4" data-h="3">4:3</button>
-                <button type="button" data-w="3" data-h="2">3:2</button>
-                <button type="button" data-w="1" data-h="1">1:1</button>
-                <button type="button" data-custom="1">Custom</button>
-              </div>
-              <div class="afp-custom-row" style="display:none">
-                <input type="number" class="afp-w" min="0.1" step="any" value="16" />
-                <span>:</span>
-                <input type="number" class="afp-h" min="0.1" step="any" value="9" />
-              </div>
-            </div>
-            <div class="afp-row afp-fit">
-              <label>Fit</label>
-              <div class="afp-pills">
-                <button type="button" data-fit="crop">Crop</button>
-                <button type="button" data-fit="letterbox">Letterbox</button>
-              </div>
-            </div>
-            <div class="afp-hint">Crop trims the source to fit; letterbox preserves every pixel and fills the slack with cream so nothing is lost.</div>
-          </div>
-          <div class="cover-preview afp-preview" id="cover-preview" style="aspect-ratio: ${articleState.coverAspect};">
-            ${articleState.coverImage
-              ? `<img src="${articleState.coverImage}" alt="" /><button type="button" class="cover-clear" id="cover-clear">×</button>`
-              : 'Click to upload cover image'}
-          </div>
-          <input type="text" id="art-cover-caption" value="${escapeHtml(a.coverCaption || '')}" placeholder="Caption: what the photo shows, and who took it (optional)" style="margin-top: 0.6rem;" />
+    root.innerHTML = `
+      <div class="desk">
+        <div class="desk-bar">
+          <a class="desk-back" onclick="Router.go(${isEditing ? `'article/${a.id}'` : `'news'`})">← Back</a>
+          <span class="desk-name">Writer’s desk</span>
+          <span class="desk-status">${isEditing ? 'Editing a published article' : 'New article'}</span>
+          <span class="desk-actions">
+            ${isEditing ? `<button class="btn-ghost desk-delete" onclick="Editor.deleteArticle('${a.id}')">Delete</button>` : ''}
+            <button class="btn-gold" onclick="Editor.saveArticle(${isEditing ? `'${a.id}'` : 'null'})">${isEditing ? 'Save changes' : 'Publish'}</button>
+          </span>
         </div>
+        <div class="desk-main">
+          <div class="desk-page">
+            <div class="desk-kicker" id="desk-kicker"></div>
+            <textarea id="art-title" class="desk-headline" rows="1" placeholder="Headline">${escapeHtml(a.title || '')}</textarea>
+            <textarea id="art-deck" class="desk-deck" rows="1" placeholder="Deck: one line that sums up the story">${escapeHtml(a.deck || '')}</textarea>
+            <div class="desk-byline" id="desk-byline"></div>
+            <div class="cover-preview afp-preview desk-cover" id="cover-preview" style="aspect-ratio: ${articleState.coverAspect};">
+              ${articleState.coverImage
+                ? `<img src="${articleState.coverImage}" alt="" /><button type="button" class="cover-clear" id="cover-clear">×</button>`
+                : emptyCover}
+            </div>
+            <input type="text" id="art-cover-caption" class="desk-caption" value="${escapeHtml(a.coverCaption || '')}" placeholder="Caption: what the photo shows, and who took it" />
+            <div id="art-body-editor" class="desk-body"></div>
+          </div>
 
-        <div class="field">
-          <label>Section</label>
-          <select id="art-section">
-            <option value="">— Select section —</option>
-            ${NEWS_SECTIONS.map(x => `<option value="${x.id}" ${a.section === x.id ? 'selected' : ''}>${x.label}: ${x.hint}</option>`).join('')}
-          </select>
+          <aside class="desk-panel">
+            <h2>Article settings</h2>
+            <div class="field">
+              <label>Section</label>
+              <div class="desk-seg" id="desk-section">
+                ${NEWS_SECTIONS.map(x => `<button type="button" data-sec="${x.id}" class="${a.section === x.id ? 'active' : ''}">${x.label}</button>`).join('')}
+              </div>
+              <select id="art-section" hidden>
+                <option value=""></option>
+                ${NEWS_SECTIONS.map(x => `<option value="${x.id}" ${a.section === x.id ? 'selected' : ''}>${x.label}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field">
+              <label>Category (optional)</label>
+              <select id="art-tab"></select>
+            </div>
+            <div class="field">
+              <label>Writers</label>
+              <div class="desk-chips" id="desk-writers"></div>
+              <select id="desk-add-writer">
+                <option value="">+ Add a Tribunee</option>
+                ${tribunees.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('')}
+              </select>
+              <input type="text" id="desk-other-writer" placeholder="Or type another name and press Enter" />
+              <input type="hidden" id="art-author" />
+              <div class="field-hint">Tribunees’ names link to their profiles on the article.</div>
+            </div>
+            <div class="field">
+              <label>Cover photo</label>
+              <div class="afp-picker" id="art-afp">
+                <div class="afp-row">
+                  <label>Aspect</label>
+                  <div class="afp-pills">
+                    <button type="button" data-w="16" data-h="9">16:9</button>
+                    <button type="button" data-w="4" data-h="3">4:3</button>
+                    <button type="button" data-w="3" data-h="2">3:2</button>
+                    <button type="button" data-w="1" data-h="1">1:1</button>
+                    <button type="button" data-custom="1">Custom</button>
+                  </div>
+                  <div class="afp-custom-row" style="display:none">
+                    <input type="number" class="afp-w" min="0.1" step="any" value="16" />
+                    <span>:</span>
+                    <input type="number" class="afp-h" min="0.1" step="any" value="9" />
+                  </div>
+                </div>
+                <div class="afp-row afp-fit">
+                  <label>Fit</label>
+                  <div class="afp-pills">
+                    <button type="button" data-fit="crop">Crop</button>
+                    <button type="button" data-fit="letterbox">Letterbox</button>
+                  </div>
+                </div>
+                <div class="afp-hint">Pick these before uploading. Click the picture area on the page to upload.</div>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Visibility</label>
+                <select id="art-visibility">
+                  <option value="public" ${a.visibility !== 'fiwa' ? 'selected' : ''}>Public</option>
+                  <option value="fiwa" ${a.visibility === 'fiwa' ? 'selected' : ''}>FIWA only</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Language</label>
+                <select id="art-lang">
+                  <option value="en" ${(a.lang || 'en') === 'en' ? 'selected' : ''}>English</option>
+                  <option value="id" ${a.lang === 'id' ? 'selected' : ''}>Indonesian</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Also in print? Edition number</label>
+              <input type="number" id="art-edition" value="${a.edition || ''}" placeholder="Leave empty for web-only" min="1" />
+              <div class="field-hint">Adds “In print · Edition N” to the byline.</div>
+            </div>
+            ${!isEditing ? `
+              <div class="pdf-import-row">
+                <div class="pdf-icon">PDF</div>
+                <div class="pdf-text"><strong>Import from PDF</strong>: text goes into the page; images go at the bottom for you to place.</div>
+                <button id="pdf-import-btn">Choose PDF</button>
+              </div>
+            ` : `
+              <div class="field" style="background: var(--paper-deep); padding: 0.9rem 1rem; border-left: 3px solid var(--gold);">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                  <input type="checkbox" id="art-log-correction" style="width: auto;" />
+                  <span style="text-transform: none; letter-spacing: 0; font-family: var(--ui); font-size: 0.9rem; color: var(--ink);">Log this edit as a public correction</span>
+                </label>
+                <div class="field-hint" style="margin-top: 0.4rem;">If checked, this change appears on the Corrections page (article itself stays clean).</div>
+                <input type="text" id="art-correction-note" placeholder="What was corrected? (e.g. 'Misspelled name', 'Wrong date')" style="margin-top: 0.6rem; display: none;" />
+              </div>
+            `}
+            <div class="desk-count" id="desk-count"></div>
+          </aside>
         </div>
-        <div class="field">
-          <label>Category (optional)</label>
-          <select id="art-tab"></select>
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label>Visibility</label>
-            <select id="art-visibility">
-              <option value="public" ${a.visibility !== 'fiwa' ? 'selected' : ''}>Public — visible to everyone</option>
-              <option value="fiwa" ${a.visibility === 'fiwa' ? 'selected' : ''}>FIWA only — hidden from non-FIWA</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Language</label>
-            <select id="art-lang">
-              <option value="en" ${(a.lang || 'en') === 'en' ? 'selected' : ''}>English</option>
-              <option value="id" ${a.lang === 'id' ? 'selected' : ''}>Indonesian</option>
-            </select>
-          </div>
-        </div>
-        <div class="field">
-          <label>Title</label>
-          <input type="text" id="art-title" value="${escapeHtml(a.title || '')}" placeholder="Article headline" />
-        </div>
-        <div class="field">
-          <label>Deck (subtitle / one-line summary)</label>
-          <input type="text" id="art-deck" value="${escapeHtml(a.deck || '')}" placeholder="A brief summary shown under the title" />
-        </div>
-        <div class="field">
-          <label>Body</label>
-          <div id="art-body-editor"></div>
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label>Author (byline)</label>
-            <input type="text" id="art-author" value="${escapeHtml(a.author || Auth.current().name)}" />
-          </div>
-          <div class="field">
-            <label>Edition number (optional)</label>
-            <input type="number" id="art-edition" value="${a.edition || ''}" placeholder="e.g. 2" />
-          </div>
-        </div>
-        ${isEditing ? `
-          <div class="field" style="background: var(--paper-deep); padding: 0.9rem 1rem; border-left: 3px solid var(--gold);">
-            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-              <input type="checkbox" id="art-log-correction" style="width: auto;" />
-              <span style="text-transform: none; letter-spacing: 0; font-family: var(--ui); font-size: 0.9rem; color: var(--ink);">Log this edit as a public correction</span>
-            </label>
-            <div class="field-hint" style="margin-top: 0.4rem;">If checked, this change appears on the Corrections page (article itself stays clean).</div>
-            <input type="text" id="art-correction-note" placeholder="What was corrected? (e.g. 'Misspelled name', 'Wrong date')" style="margin-top: 0.6rem; display: none;" />
-          </div>
-        ` : ''}
-      `,
-      foot: `
-        ${isEditing ? `<button class="btn-ghost" style="margin-right: auto; color: #c0392b;" onclick="Editor.deleteArticle('${a.id}')">Delete</button>` : ''}
-        <button class="btn-ghost" onclick="Modal.close()">Cancel</button>
-        <button class="btn-navy" onclick="Editor.saveArticle(${a.id ? `'${a.id}'` : 'null'})">${isEditing ? 'Save changes' : 'Publish'}</button>
-      `
+      </div>
+    `;
+
+    // Headline and deck grow with their text; Enter doesn't add a line.
+    root.querySelectorAll('.desk-headline, .desk-deck').forEach(t => {
+      const fit = () => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; };
+      t.addEventListener('input', fit);
+      t.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+      requestAnimationFrame(fit);
     });
 
-    // Make modal fullscreen-ish for the rich editor
-    $('#modal-shell').classList.add('fullscreen');
-
-    // Wire everything up after DOM exists
-    setTimeout(async () => {
-      // Mount rich editor
-      const mount = RichEditor.mount($('#art-body-editor'), {
-        initial: a.body || '',
-        placeholder: 'Write your article here. Use the toolbar above to format text, add headings, lists, quotes, and images…',
-        allowImages: true
-      });
-      articleState.bodyEditor = mount;
-
-      // Wire tab dropdown
-      const tabs = await Store.list('newsTabs');
-      const tabSelect = $('#art-tab');
-      const sectionSelect = $('#art-section');
-      // Only offer categories that belong to the chosen section.
-      const refreshTabs = () => {
-        const sec = sectionSelect.value;
-        const keep = tabSelect.value || a.tab;
-        const fits = tabs.filter(t => !sec || t.section === sec);
-        tabSelect.innerHTML = '<option value="">— None —</option>' +
-          fits.map(t => `<option value="${t.id}" ${keep === t.id ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
+    // Section buttons drive the hidden select the save code reads.
+    $('#desk-section').querySelectorAll('button').forEach(b => {
+      b.onclick = () => {
+        $('#desk-section').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+        $('#art-section').value = b.dataset.sec;
+        $('#art-section').onchange?.();
       };
-      refreshTabs();
-      sectionSelect.onchange = refreshTabs;
+    });
 
-      // Cover image: aspect + fit picker
-      const previewEl = $('#cover-preview');
-      const pickerEl = $('#art-afp');
-      wireAspectFitPicker(pickerEl, previewEl, articleState, 'coverAspect', 'coverFit');
+    // Writers: chips, kept in sync with the hidden byline field.
+    const drawWriters = () => {
+      $('#art-author').value = writers.join(' & ');
+      $('#desk-writers').innerHTML = writers.map((n, i) => `
+        <span class="desk-chip"><span class="ar-avatar sm">${escapeHtml(initials(n))}</span>${escapeHtml(n)}
+          <button type="button" data-i="${i}" title="Remove">×</button></span>`).join('');
+      $('#desk-writers').querySelectorAll('button').forEach(b => {
+        b.onclick = () => { writers.splice(+b.dataset.i, 1); drawWriters(); };
+      });
+      drawByline();
+    };
+    const addWriter = (n) => { n = (n || '').trim(); if (n && !writers.includes(n)) writers.push(n); drawWriters(); };
+    $('#desk-add-writer').onchange = (e) => { addWriter(e.target.value); e.target.value = ''; };
+    $('#desk-other-writer').onkeydown = (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault(); addWriter(e.target.value); e.target.value = '';
+    };
 
-      // Cover image: click preview to upload
-      previewEl.onclick = async (e) => {
-        if (e.target.id === 'cover-clear') return; // handled below
+    // Live kicker, byline and word count, as the reader will see them.
+    const countWords = () => {
+      const ed = articleState.bodyEditor && articleState.bodyEditor.editor;
+      return ed ? ed.textContent.replace(/\u200B/g, '').split(/\s+/).filter(Boolean).length : 0;
+    };
+    const drawByline = () => {
+      const words = countWords();
+      const mins = Math.max(1, Math.round(words / 200));
+      $('#desk-byline').innerHTML = `
+        <span class="ar-avatars">${writers.map(n => `<span class="ar-avatar">${escapeHtml(initials(n))}</span>`).join('')}</span>
+        <span>By <b>${writers.map(escapeHtml).join(' &amp; ') || '…'}</b> <span class="ar-date">· ${mins} min read</span></span>`;
+      $('#desk-count').textContent = `${words} word${words === 1 ? '' : 's'} · ${mins} min read`;
+    };
+    const tabsAll = await Store.list('newsTabs');
+    const drawKicker = () => {
+      const tabLabel = tabsAll.find(t => t.id === $('#art-tab').value)?.label || '';
+      $('#desk-kicker').textContent = articleKicker({ section: $('#art-section').value, tabLabel, visibility: $('#art-visibility').value }, { fiwaLabel: 'FIWA-only' });
+    };
+    const coverPreview = $('#cover-preview');
+    const syncCaption = () => { $('#art-cover-caption').style.display = articleState.coverImage ? '' : 'none'; };
+    new MutationObserver(syncCaption).observe(coverPreview, { childList: true });
+    syncCaption();
+
+    // Mount rich editor
+    const mount = RichEditor.mount($('#art-body-editor'), {
+      initial: a.body || '',
+      placeholder: 'Write your article here. Use the toolbar above to format text, add headings, lists, quotes, and images…',
+      allowImages: true
+    });
+    articleState.bodyEditor = mount;
+
+    // Wire tab dropdown
+    const tabs = await Store.list('newsTabs');
+    const tabSelect = $('#art-tab');
+    const sectionSelect = $('#art-section');
+    // Only offer categories that belong to the chosen section.
+    const refreshTabs = () => {
+      const sec = sectionSelect.value;
+      const keep = tabSelect.value || a.tab;
+      const fits = tabs.filter(t => !sec || t.section === sec);
+      tabSelect.innerHTML = '<option value="">— None —</option>' +
+        fits.map(t => `<option value="${t.id}" ${keep === t.id ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
+    };
+    refreshTabs();
+    sectionSelect.onchange = () => { refreshTabs(); drawKicker(); };
+    tabSelect.onchange = drawKicker;
+    $('#art-visibility').onchange = drawKicker;
+
+    // Cover image: aspect + fit picker
+    const previewEl = $('#cover-preview');
+    const pickerEl = $('#art-afp');
+    wireAspectFitPicker(pickerEl, previewEl, articleState, 'coverAspect', 'coverFit');
+
+    // Cover image: click preview to upload
+    previewEl.onclick = async (e) => {
+      if (e.target.id === 'cover-clear') return; // handled below
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async (ev) => {
+        const file = ev.target.files[0];
+        if (!file) return;
+        try {
+          const cropped = await compressImageWithFit(
+            file, articleState.coverFit, articleState.coverAspect, 1600, 0.85
+          );
+          articleState.coverImage = cropped;
+          previewEl.innerHTML = `<img src="${cropped}" alt="" /><button type="button" class="cover-clear" id="cover-clear">×</button>`;
+          // Re-bind clear button
+          $('#cover-clear').onclick = (e2) => {
+            e2.stopPropagation();
+            articleState.coverImage = null;
+            previewEl.innerHTML = emptyCover;
+          };
+        } catch (err) {
+          toast('Cover image upload failed: ' + err.message, 'error');
+        }
+      };
+      input.click();
+    };
+    // Bind clear if image already there
+    const existingClear = $('#cover-clear');
+    if (existingClear) {
+      existingClear.onclick = (e2) => {
+        e2.stopPropagation();
+        articleState.coverImage = null;
+        previewEl.innerHTML = emptyCover;
+      };
+    }
+
+    // PDF import button
+    const pdfBtn = $('#pdf-import-btn');
+    if (pdfBtn) {
+      pdfBtn.onclick = async () => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'image/*';
+        input.accept = 'application/pdf,.pdf';
         input.onchange = async (ev) => {
           const file = ev.target.files[0];
           if (!file) return;
+          pdfBtn.disabled = true;
+          pdfBtn.textContent = 'Importing…';
           try {
-            const cropped = await compressImageWithFit(
-              file, articleState.coverFit, articleState.coverAspect, 1600, 0.85
-            );
-            articleState.coverImage = cropped;
-            previewEl.innerHTML = `<img src="${cropped}" alt="" /><button type="button" class="cover-clear" id="cover-clear">×</button>`;
-            // Re-bind clear button
-            $('#cover-clear').onclick = (e2) => {
-              e2.stopPropagation();
-              articleState.coverImage = null;
-              previewEl.innerHTML = 'Click to upload cover image';
-            };
+            const result = await importFromPDF(file);
+            if (!result) { pdfBtn.disabled = false; pdfBtn.textContent = 'Choose PDF'; return; }
+
+            // Inject text as paragraphs into editor
+            const editor = articleState.bodyEditor.editor;
+            const textHTML = result.text.split(/\n\n+/)
+              .filter(p => p.trim())
+              .map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+              .join('');
+
+            // Append images at the bottom with a visible header
+            const imagesHTML = result.images.length
+              ? `<hr><p><em>— Images extracted from the PDF (drag/move them into place):</em></p>` +
+                result.images.map(src => `<img class="rte-image" src="${src}" alt="" />`).join('')
+              : '';
+
+            editor.innerHTML = (textHTML || '<p><br></p>') + imagesHTML;
+            toast(`Imported ${result.text.split(/\s+/).length} words${result.images.length ? ' + ' + result.images.length + ' images' : ''}`, 'success');
           } catch (err) {
-            toast('Cover image upload failed: ' + err.message, 'error');
+            console.error(err);
+            toast('PDF import failed: ' + (err.message || 'unknown error'), 'error');
           }
+          pdfBtn.disabled = false;
+          pdfBtn.textContent = 'Choose PDF';
         };
         input.click();
       };
-      // Bind clear if image already there
-      const existingClear = $('#cover-clear');
-      if (existingClear) {
-        existingClear.onclick = (e2) => {
-          e2.stopPropagation();
-          articleState.coverImage = null;
-          previewEl.innerHTML = 'Click to upload cover image';
-        };
-      }
+    }
 
-      // PDF import button
-      const pdfBtn = $('#pdf-import-btn');
-      if (pdfBtn) {
-        pdfBtn.onclick = async () => {
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = 'application/pdf,.pdf';
-          input.onchange = async (ev) => {
-            const file = ev.target.files[0];
-            if (!file) return;
-            pdfBtn.disabled = true;
-            pdfBtn.textContent = 'Importing…';
-            try {
-              const result = await importFromPDF(file);
-              if (!result) { pdfBtn.disabled = false; pdfBtn.textContent = 'Choose PDF'; return; }
+    // Correction checkbox
+    const cb = $('#art-log-correction');
+    if (cb) cb.onchange = () => {
+      $('#art-correction-note').style.display = cb.checked ? 'block' : 'none';
+    };
 
-              // Inject text as paragraphs into editor
-              const editor = articleState.bodyEditor.editor;
-              const textHTML = result.text.split(/\n\n+/)
-                .filter(p => p.trim())
-                .map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
-                .join('');
-
-              // Append images at the bottom with a visible header
-              const imagesHTML = result.images.length
-                ? `<hr><p><em>— Images extracted from the PDF (drag/move them into place):</em></p>` +
-                  result.images.map(src => `<img class="rte-image" src="${src}" alt="" />`).join('')
-                : '';
-
-              editor.innerHTML = (textHTML || '<p><br></p>') + imagesHTML;
-              toast(`Imported ${result.text.split(/\s+/).length} words${result.images.length ? ' + ' + result.images.length + ' images' : ''}`, 'success');
-            } catch (err) {
-              console.error(err);
-              toast('PDF import failed: ' + (err.message || 'unknown error'), 'error');
-            }
-            pdfBtn.disabled = false;
-            pdfBtn.textContent = 'Choose PDF';
-          };
-          input.click();
-        };
-      }
-
-      // Correction checkbox
-      const cb = $('#art-log-correction');
-      if (cb) cb.onchange = () => {
-        $('#art-correction-note').style.display = cb.checked ? 'block' : 'none';
-      };
-    }, 50);
-
-    // Stash state on the editor for saveArticle to retrieve
-    Editor._articleState = articleState;
+    mount.editor.addEventListener('input', drawByline);
+    drawWriters();
+    drawKicker();
   },
 
   async saveArticle(id) {
+    // Only Tribunees publish. (Later: writers' stories wait for an Editor.)
+    if (!(await Auth.isTribunee())) { toast('Only Tribunees can publish articles', 'error'); return; }
     const state = Editor._articleState || {};
     const item = id ? (await Store.get('articles', id)) || {} : {};
     item.title = $('#art-title').value.trim();
@@ -822,33 +906,22 @@ const Editor = {
       });
     }
 
-    $('#modal-shell').classList.remove('fullscreen');
-    Modal.close();
-    Editor._articleState = null;
-
-    // If currently viewing the article being saved, re-render it
-    if (Router.current === 'article' && Router.params.id === saved.id) {
-      Pages.article.render(Router.params);
-    } else {
-      Pages[Router.current]?.render?.(Router.params);
-    }
+    Editor._teardownDesk();
+    Router.go(`article/${saved.id}`);
     toast(id ? 'Article updated' : 'Article published', 'success');
   },
 
   async deleteArticle(id) {
+    if (!(await Auth.isTribunee())) return;
     if (!confirm('Delete this article? This cannot be undone.')) return;
     await Store.remove('articles', id);
-    $('#modal-shell').classList.remove('fullscreen');
-    Modal.close();
-    if (Router.current === 'article') {
-      Router.go('news');
-    } else {
-      Pages[Router.current]?.render?.(Router.params);
-    }
+    Editor._teardownDesk();
+    Router.go('news');
     toast('Article deleted');
   },
 
   async deleteArticleAndReturn(id) {
+    if (!(await Auth.isTribunee())) return;
     if (!confirm('Delete this article? This cannot be undone.')) return;
     await Store.remove('articles', id);
     Router.go('news');
@@ -2710,6 +2783,25 @@ Pages.article = {
         ` : ''}
       </div>
     `;
+  }
+};
+
+/* ── WRITER'S DESK (/write, /write/:id) ──────────────────────────────── */
+Pages.write = {
+  async render(params) {
+    const root = $('#write-content');
+    Editor._teardownDesk();
+    if (!(await Auth.isTribunee())) {
+      root.innerHTML = `<div class="empty-state">${Icons.empty}<h3>The Writer’s desk is for Tribunees</h3><p>Sign in with your FIWA email to write for the Tribune.</p></div>`;
+      return;
+    }
+    const id = params && params.id;
+    const a = id ? await Store.get('articles', id) : null;
+    if (id && !a) {
+      root.innerHTML = `<div class="empty-state">${Icons.empty}<h3>Article not found</h3><p>It may have been removed.</p></div>`;
+      return;
+    }
+    await Editor.mountDesk(root, a);
   }
 };
 
