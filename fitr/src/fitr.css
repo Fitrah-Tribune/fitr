@@ -771,6 +771,74 @@ body.editing .user-name { color: var(--navy-deep); }
   gap: 2rem 1.6rem;
 }
 
+/* List / Grid switch */
+.news-tools { display: flex; gap: 0.7rem; align-items: center; margin-left: auto; }
+.view-toggle { display: inline-flex; border: 1px solid var(--rule); background: var(--paper-lift); }
+.view-toggle button {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-family: var(--ui); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  background: transparent; border: none; color: var(--ink-soft);
+  padding: 0 0.8rem; min-height: 36px; cursor: pointer;
+}
+.view-toggle button svg { width: 15px; height: 15px; }
+.view-toggle button:hover { color: var(--navy); }
+.view-toggle button.active { background: var(--navy); color: var(--paper-lift); }
+
+/* Stories beside a Browse column (desktop); pills take over on smaller screens. */
+.news-layout { display: flex; gap: 3rem; align-items: flex-start; }
+.news-layout > #news-grid { flex: 1 1 0; min-width: 0; }
+.news-browse { flex: 0 0 240px; border-left: 1px solid var(--rule); padding-left: 1.6rem; font-family: var(--ui); }
+.browse-head {
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-muted); margin: 1.2rem 0 0.3rem;
+}
+.browse-head:first-child { margin-top: 0; }
+.browse-link {
+  display: flex; justify-content: space-between; align-items: center;
+  min-height: 34px; padding-left: 0.75rem; border-left: 2px solid transparent;
+  font-size: 0.94rem; color: var(--ink); cursor: pointer;
+}
+.browse-link:hover { color: var(--navy); }
+.browse-link.active { color: var(--navy); font-weight: 600; border-left-color: var(--gold); }
+.browse-n { font-size: 0.76rem; font-weight: 400; color: var(--ink-muted); }
+.browse-manage {
+  margin-top: 1rem; font-family: var(--ui); font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
+  background: none; border: 1px dashed var(--gold); color: var(--gold); padding: 0.45rem 0.8rem; cursor: pointer;
+}
+.browse-note { font-family: var(--article); font-style: italic; font-size: 0.95rem; line-height: 1.45; color: var(--ink-muted); margin-top: 1.4rem; }
+.browse-note a { color: var(--navy); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+@media (min-width: 901px) { #page-news .filter-pills { display: none; } }
+@media (max-width: 900px) { .news-browse { display: none; } }
+#news-grid .news-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* List view: one story per row, photo on the right when there is one. */
+.news-day {
+  display: flex; align-items: baseline; gap: 0.8rem;
+  border-bottom: 1px solid var(--navy); padding-bottom: 0.5rem; margin-top: 1.8rem;
+  font-family: var(--ui);
+}
+.news-day:first-child { margin-top: 0; }
+.news-day h2 { font-size: 0.74rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--navy); margin: 0; }
+.news-day span { font-size: 0.74rem; color: var(--ink-muted); }
+.news-row {
+  display: flex; gap: 1.5rem; padding: 1.25rem 0; border-bottom: 1px solid var(--rule); cursor: pointer;
+}
+.news-row-text { flex: 1; min-width: 0; }
+.news-row .story-cat { color: #8a6420; font-weight: 600; margin-bottom: 0.35rem; }
+.news-row .story-title { font-size: 1.32rem; line-height: 1.3; margin-bottom: 0.35rem; }
+.news-row:hover .story-title { color: var(--navy); }
+.news-row .story-deck { margin-bottom: 0.5rem; font-size: 1.06rem; }
+.news-row-img { width: 200px; aspect-ratio: 3 / 2; object-fit: cover; flex: none; display: block; }
+@media (max-width: 640px) {
+  .news-row { gap: 0.9rem; padding: 0.9rem 0; }
+  .news-row .story-title { font-size: 1.02rem; }
+  .news-row .story-deck { display: none; }
+  .news-row-img { width: 92px; aspect-ratio: 1 / 1; }
+  .news-tools { width: 100%; }
+  .news-tools .news-search { flex: 1; width: auto; min-width: 0; }
+  .view-toggle button span { display: none; }
+}
+
 /* ============ ARCHIVE PAGE ============ */
 .archive-intro {
   background: var(--paper-lift);

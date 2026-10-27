@@ -394,6 +394,8 @@ const Icons = {
   forum:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
   pencil:  `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   about:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L8 8v6l4 8 4-8V8l-4-6z"/><circle cx="12" cy="10" r="1.5" fill="currentColor"/></svg>`,
+  view_list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><rect x="3" y="5" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="11" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="17" width="2.5" height="2.5" fill="currentColor" stroke="none"/></svg>`,
+  view_grid: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="6.5" height="6.5"/><rect x="13.5" y="4" width="6.5" height="6.5"/><rect x="4" y="13.5" width="6.5" height="6.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5"/></svg>`,
   empty:   `<svg class="es-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M32 8L24 24v18l8 16 8-16V24L32 8z"/><circle cx="32" cy="28" r="3" fill="currentColor"/><circle cx="14" cy="20" r="1" fill="currentColor"/><circle cx="50" cy="22" r="1" fill="currentColor"/><circle cx="48" cy="40" r="1" fill="currentColor"/></svg>`
 };
 
@@ -3140,6 +3142,30 @@ Pages.news = {
     if (searchBox && document.activeElement !== searchBox) searchBox.value = this.state.search;
     articles.sort((a, b) => b.createdAt - a.createdAt);
 
+    // List or grid: each reader's choice, kept in this browser.
+    const view = this.view();
+    $('#news-view').innerHTML = [['list', 'List'], ['grid', 'Grid']].map(([v, label]) => `
+      <button type="button" class="${view === v ? 'active' : ''}" aria-pressed="${view === v}" onclick="Pages.news.setView('${v}')">${Icons['view_' + v]}<span>${label}</span></button>
+    `).join('');
+
+    // Browse: every category with how many stories it has.
+    const visible = await listVisibleArticles();
+    const count = (fn) => visible.filter(fn).length;
+    const browseLink = (label, n, active, onclick) => `
+      <a class="browse-link ${active ? 'active' : ''}" onclick="${onclick}"><span>${escapeHtml(label)}</span><span class="browse-n">${n}</span></a>`;
+    $('#news-browse').innerHTML = `
+      <div class="browse-head">Browse</div>
+      ${browseLink('Everything', visible.length, sec === 'all' && this.state.activeTab === 'all', "Pages.news.browse('all','all')")}
+      ${NEWS_SECTIONS.map(x => `
+        <div class="browse-head">${x.label}</div>
+        ${browseLink('All ' + x.label, count(a => a.section === x.id), sec === x.id && this.state.activeTab === 'all', `Pages.news.browse('${x.id}','all')`)}
+        ${allTabs.filter(t => t.section === x.id).map(t =>
+          browseLink(t.label, count(a => a.section === x.id && a.tab === t.id), sec === x.id && this.state.activeTab === t.id, `Pages.news.browse('${x.id}','${t.id}')`)).join('')}
+      `).join('')}
+      ${isEditing ? `<button class="browse-manage" onclick="Editor.manageTabs()">+ Manage categories</button>` : ''}
+      <p class="browse-note">Looking for a printed paper? The <a onclick="Router.go('archive')">Editions</a> page has every PDF.</p>
+    `;
+
     const grid = $('#news-grid');
     if (articles.length === 0) {
       grid.innerHTML = `
@@ -3152,6 +3178,30 @@ Pages.news = {
             : 'Tribunees are working on it. Check back soon.'}</p>
         </div>
       `;
+    } else if (view === 'list') {
+      // Newest first, grouped by the day they were published.
+      const plain = document.createElement('div');
+      const mins = (a) => { plain.innerHTML = renderArticleBody(a.body); return Math.max(1, Math.round(plain.textContent.split(/\s+/).filter(Boolean).length / 200)); };
+      const days = [];
+      articles.forEach(a => {
+        const d = formatDate(a.createdAt);
+        if (!days.length || days[days.length - 1].d !== d) days.push({ d, items: [] });
+        days[days.length - 1].items.push(a);
+      });
+      grid.innerHTML = days.map(({ d, items }) => `
+        <div class="news-day"><h2>${escapeHtml(d)}</h2><span>${items.length} ${items.length === 1 ? 'story' : 'stories'}</span></div>
+        ${items.map(a => `
+          <article class="news-row" onclick="Pages.news.openArticle('${a.id}')">
+            <div class="news-row-text">
+              <div class="story-cat">${escapeHtml(articleKicker(a))}</div>
+              <h3 class="story-title">${escapeHtml(a.title)}</h3>
+              ${a.deck ? `<p class="story-deck">${escapeHtml(a.deck)}</p>` : ''}
+              <div class="story-meta">By <span class="author">${escapeHtml(a.author)}</span> · ${mins(a)} min read</div>
+            </div>
+            ${a.coverImage ? `<img class="news-row-img" src="${a.coverImage}" alt="" />` : ''}
+          </article>
+        `).join('')}
+      `).join('');
     } else {
       const newsCoverStyle = (a) => {
         const ar = parseAspect(a.coverAspect, 16/9);
@@ -3170,6 +3220,16 @@ Pages.news = {
   },
 
   setSection(id) { this.state.activeSection = id; this.render(); },
+  browse(sec, tab) { this.state.activeSection = sec; this.state.activeTab = tab; this.render(); },
+  view() {
+    let v = null;
+    try { v = localStorage.getItem('fitrah:newsView'); } catch (e) {}
+    return v === 'grid' ? 'grid' : 'list';
+  },
+  setView(v) {
+    try { localStorage.setItem('fitrah:newsView', v); } catch (e) {}
+    this.render();
+  },
   setTab(id) { this.state.activeTab = id; this.render(); },
   search(q) {
     this.state.search = q.trim();

@@ -16,11 +16,15 @@ const html = `
   <div class="section-tabs" id="news-sections"><!-- rendered --></div>
   <div class="news-toolbar">
     <div class="filter-pills" id="news-tabs"><!-- rendered --></div>
-    <div style="display: flex; gap: 0.7rem; align-items: center;">
+    <div class="news-tools">
+      <div class="view-toggle" id="news-view"><!-- rendered --></div>
       <input type="search" class="news-search" placeholder="Search articles…" oninput="Pages.news.search(this.value)" />
     </div>
   </div>
-  <div id="news-grid"><!-- rendered --></div>
+  <div class="news-layout">
+    <div id="news-grid"><!-- rendered --></div>
+    <aside class="news-browse" id="news-browse"><!-- rendered --></aside>
+  </div>
 </section>
 `
 
