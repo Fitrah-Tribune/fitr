@@ -2973,7 +2973,7 @@ Pages.home = {
 
 /* ── NEWS ────────────────────────────────────────────────────────────── */
 Pages.news = {
-  state: { activeSection: 'all', activeTab: 'all', lang: 'en', search: '' },
+  state: { activeSection: 'all', activeTab: 'all', search: '' },
 
   async render() {
     const isEditing = Editor.active;
@@ -3014,7 +3014,7 @@ Pages.news = {
       const ids = sec === 'all' ? allTabs.filter(t => t.label === label).map(t => t.id) : [this.state.activeTab];
       articles = articles.filter(a => ids.includes(a.tab));
     }
-    articles = articles.filter(a => (a.lang || 'en') === this.state.lang);
+    // No EN/ID toggle for now (Ammar, Oct 2026): every language shows.
     if (this.state.search) {
       // Search the words people read, not the HTML around them.
       const q = this.state.search.toLowerCase();
@@ -3029,7 +3029,6 @@ Pages.news = {
     }
     // The page's HTML is rebuilt each visit, but the filters are kept,
     // so show the language and search the list is actually using.
-    $$('.lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === this.state.lang));
     const searchBox = $('.news-search');
     if (searchBox && document.activeElement !== searchBox) searchBox.value = this.state.search;
     articles.sort((a, b) => b.createdAt - a.createdAt);
@@ -3040,7 +3039,6 @@ Pages.news = {
         <div class="empty-state">
           ${Icons.empty}
           <h3>${this.state.search ? `Nothing matches “${escapeHtml(this.state.search)}”`
-            : this.state.lang === 'id' && !(await listVisibleArticles(a => (a.lang || 'en') === 'id')).length ? 'No stories in Bahasa Indonesia yet'
             : 'No stories here yet'}</h3>
           <p>${this.state.search ? 'Try another word, or clear the search to see every story.'
             : isEditing ? 'Click "+ New Article" up top to write the first one.'
@@ -3066,11 +3064,6 @@ Pages.news = {
 
   setSection(id) { this.state.activeSection = id; this.render(); },
   setTab(id) { this.state.activeTab = id; this.render(); },
-  setLang(lang) {
-    this.state.lang = lang;
-    $$('.lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
-    this.render();
-  },
   search(q) {
     this.state.search = q.trim();
     this.render();

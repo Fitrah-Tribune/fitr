@@ -17,10 +17,6 @@ const html = `
   <div class="news-toolbar">
     <div class="filter-pills" id="news-tabs"><!-- rendered --></div>
     <div style="display: flex; gap: 0.7rem; align-items: center;">
-      <div class="lang-toggle">
-        <button class="active" data-lang="en" onclick="Pages.news.setLang('en')">EN</button>
-        <button data-lang="id" onclick="Pages.news.setLang('id')">ID</button>
-      </div>
       <input type="search" class="news-search" placeholder="Search articles…" oninput="Pages.news.search(this.value)" />
     </div>
   </div>
