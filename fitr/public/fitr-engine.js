@@ -2755,7 +2755,7 @@ Pages.article = {
             </div>
           `).join('')}
           <div class="ar-error-box">
-            <p><strong>Spot an error in this story?</strong> Tell the editors privately. If we got it wrong, we fix it and log a public correction.</p>
+            <p><strong>Spot an error in this story?</strong> Send a note to the editors. Only the editorial team sees it. If we got it wrong, we fix it and log a public correction.</p>
             <button class="btn-navy" onclick="Router.go('corrections/submit')">Report an error</button>
           </div>
           ${isEditing ? `
