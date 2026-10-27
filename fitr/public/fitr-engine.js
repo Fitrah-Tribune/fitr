@@ -378,7 +378,7 @@ const Router = {
     if (page === 'about' && id === 'tribunees') go('#tribunees-grid-area');
     if (page === 'corrections' && id === 'submit') {
       go('#fc-submit-block', 'center');
-      setTimeout(() => $('#fc-subject')?.focus(), 520);
+      setTimeout(() => $('#fc-body')?.focus(), 520);
     }
   }
 };
@@ -3324,7 +3324,7 @@ Pages.article = {
           `).join('')}
           <div class="ar-error-box">
             <p><strong>Spot an error in this story?</strong> Send a note to the editors. Only the editorial team sees it. If we got it wrong, we fix it and log a public correction.</p>
-            <button class="btn-navy" onclick="Router.go('corrections/submit')">Report an error</button>
+            <button class="btn-navy" onclick="Pages.corrections.reportError('${a.id}')">Report an error</button>
           </div>
           ${isEditing ? `
             <div class="article-edit-bar">
@@ -3632,31 +3632,47 @@ Pages.forum = {
   }
 };
 
-/* ── CORRECTIONS ─────────────────────────────────────────────────────── */
 /* ── FEEDBACK & CORRECTIONS ───────────────────────────────────────────
    Two things live on this page, and the boundary between them is the
    whole point:
 
-     · CASES     — private. A reader writes to the Tribune. Nobody outside
-                   the Tribune and the submitter ever sees it. Ever.
-     · THE LOG   — public. If a case (or anything else) produces a factual
+     · NOTES     — private. A reader writes to the editors. Nobody outside
+                   the Tribune and the sender ever sees it. Ever.
+     · THE LOG   — public. If a note (or anything else) produces a factual
                    correction, the CORRECTION is published — never the
-                   message that prompted it.
+                   note that prompted it.
+
+   Notes are one-way (decided by Ammar, Oct 2026): no chat between a reader
+   and an editor. Each note gets a fixed status and, at most, one short
+   line signed "Fitrah Tribune Editors", never a person. To add something,
+   the reader sends a new note that mentions the reference.
 
    Permissions:
      Guest      → read the public log. Sign-in prompt.
-     Public+    → submit cases, track + follow up on their own.
-     Tribunee   → all of the above + READ the case inbox.
-     Admin      → all of the above + REPLY and CLOSE/REOPEN.
+     Public+    → send notes, see their own (and only their own).
+     Tribunee   → all of the above + READ every note in the inbox.
+     Admin      → all of the above + SET A STATUS, add the one line, REOPEN.
 
-   Why Tribunees can read but not reply: a reader writing in is addressing
-   the Tribune, not whichever Tribunee happened to open the tab. Writers
-   need to see what's being flagged about their own work; the Tribune needs
-   to answer with one voice. Read wide, reply narrow.
+   The sender decides whether the editors see their name. The site still
+   stores who sent it, so it can show them their own notes.
 
-   A closed case is FROZEN — read-only for everyone, including admins.
-   Reopen it if there's more to say.
+   A note with a final status is FROZEN, admins included, until reopened.
    ─────────────────────────────────────────────────────────────────── */
+
+const NOTE_KINDS = {
+  mistake: 'A mistake in a story',
+  tip:     'A news tip',
+  other:   'Other feedback'
+};
+
+const NOTE_STATUSES = {
+  received:  { label: 'Received',                   cls: 'recv',    final: false, help: 'The editors have your note.' },
+  progress:  { label: 'In progress',                cls: 'prog',    final: false, help: 'The editors are checking it.' },
+  corrected: { label: 'Corrected',                  cls: 'fixed',   final: true,  help: 'We fixed the story and logged it below.' },
+  checked:   { label: 'Checked, no change needed',  cls: 'checked', final: true,  help: 'We looked into it; the story stands.' },
+  passed:    { label: 'Thanks, passed to a writer', cls: 'passed',  final: true,  help: 'For tips: a Tribunee will follow it up.' }
+};
+const NOTE_LINE_MAX = 200;
 
 const Cases = {
   /* Human-readable, quotable reference. Short enough to write on paper. */
@@ -3669,13 +3685,11 @@ const Cases = {
 
   async canSubmit()    { return !Auth.isGuest(); },
   async canViewInbox() { return await Auth.isTribunee(); },
-  async canReply()     { return await Auth.isAdmin(); },
-  async canClose()     { return await Auth.isAdmin(); },
+  async canSetStatus() { return await Auth.isAdmin(); },
 
-  async messagesFor(caseId) {
-    const msgs = await Store.list('casemsgs', m => m.caseId === caseId);
-    return msgs.sort((a, b) => a.createdAt - b.createdAt);
-  },
+  status(c) { return NOTE_STATUSES[c.status] || NOTE_STATUSES.received; },
+  isFinal(c) { return this.status(c).final; },
+  chip(c) { const st = this.status(c); return `<span class="note-st ${st.cls}">${st.label}</span>`; },
 
   async isMine(c) {
     const email = (Auth.current().email || '').toLowerCase();
@@ -3684,6 +3698,9 @@ const Cases = {
 };
 
 Pages.corrections = {
+  state: { kind: 'mistake', articleId: '', inbox: 'open', inboxKind: 'all', selected: null, pick: null },
+  _preset: null,
+
   async render() {
     await this.renderSubmit();
     await this.renderMyCases();
@@ -3691,11 +3708,14 @@ Pages.corrections = {
     await this.renderLog();
   },
 
-  /* ── Entry point used by every "Report a Tip" affordance on the site.
-        Home band, forum sidebar, footer — all land here. ─────────────── */
-  openSubmit() {
+  /* ── Entry points. "Report a Tip" (home, forum, footer) opens the form
+        with "A news tip" picked; an article's error box picks "A mistake"
+        and that story. ─────────────────────────────────────────────── */
+  openSubmit(kind = 'tip', articleId = '') {
+    this._preset = { kind, articleId };
     Router.go('corrections/submit');
   },
+  reportError(articleId) { this.openSubmit('mistake', articleId); },
 
   /* ── SUBMIT ────────────────────────────────────────────────────────── */
   async renderSubmit() {
@@ -3705,55 +3725,92 @@ Pages.corrections = {
       el.innerHTML = `
         <div class="fc-submit locked">
           <div class="compose-locked-msg">
-            <a onclick="SignIn.open()">Sign in</a> to send us a correction. We ask for an account so we can write back to you — not so we can publish your name.
+            <a onclick="SignIn.open()">Sign in</a> to send a note to the editors. We ask for an account so you can follow your note, not so we can publish your name.
           </div>
         </div>
       `;
       return;
     }
+    // A preset from "Report a Tip" or an article; /feedback/submit alone is the footer's tip link.
+    // The URL preset applies once per visit, so picking another kind isn't undone by a re-render.
+    const visit = history.state && history.state.key;
+    let preset = this._preset;
+    if (!preset && Router.params && Router.params.id === 'submit' && visit !== this._presetVisit) preset = { kind: 'tip', articleId: '' };
+    this._preset = null;
+    if (preset) this._presetVisit = visit;
+    if (preset) { this.state.kind = preset.kind; this.state.articleId = preset.articleId || ''; }
+    const articles = (await listVisibleArticles()).sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0));
+    const placeholder = {
+      mistake: 'Tell us what we got wrong and how you know. Links or the page number help us check faster.',
+      tip:     'What’s happening, where, and when? Tell us how you know.',
+      other:   'What would you like the editors to know?'
+    }[this.state.kind];
     el.innerHTML = `
-      <div class="fc-submit">
-        <input type="text" class="fc-subject" id="fc-subject" placeholder="What is this about? (e.g. 'Error in the Edition 3 sports report')" />
-        <textarea class="fc-body" id="fc-body" placeholder="Tell us what we got wrong, and how you know. The more specific you are, the faster we can check it."></textarea>
+      <div class="fc-form">
+        <div class="fc-q">What is it?</div>
+        <div class="fc-kinds">${Object.entries(NOTE_KINDS).map(([k, label]) =>
+          `<button type="button" class="${this.state.kind === k ? 'active' : ''}" onclick="Pages.corrections.setKind('${k}')">${label}</button>`).join('')}</div>
+        <label class="fc-q" for="fc-article">Which story? (optional)</label>
+        <select id="fc-article">
+          <option value="">No particular story</option>
+          ${articles.map(a => `<option value="${a.id}" ${this.state.articleId === a.id ? 'selected' : ''}>${escapeHtml(a.title)}</option>`).join('')}
+        </select>
+        <label class="fc-q" for="fc-body">Your note</label>
+        <textarea class="fc-body" id="fc-body" maxlength="3000" placeholder="${placeholder}"></textarea>
+        <label class="fc-showname">
+          <input type="checkbox" id="fc-showname" />
+          <span><b>Let the editors see my name</b><br>Leave this off and the editors see only the reference. Either way, your name is never published.</span>
+        </label>
         <div class="fc-submit-foot">
-          <span class="fc-submit-note">You'll get a case number to track this.</span>
-          <button class="btn-navy" onclick="Pages.corrections.submitCase()">Send privately</button>
+          <span class="fc-submit-note">You’ll get a reference like <b>FTR-7KQ2</b>. The editors don’t write back in a chat; you’ll see a status on your note.</span>
+          <button class="btn-navy" onclick="Pages.corrections.submitCase()">Send to the editors</button>
         </div>
       </div>
     `;
   },
 
+  setKind(k) {
+    if (!NOTE_KINDS[k]) return;
+    // Keep what's been typed while switching.
+    const body = $('#fc-body')?.value || '';
+    const art = $('#fc-article')?.value || '';
+    const show = $('#fc-showname')?.checked;
+    this.state.kind = k;
+    this.state.articleId = art;
+    this.renderSubmit().then(() => {
+      $('#fc-body').value = body;
+      $('#fc-showname').checked = !!show;
+    });
+  },
+
   async submitCase() {
     if (!(await Cases.canSubmit())) { SignIn.open(); return; }
-    const subject = $('#fc-subject').value.trim();
-    const body    = $('#fc-body').value.trim();
-    if (!subject || !body) { toast('Please fill in both fields', 'error'); return; }
-
+    const body = $('#fc-body').value.trim();
+    if (!body) { toast('Please write your note first', 'error'); return; }
+    const articleId = $('#fc-article').value;
+    const article = articleId ? await Store.get('articles', articleId) : null;
     const rec = await Store.save('cases', {
       ref: Cases.newRef(),
-      subject,
-      status: 'open',
-      submitterName:  Auth.current().name,
-      submitterEmail: Auth.current().email
-    });
-    await Store.save('casemsgs', {
-      caseId: rec.id,
+      kind: NOTE_KINDS[this.state.kind] ? this.state.kind : 'other',
+      articleId: article ? article.id : '',
+      articleTitle: article ? article.title : '',
       body,
-      side: 'reader',
-      author: Auth.current().name,
-      authorEmail: Auth.current().email
+      showName: !!$('#fc-showname').checked,
+      status: 'received',
+      editorNote: '',
+      submitterName:  Auth.current().name,
+      submitterEmail: Auth.current().email,
+      history: [{ at: Date.now(), what: 'Note received' }]
     });
-
-    $('#fc-subject').value = '';
-    $('#fc-body').value = '';
+    this.state.articleId = '';
     await this.render();
-    toast(`Sent — your case is ${rec.ref}`, 'success');
+    toast(`Sent. Your reference is ${rec.ref}`, 'success');
     setTimeout(() => {
-      $('#fc-mycases-block')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      $('#fc-mycases-block')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 300);
   },
 
-  /* ── YOUR CASES (Public+) ──────────────────────────────────────────── */
+  /* ── YOUR NOTES (Public+) ──────────────────────────────────────────── */
   async renderMyCases() {
     const block = $('#fc-mycases-block');
     const el    = $('#fc-mycases-area');
@@ -3765,198 +3822,180 @@ Pages.corrections = {
                     .sort((a, b) => b.createdAt - a.createdAt);
 
     block.style.display = '';
-    $('#fc-mycases-count').textContent = mine.length ? `${mine.length} total` : '';
+    $('#fc-mycases-count').textContent = mine.length ? `${mine.length} sent` : '';
 
     if (mine.length === 0) {
-      el.innerHTML = `<div class="empty-state"><h3>No cases yet</h3><p>When you send us something, it appears here so you can follow it.</p></div>`;
+      el.innerHTML = `<p class="fc-empty">Nothing sent yet. When you send a note, it appears here with its status.</p>`;
       return;
     }
-    el.innerHTML = `<div class="case-list">${
-      (await Promise.all(mine.map(c => this.caseCard(c, 'reader')))).join('')
-    }</div>`;
+    el.innerHTML = mine.map(c => `
+      <article class="note-row">
+        <div class="note-top">
+          <span class="note-ref">${escapeHtml(c.ref)}</span>
+          <span class="note-meta">${NOTE_KINDS[c.kind] || 'Other feedback'} · ${relativeTime(c.createdAt)}</span>
+          ${Cases.chip(c)}
+        </div>
+        ${c.articleTitle || c.subject ? `<h3 class="note-title">${escapeHtml(c.articleTitle || c.subject)}</h3>` : ''}
+        <p class="note-body">“${escapeHtml(c.body || '')}”</p>
+        ${c.editorNote || c.status === 'corrected' ? `
+          <div class="note-reply ${Cases.status(c).cls}">
+            ${escapeHtml(c.editorNote || '')}
+            ${c.status === 'corrected' ? ` <a onclick="document.querySelector('#corrections-list')?.scrollIntoView({behavior:'smooth'})">See the correction →</a>` : ''}
+            <div class="note-sign">— Fitrah Tribune Editors</div>
+          </div>` : ''}
+      </article>
+    `).join('') + `<p class="fc-more">Want to add something? Send a new note and mention its reference, e.g. ${escapeHtml(mine[0].ref)}.</p>`;
   },
 
-  /* ── CASE INBOX (Tribunee read / Admin act) ────────────────────────── */
+  /* ── EDITORS' INBOX (Tribunees read / admins set a status) ─────────── */
   async renderInbox() {
     const block = $('#fc-inbox-block');
     const el    = $('#fc-inbox-area');
     if (!block || !el) return;
 
     if (!(await Cases.canViewInbox())) { block.style.display = 'none'; return; }
-
-    const all  = (await Store.list('cases')).sort((a, b) => {
-      // open first, then newest
-      if (a.status !== b.status) return a.status === 'open' ? -1 : 1;
-      return b.createdAt - a.createdAt;
-    });
-    const open = all.filter(c => c.status === 'open').length;
-
     block.style.display = '';
-    $('#fc-inbox-count').textContent = all.length ? `${open} open · ${all.length} total` : '';
 
-    if (all.length === 0) {
-      el.innerHTML = `<div class="empty-state"><h3>The inbox is empty</h3><p>Reader submissions land here. Nothing has come in yet.</p></div>`;
+    const all = (await Store.list('cases')).sort((a, b) => b.createdAt - a.createdAt);
+    const open = all.filter(c => !Cases.isFinal(c));
+    const st = this.state;
+    let list = st.inbox === 'open' ? open : st.inbox === 'done' ? all.filter(c => Cases.isFinal(c)) : all;
+    if (st.inboxKind !== 'all') list = list.filter(c => (c.kind || 'other') === st.inboxKind);
+    $('#fc-inbox-count').textContent = all.length ? `${open.length} need a status · ${all.length} total` : '';
+
+    const tabs = [['open', 'Needs a status', open.length], ['done', 'Done', all.length - open.length], ['all', 'All', null]];
+    const head = `
+      <div class="inbox-bar">
+        <div class="inbox-tabs">${tabs.map(([k, label, n]) =>
+          `<button class="${st.inbox === k ? 'active' : ''}" onclick="Pages.corrections.inboxTab('${k}')">${label}${n !== null ? ` <span>${n}</span>` : ''}</button>`).join('')}</div>
+        <div class="inbox-kinds">${[['all', 'All kinds'], ['mistake', 'Mistakes'], ['tip', 'Tips'], ['other', 'Other']].map(([k, label]) =>
+          `<button class="${st.inboxKind === k ? 'active' : ''}" onclick="Pages.corrections.inboxKind('${k}')">${label}</button>`).join('')}</div>
+      </div>`;
+
+    if (list.length === 0) {
+      el.innerHTML = head + `<p class="fc-empty">${all.length ? 'Nothing here.' : 'No notes from readers yet.'}</p>`;
       return;
     }
-    el.innerHTML = `<div class="case-list">${
-      (await Promise.all(all.map(c => this.caseCard(c, 'tribune')))).join('')
-    }</div>`;
+    if (!list.some(c => c.id === st.selected)) { st.selected = list[0].id; st.pick = null; }
+    const c = list.find(x => x.id === st.selected);
+    el.innerHTML = head + `
+      <div class="inbox">
+        <div class="inbox-list">${list.map(x => `
+          <button class="inbox-item ${x.id === c.id ? 'active' : ''}" onclick="Pages.corrections.selectNote('${x.id}')">
+            <span class="inbox-item-top"><span class="note-ref">${escapeHtml(x.ref)}</span><span class="note-meta">${relativeTime(x.createdAt)}</span></span>
+            <span class="inbox-item-title">${escapeHtml(x.articleTitle || x.subject || 'No story picked')}</span>
+            <span class="inbox-item-top"><span class="note-meta">${NOTE_KINDS[x.kind] || 'Other feedback'}</span>${Cases.chip(x)}</span>
+          </button>`).join('')}
+        </div>
+        <div class="inbox-detail">${await this.noteDetail(c)}</div>
+      </div>`;
+    this._markRead(c);
   },
 
-  /* ── A single case card. `view` is 'reader' (my cases) or 'tribune'
-        (the inbox). Same data, different affordances. ─────────────────── */
-  async caseCard(c, view) {
-    const msgs      = await Cases.messagesFor(c.id);
-    const isOpen    = c.status === 'open';
-    const canReply  = view === 'tribune' && isOpen && await Cases.canReply();
-    const canFollow = view === 'reader'  && isOpen && await Cases.isMine(c);
-    const canClose  = view === 'tribune' && await Cases.canClose();
-    const domId     = `case-${view}-${c.id}`;
+  async noteDetail(c) {
+    const canSet = await Cases.canSetStatus();
+    const final = Cases.isFinal(c);
+    const pick = this.state.pick || (c.status !== 'received' ? c.status : null);
+    const when = new Date(c.createdAt);
+    const stamp = `${when.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, ${when.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+    const from = c.showName
+      ? `From <b>${escapeHtml(c.submitterName || '')}</b>`
+      : `From <b>Name not shared</b> · the sender chose to stay anonymous`;
 
-    const thread = msgs.map(m => `
-      <div class="case-msg ${m.side === 'tribune' ? 'tribune' : 'reader'}">
-        <div class="msg-meta">${m.side === 'tribune' ? 'Fitrah Tribune' : escapeHtml(m.author)} · ${relativeTime(m.createdAt)}</div>
-        <p>${escapeHtml(m.body)}</p>
-      </div>
-    `).join('');
-
-    let footer = '';
-    if (canReply) {
-      footer = `
-        <div class="case-reply-form">
-          <input type="text" id="reply-${domId}" placeholder="Reply to ${escapeHtml(c.submitterName)}…"
-                 onkeydown="if(event.key==='Enter')Pages.corrections.replyToCase('${c.id}','${view}')" />
-          <button onclick="Pages.corrections.replyToCase('${c.id}','${view}')">Reply</button>
-        </div>
-      `;
-    } else if (canFollow) {
-      footer = `
-        <div class="case-reply-form">
-          <input type="text" id="reply-${domId}" placeholder="Add something to this case…"
-                 onkeydown="if(event.key==='Enter')Pages.corrections.followUp('${c.id}','${view}')" />
-          <button onclick="Pages.corrections.followUp('${c.id}','${view}')">Send</button>
-        </div>
-      `;
-    } else if (!isOpen) {
-      footer = `<div class="case-frozen">This case is closed. The record above is final and can no longer be changed.</div>`;
-    } else if (view === 'tribune') {
-      footer = `<div class="case-frozen">Only admins can reply to cases.</div>`;
+    let action;
+    if (!canSet) {
+      action = `<p class="inbox-locked">Only admins set a status.</p>`;
+    } else if (final) {
+      action = `
+        <p class="inbox-locked">This note is closed. Reopen it to change the status.</p>
+        <div class="inbox-actions"><button class="btn-ghost" onclick="Pages.corrections.reopenCase('${c.id}')">Reopen</button></div>`;
+    } else {
+      action = `
+        <div class="inbox-statuses">${Object.entries(NOTE_STATUSES).filter(([k]) => k !== 'received').map(([k, s]) =>
+          `<button class="${pick === k ? 'active' : ''}" onclick="Pages.corrections.pickStatus('${k}')">${s.label}</button>`).join('')}</div>
+        <label class="fc-q" for="inbox-line">One short line to the reader (optional)</label>
+        <textarea id="inbox-line" maxlength="${NOTE_LINE_MAX}" oninput="document.getElementById('inbox-count').textContent = this.value.length + ' / ${NOTE_LINE_MAX}'">${escapeHtml(c.editorNote || '')}</textarea>
+        <div class="inbox-hint"><span>Signed “Fitrah Tribune Editors”, never your name.</span><span id="inbox-count">${(c.editorNote || '').length} / ${NOTE_LINE_MAX}</span></div>
+        <div class="inbox-actions">
+          <button class="btn-ghost" onclick="Pages.corrections.caseToCorrection('${c.id}')">Log a public correction</button>
+          <button class="btn-navy" onclick="Pages.corrections.setStatus('${c.id}')">Save status</button>
+        </div>`;
     }
-
-    const actions = canClose ? `
-      <div class="case-actions">
-        ${isOpen
-          ? `<button class="primary" onclick="Pages.corrections.closeCase('${c.id}')">Close as resolved</button>`
-          : `<button onclick="Pages.corrections.reopenCase('${c.id}')">Reopen case</button>`}
-        ${isOpen ? `<button onclick="Pages.corrections.caseToCorrection('${c.id}')">Log a public correction</button>` : ''}
-      </div>
-    ` : '';
-
     return `
-      <div class="case-card ${isOpen ? '' : 'resolved'}" id="${domId}">
-        <div class="case-head" onclick="Pages.corrections.toggleCase('${domId}')">
-          <span class="case-ref">${escapeHtml(c.ref)}</span>
-          <div class="case-summary">
-            <h4>${escapeHtml(c.subject)}</h4>
-            <div class="case-meta">
-              ${view === 'tribune'
-                ? `<span>From <span class="author">${escapeHtml(c.submitterName)}</span></span><span>·</span>`
-                : ''}
-              <span>${relativeTime(c.createdAt)}</span>
-              <span>·</span>
-              <span>${msgs.length} message${msgs.length === 1 ? '' : 's'}</span>
-            </div>
-          </div>
-          <span class="case-status ${isOpen ? 'open' : 'resolved'}">${isOpen ? 'Open' : 'Resolved'}</span>
-        </div>
-        <div class="case-thread">
-          ${thread}
-          ${footer}
-          ${actions}
-        </div>
-      </div>
+      <div class="note-top"><span class="note-ref">${escapeHtml(c.ref)}</span><span class="note-meta">${NOTE_KINDS[c.kind] || 'Other feedback'} · ${escapeHtml(c.articleTitle || c.subject || 'No story picked')} · ${stamp}</span>${Cases.chip(c)}</div>
+      <div class="inbox-from">${from}</div>
+      <p class="inbox-body">${escapeHtml(c.body || '')}</p>
+      ${c.editorNote && final ? `<div class="note-reply ${Cases.status(c).cls}">${escapeHtml(c.editorNote)}<div class="note-sign">— Fitrah Tribune Editors</div></div>` : ''}
+      <div class="fc-q inbox-head">Set a status</div>
+      ${action}
+      <div class="fc-q inbox-head">History · editorial team only</div>
+      <ul class="inbox-history">${(c.history || []).map(h =>
+        `<li>${formatDate(h.at)}, ${new Date(h.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} · ${escapeHtml(h.what)}${h.by ? ` by ${escapeHtml(h.by)}` : ''}</li>`).join('')}</ul>
     `;
   },
 
-  toggleCase(domId) {
-    $('#' + domId)?.classList.toggle('expanded');
+  inboxTab(k) { this.state.inbox = k; this.state.selected = null; this.renderInbox(); },
+  inboxKind(k) { this.state.inboxKind = k; this.state.selected = null; this.renderInbox(); },
+  selectNote(id) { this.state.selected = id; this.state.pick = null; this.renderInbox(); },
+  pickStatus(k) {
+    const line = $('#inbox-line')?.value;
+    this.state.pick = k;
+    this.renderInbox().then(() => {
+      if (line === undefined || !$('#inbox-line')) return;
+      $('#inbox-line').value = line;
+      $('#inbox-count').textContent = `${line.length} / ${NOTE_LINE_MAX}`;
+    });
+  },
+
+  /* The team can see who has read a note. Only Tribunees reach here. */
+  async _markRead(c) {
+    if (!(await Cases.canViewInbox())) return;
+    const name = Auth.current().name;
+    c.history = c.history || [];
+    if (c.history.some(h => h.what === 'Read' && h.by === name)) return;
+    c.history.push({ at: Date.now(), what: 'Read', by: name });
+    await Store.save('cases', c);
   },
 
   /* ── Actions ───────────────────────────────────────────────────────── */
 
-  async replyToCase(caseId, view) {
-    if (!(await Cases.canReply())) { toast('Only admins can reply to cases', 'error'); return; }
+  async setStatus(caseId) {
+    if (!(await Cases.canSetStatus())) { toast('Only admins can set a status', 'error'); return; }
     const c = await Store.get('cases', caseId);
     if (!c) return;
-    if (c.status !== 'open') { toast('This case is closed', 'error'); return; }
-
-    const input = $(`#reply-case-${view}-${caseId}`);
-    const body  = input?.value.trim();
-    if (!body) return;
-
-    await Store.save('casemsgs', {
-      caseId, body,
-      side: 'tribune',
-      author: Auth.current().name,
-      authorEmail: Auth.current().email
-    });
-    c.updatedAt = Date.now();
+    if (Cases.isFinal(c)) { toast('This note is closed. Reopen it first.', 'error'); return; }
+    const status = this.state.pick;
+    if (!status || status === 'received' || !NOTE_STATUSES[status]) { toast('Pick a status first', 'error'); return; }
+    const line = ($('#inbox-line')?.value || '').trim().slice(0, NOTE_LINE_MAX);
+    const by = Auth.current().name;
+    c.history = c.history || [];
+    c.status = status;
+    c.history.push({ at: Date.now(), what: `Status set to “${NOTE_STATUSES[status].label}”`, by });
+    if (line !== (c.editorNote || '')) c.history.push({ at: Date.now(), what: line ? 'Line to the reader written' : 'Line to the reader removed', by });
+    c.editorNote = line;
     await Store.save('cases', c);
+    this.state.pick = null;
     await this.render();
-    setTimeout(() => $(`#case-${view}-${caseId}`)?.classList.add('expanded'), 50);
-    toast('Reply sent', 'success');
-  },
-
-  async followUp(caseId, view) {
-    const c = await Store.get('cases', caseId);
-    if (!c) return;
-    if (!(await Cases.isMine(c))) { toast('This is not your case', 'error'); return; }
-    if (c.status !== 'open') { toast('This case is closed', 'error'); return; }
-
-    const input = $(`#reply-case-${view}-${caseId}`);
-    const body  = input?.value.trim();
-    if (!body) return;
-
-    await Store.save('casemsgs', {
-      caseId, body,
-      side: 'reader',
-      author: Auth.current().name,
-      authorEmail: Auth.current().email
-    });
-    c.updatedAt = Date.now();
-    await Store.save('cases', c);
-    await this.render();
-    setTimeout(() => $(`#case-${view}-${caseId}`)?.classList.add('expanded'), 50);
-    toast('Sent', 'success');
-  },
-
-  async closeCase(caseId) {
-    if (!(await Cases.canClose())) { toast('Only admins can close cases', 'error'); return; }
-    const c = await Store.get('cases', caseId);
-    if (!c || c.status !== 'open') return;
-    if (!confirm('Close this case? Once closed it is frozen — neither you nor the reader can add to it. You can reopen it later if needed.')) return;
-    c.status   = 'resolved';
-    c.closedAt = Date.now();
-    c.closedBy = Auth.current().name;
-    await Store.save('cases', c);
-    await this.render();
-    toast(`Case ${c.ref} closed`);
+    toast(`${c.ref}: ${NOTE_STATUSES[status].label}`, 'success');
   },
 
   async reopenCase(caseId) {
-    if (!(await Cases.canClose())) { toast('Only admins can reopen cases', 'error'); return; }
+    if (!(await Cases.canSetStatus())) { toast('Only admins can reopen notes', 'error'); return; }
     const c = await Store.get('cases', caseId);
-    if (!c || c.status === 'open') return;
-    c.status = 'open';
-    c.closedAt = null;
-    c.closedBy = null;
+    if (!c || !Cases.isFinal(c)) return;
+    c.status = 'progress';
+    c.history = c.history || [];
+    c.history.push({ at: Date.now(), what: 'Reopened', by: Auth.current().name });
     await Store.save('cases', c);
+    // Follow the note back to "Needs a status" instead of losing it from the list.
+    if (this.state.inbox === 'done') this.state.inbox = 'open';
+    this.state.selected = c.id;
     await this.render();
-    toast(`Case ${c.ref} reopened`);
+    toast(`${c.ref} reopened`);
   },
 
-  /* Publish a correction that a case surfaced. The correction goes on the
-     public record; the CASE DOES NOT. Nothing from the reader's message is
+  /* Publish a correction that a note surfaced. The correction goes on the
+     public record; the NOTE DOES NOT. Nothing from the reader's note is
      carried over automatically — an admin writes the public note from
      scratch, in the Tribune's own words. That is deliberate. */
   async caseToCorrection(caseId) {
@@ -3967,7 +4006,7 @@ Pages.corrections = {
       title: 'Log a public correction',
       body: `
         <div class="field-hint" style="margin-bottom: 1.1rem;">
-          This publishes a correction to the public record. <strong>Nothing from case ${escapeHtml(c.ref)} is copied across</strong> — not the reader's name, not their words, not the fact that they wrote in. Write the note yourself, in the Tribune's voice.
+          This publishes a correction to the public record. <strong>Nothing from note ${escapeHtml(c.ref)} is copied across</strong> — not the reader's name, not their words, not the fact that they wrote in. Write the note yourself, in the Tribune's voice.
         </div>
         <div class="field">
           <label>Article title</label>
