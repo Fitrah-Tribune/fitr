@@ -3000,7 +3000,7 @@ Pages.news = {
           <span class="pill-edit" onclick="event.stopPropagation(); Editor.manageTabs()">✎</span>
         </button>
       `).join('')}
-      ${isEditing ? `<button class="filter-pill" style="border-style: dashed; color: var(--gold);" onclick="Editor.manageTabs()">+ Manage tabs</button>` : ''}
+      ${isEditing ? `<button class="filter-pill" style="border-style: dashed; color: var(--gold);" onclick="Editor.manageTabs()">+ Manage categories</button>` : ''}
     `;
 
     // Articles
@@ -3013,13 +3013,22 @@ Pages.news = {
     }
     articles = articles.filter(a => (a.lang || 'en') === this.state.lang);
     if (this.state.search) {
+      // Search the words people read, not the HTML around them.
       const q = this.state.search.toLowerCase();
+      const d = document.createElement('div');
+      const bodyText = (html) => { d.innerHTML = html || ''; return d.textContent.toLowerCase(); };
       articles = articles.filter(a =>
         a.title.toLowerCase().includes(q) ||
         (a.deck || '').toLowerCase().includes(q) ||
-        (a.body || '').toLowerCase().includes(q)
+        (a.author || '').toLowerCase().includes(q) ||
+        bodyText(a.body).includes(q)
       );
     }
+    // The page's HTML is rebuilt each visit, but the filters are kept,
+    // so show the language and search the list is actually using.
+    $$('.lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === this.state.lang));
+    const searchBox = $('.news-search');
+    if (searchBox && document.activeElement !== searchBox) searchBox.value = this.state.search;
     articles.sort((a, b) => b.createdAt - a.createdAt);
 
     const grid = $('#news-grid');
@@ -3027,8 +3036,12 @@ Pages.news = {
       grid.innerHTML = `
         <div class="empty-state">
           ${Icons.empty}
-          <h3>${this.state.search ? 'No articles match your search' : 'No articles in this category yet'}</h3>
-          <p>${isEditing ? 'Click "+ New Article" up top to publish the first piece.' : 'Tribunees are still drafting. New stories every fortnight.'}</p>
+          <h3>${this.state.search ? `Nothing matches “${escapeHtml(this.state.search)}”`
+            : this.state.lang === 'id' && !(await listVisibleArticles(a => (a.lang || 'en') === 'id')).length ? 'No stories in Bahasa Indonesia yet'
+            : 'No stories here yet'}</h3>
+          <p>${this.state.search ? 'Try another word, or clear the search to see every story.'
+            : isEditing ? 'Click "+ New Article" up top to write the first one.'
+            : 'Tribunees are working on it. Check back soon.'}</p>
         </div>
       `;
     } else {
