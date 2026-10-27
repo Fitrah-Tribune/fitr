@@ -1438,12 +1438,17 @@ const Editor = {
       bioEditor: null
     };
 
-    // Admins can edit identity fields (name, email, role, grade).
-    // Non-admins editing their own card can only update the photo and bio.
+    // Admins edit everything. A Tribunee editing their own profile changes
+    // only the photo: bios are written by the admins with them (Ammar, Oct
+    // 2026), so they stay short and fit the paper.
     const identityReadOnly = isEditing && !isAdmin ? 'readonly' : '';
     const identityHint = isEditing && !isAdmin
-      ? '<div class="field-hint" style="margin-bottom: 0.8rem; color: var(--ink-muted);">Name, role, and grade are managed by admins. You can update your photo and bio below.</div>'
+      ? '<div class="field-hint" style="margin-bottom: 0.8rem; color: var(--ink-muted);">You can change your photo here. Your name, role, grade and bio are kept by the admins: tell them what you\'d like your bio to say.</div>'
       : '';
+    const latestEdition = Math.max(0, ...(await Store.list('editions')).map(e => Number(e.number) || 0));
+    const editionChoices = Array.from({ length: Math.max(6, latestEdition + 1) }, (_, i) => i + 1);
+    const tEditions = Credits.editions(t);
+    const tStats = t.stats || {};
 
     Modal.open({
       title: isEditing ? `Edit profile — ${t.name}` : 'Add tribunee',
@@ -1493,10 +1498,26 @@ const Editor = {
             <div class="field-hint">Click the portrait to upload a photo. If left empty, a placeholder with initials is used.</div>
           </div>
         </div>
+        ${isAdmin ? `
         <div class="field">
-          <label>Bio (in their own words)</label>
+          <label>Bio</label>
           <div id="tr-bio-editor"></div>
+          <div class="field-hint">Written by the admins with the Tribunee. The first two lines show on the About page.</div>
         </div>
+        <div class="tr-credits">
+          <div class="tr-credits-head">Credits · admins only</div>
+          <div class="field-row">
+            <div class="field"><label>Articles written</label><input type="number" min="0" step="1" id="tr-articles" value="${Number.isFinite(tStats.articles) ? tStats.articles : ''}" placeholder="Counted from this site" /></div>
+            <div class="field"><label>Photos credited</label><input type="number" min="0" step="1" id="tr-photos" value="${Number.isFinite(tStats.photos) ? tStats.photos : ''}" placeholder="0" /></div>
+          </div>
+          <div class="field">
+            <label>Editions worked on</label>
+            <div class="tr-editions">
+              ${editionChoices.map(n => `<label><input type="checkbox" value="${n}" ${tEditions.includes(n) ? 'checked' : ''} /> Ed. ${Credits.roman(n)}</label>`).join('')}
+            </div>
+            <div class="field-hint">Articles: leave empty to count this site's bylines. "Tribunee since" is the first edition ticked.</div>
+          </div>
+        </div>` : ''}
       `,
       foot: `
         ${isEditing && isAdmin ? `<button class="btn-ghost" style="margin-right: auto; color: #c0392b;" onclick="Editor.deleteTribunee('${t.id}')">Remove</button>` : ''}
@@ -1508,13 +1529,14 @@ const Editor = {
     $('#modal-shell').classList.add('fullscreen');
 
     setTimeout(() => {
-      // Mount rich bio editor (no images allowed)
-      const mount = RichEditor.mount($('#tr-bio-editor'), {
-        initial: t.bio || '',
-        placeholder: 'Tell readers about yourself — your interests, what you write about, why you joined Fitrah Tribune…',
-        allowImages: false
-      });
-      tribuneeState.bioEditor = mount;
+      // Rich bio editor, admins only (no images allowed)
+      if ($('#tr-bio-editor')) {
+        tribuneeState.bioEditor = RichEditor.mount($('#tr-bio-editor'), {
+          initial: t.bio || '',
+          placeholder: 'Who they are, what they write about, what they enjoy…',
+          allowImages: false
+        });
+      }
 
       // Wire aspect + fit picker (preview = the photo box itself)
       const picker = $('#tp-photo-picker');
@@ -1601,9 +1623,17 @@ const Editor = {
       t.email = ($('#tr-email').value || '').trim().toLowerCase();
       t.role  = $('#tr-role').value.trim();
       t.grade = $('#tr-grade').value.trim();
+      // Bio and credits are admin-only too; a non-admin save keeps them as they were.
+      if (state.bioEditor) t.bio = state.bioEditor.getHTML();
+      const count = (sel) => {
+        const v = ($(sel)?.value || '').trim();
+        const n = parseInt(v, 10);
+        return v === '' || !(n >= 0) ? null : n;
+      };
+      t.stats = { articles: count('#tr-articles'), photos: count('#tr-photos') };
+      t.editions = $$('.tr-editions input:checked').map(i => Number(i.value));
     }
-
-    t.bio = state.bioEditor ? state.bioEditor.getHTML() : (existing.bio || '');
+    t.bio = t.bio || '';
     t.photo = state.photo || null;
     t.photoAspect = parseAspect(state.photoAspect, 4/5);
     t.photoFit = state.photoFit === 'letterbox' ? 'letterbox' : 'crop';
@@ -3373,6 +3403,33 @@ Pages.write = {
   }
 };
 
+/* ── TRIBUNEE CREDITS ──────────────────────────────────────────────────
+   Articles on this site are matched to a Tribunee by the names in their
+   byline ("A & B" credits both). Print credits the site can't see (total
+   articles, photos, editions worked on) are typed in by admins. */
+const Credits = {
+  norm: (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim(),
+  bylineNames: (a) => (a.author || '').split(/\s*(?:&|,|\band\b)\s*/).filter(Boolean),
+  wrote(t, a) { return this.bylineNames(a).some(n => this.norm(n) === this.norm(t.name)); },
+  // Visible articles by this Tribunee, newest first.
+  async articlesBy(t) {
+    return (await listVisibleArticles(a => this.wrote(t, a)))
+      .sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0));
+  },
+  // The admin-entered total wins; otherwise count what's on the site.
+  articleCount(t, siteCount) {
+    const n = t.stats && t.stats.articles;
+    return Number.isFinite(n) ? n : siteCount;
+  },
+  roman(n) {
+    const map = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+    let out = '';
+    for (const [v, r] of map) while (n >= v) { out += r; n -= v; }
+    return out;
+  },
+  editions: (t) => (Array.isArray(t.editions) ? t.editions : []).slice().sort((a, b) => a - b)
+};
+
 /* ── TRIBUNEE FULL PROFILE PAGE ─────────────────────────────────────── */
 Pages.tribunee = {
   async render(params) {
@@ -3391,24 +3448,57 @@ Pages.tribunee = {
     const canEdit   = isEditing && (await Auth.canEditTribunee(t));
     const photoAspect = parseAspect(t.photoAspect, 4/5);
 
+    // Credits: site articles from bylines; print numbers typed in by admins.
+    const articles = await Credits.articlesBy(t);
+    const articleTotal = Credits.articleCount(t, articles.length);
+    const editions = Credits.editions(t);
+    const photos = (t.stats && t.stats.photos) || 0;
+    const editionRange = !editions.length ? ''
+      : editions.length === 1 ? `Edition ${Credits.roman(editions[0])}`
+      : editions.every((n, i) => i === 0 || n === editions[i - 1] + 1)
+        ? `${Credits.roman(editions[0])} to ${Credits.roman(editions[editions.length - 1])}`
+        : editions.map(Credits.roman).join(', ');
+    const stat = (n, label, sub) => `
+      <div class="tp-stat"><span class="tp-stat-n">${n}</span><span class="tp-stat-label">${label}</span>${sub ? `<span class="tp-stat-sub">${escapeHtml(sub)}</span>` : ''}</div>`;
+    const stats = [
+      articleTotal ? stat(articleTotal, articleTotal === 1 ? 'Article' : 'Articles',
+        Number.isFinite(t.stats && t.stats.articles) ? 'in print and online' : 'on this site') : '',
+      editions.length ? stat(editions.length, editions.length === 1 ? 'Edition' : 'Editions', editionRange) : '',
+      photos ? stat(photos, photos === 1 ? 'Photo' : 'Photos', 'credited') : ''
+    ].join('');
+    const meta = [t.grade, editions.length ? `Tribunee since Edition ${Credits.roman(editions[0])}` : '']
+      .filter(Boolean).map(escapeHtml).join(' · ');
+    const firstName = (t.name || '').split(/\s+/)[0];
+    const SHOWN = 3;
+    const articleRow = (a, i) => `
+      <article class="tp-article${i >= SHOWN ? ' tp-more' : ''}" onclick="Router.go('article/${a.id}')">
+        <div class="story-cat">${escapeHtml(articleKicker(a))}</div>
+        <h3 class="tp-article-title">${escapeHtml(a.title)}</h3>
+        <div class="tp-article-date">${escapeHtml(formatDate(a.createdAt))}</div>
+      </article>`;
+
     root.innerHTML = `
       <div class="tribunee-profile">
         <div class="tp-portrait" style="aspect-ratio: ${photoAspect};">
           ${t.photo ? `<img src="${t.photo}" alt="${escapeHtml(t.name)}" />` : escapeHtml(initials(t.name))}
         </div>
         <div class="tp-content">
-          <a class="tp-back" onclick="Router.go('about')">← Back to About</a>
+          <a class="tp-back" onclick="Router.go('about/tribunees')">← The Tribunees</a>
           <h1>${escapeHtml(t.name)}</h1>
           ${t.role ? `<div class="tp-role">${escapeHtml(t.role)}</div>` : ''}
-          ${t.grade ? `<div class="tp-grade">${escapeHtml(t.grade)}</div>` : '<div class="tp-grade" style="border:none;"></div>'}
-          <div class="tp-bio ${t.bio ? '' : 'empty'}">
-            ${t.bio
-              ? renderArticleBody(t.bio)
-              : '<p>This tribunee hasn\'t written their bio yet.</p>'}
-          </div>
+          <div class="tp-grade">${meta}</div>
+          ${stats ? `<div class="tp-stats">${stats}</div>` : ''}
+          ${t.bio ? `<div class="tp-bio">${renderArticleBody(t.bio)}</div>` : ''}
           ${canEdit ? `
             <div class="tp-edit-bar">
               <button class="btn-ghost" onclick="Editor.editTribuneeById('${t.id}')">Edit profile</button>
+            </div>
+          ` : ''}
+          ${articles.length ? `
+            <div class="tp-articles">
+              <h2>Articles by ${escapeHtml(firstName)}</h2>
+              ${articles.map(articleRow).join('')}
+              ${articles.length > SHOWN ? `<button class="tp-show-all" onclick="this.parentNode.classList.add('all'); this.remove();">Show all ${articles.length}</button>` : ''}
             </div>
           ` : ''}
         </div>
@@ -4176,6 +4266,7 @@ Pages.about = {
     const currentEmail = (Auth.current().email || '').toLowerCase();
     const tribunees = (await Store.list('tribunees')).sort((a, b) => (a.order || 0) - (b.order || 0));
     const grid = $('#tribunees-grid-area');
+    const articles = await listVisibleArticles();
 
     if (tribunees.length === 0) {
       grid.innerHTML = `<div class="empty-state">${Icons.empty}<h3>The tribunee roster is empty</h3><p>${isEditing && isAdmin ? 'Click "+ Add Tribunee" to add the team.' : 'The team page is being prepared.'}</p></div>`;
@@ -4198,38 +4289,28 @@ Pages.about = {
       // Per-card edit permission: admin can edit anyone; non-admin tribunees can edit only their own profile.
       const isSelf = !!(t.email && t.email.toLowerCase() === currentEmail);
       const canEditCard = isEditing && (isAdmin || isSelf);
-      const bioPreview = t.bio
-        ? (() => {
-            // Show the first non-empty block of content — paragraph, quote,
-            // heading, or list item. Bios written in the rich editor may
-            // start with <p><br></p>, so we walk past empty blocks until we
-            // find one with real text.
-            const tmp = document.createElement('div');
-            tmp.innerHTML = t.bio;
-            const blocks = tmp.querySelectorAll('p, blockquote, h2, h3, h4, li');
-            let firstPara = '';
-            for (const b of blocks) {
-              const txt = (b.textContent || '').trim();
-              if (txt) { firstPara = txt; break; }
-            }
-            if (!firstPara) {
-              // No recognised block with content — fall back to the raw text.
-              const all = (tmp.textContent || '').trim();
-              firstPara = all.split(/\n\n+/)[0].trim();
-            }
-            return firstPara
-              ? `<div class="tribunee-bio">"${escapeHtml(firstPara)}"</div>`
-              : '';
-          })()
-        : '<div class="tribunee-bio empty">— bio coming soon —</div>';
+      // The bio's opening text, clamped to two lines by CSS.
+      const bioText = (() => {
+        if (!t.bio) return '';
+        const tmp = document.createElement('div');
+        tmp.innerHTML = t.bio;
+        return (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+      })();
+      const articleTotal = Credits.articleCount(t, articles.filter(a => Credits.wrote(t, a)).length);
+      const meta = [t.grade, articleTotal ? `${articleTotal} ${articleTotal === 1 ? 'article' : 'articles'}` : '']
+        .filter(Boolean).map(escapeHtml).join(' · ');
       return `
         <article class="tribunee-card" onclick="Router.go('tribunee/${t.id}')">
           ${canEditCard ? `<div class="edit-overlay"><button class="edit-icon-btn" onclick="event.stopPropagation(); Editor.editTribuneeById('${t.id}')">✎</button></div>` : ''}
-          <div class="tribunee-portrait" style="${portraitStyle}">${portraitInner}</div>
-          <div class="tribunee-name">${escapeHtml(t.name)}</div>
-          ${t.role ? `<div class="tribunee-role">${escapeHtml(t.role)}</div>` : ''}
-          ${t.grade ? `<div class="tribunee-grade">${escapeHtml(t.grade)}</div>` : ''}
-          ${bioPreview}
+          <div class="tribunee-head">
+            <div class="tribunee-portrait" style="${portraitStyle}">${portraitInner}</div>
+            <div class="tribunee-id">
+              <div class="tribunee-name">${escapeHtml(t.name)}</div>
+              ${t.role ? `<div class="tribunee-role">${escapeHtml(t.role)}</div>` : ''}
+              ${meta ? `<div class="tribunee-grade">${meta}</div>` : ''}
+            </div>
+          </div>
+          ${bioText ? `<p class="tribunee-bio">${escapeHtml(bioText)}</p>` : ''}
         </article>
       `;
     }).join('')}</div>`;

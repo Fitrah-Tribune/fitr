@@ -224,7 +224,10 @@ Tribunee and admin come from the `allowlist` collection
 **Corrections log:** public and permanent. Admins can edit/delete entries, in
 editing mode only.
 
-**Profiles:** admins edit anyone. A Tribunee edits only their own photo and bio.
+**Profiles:** admins edit anyone, and only admins write bios and set the
+print credits (articles, photos, editions worked on). A Tribunee edits only
+their own photo; they tell the admins what they want their bio to say
+(decided by Ammar, Oct 2026).
 
 After changing any of these areas, test each rule by signing in as a guest, a
 public user, a non-admin Tribunee, and an admin.
