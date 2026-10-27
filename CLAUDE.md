@@ -199,17 +199,25 @@ Tribunee and admin come from the `allowlist` collection
 - Delete: admins delete anything; a Tribunee deletes only their own.
 - No comments. Readers respond through Feedback.
 
-**Feedback & Corrections (private tickets)**
-- Any signed-in user can submit a case and gets a ref like `FTR-7KQ2`.
-- A submitter sees only their own cases.
-- All Tribunees can **read** the case inbox. Only **admins** can reply,
-  close, or reopen.
-- A closed case is **frozen**: nobody can add to it, admins included, until
-  it is reopened.
-- **Case content is never public.** Not the name, not the words, not the fact
-  that someone wrote in.
-- "Log a public correction" from a case copies **nothing** from the case. The
-  admin writes the public note from scratch. Keep it that way.
+**Feedback & Corrections (private, one-way notes)**
+- Any signed-in user can send a note (a mistake, a news tip, or other
+  feedback) and gets a ref like `FTR-7KQ2`.
+- A sender sees only their own notes.
+- Notes are **one-way** (decided by Ammar, Oct 2026): no chat. Each note
+  gets a fixed status (Received, In progress, Corrected, Checked no change
+  needed, Thanks passed to a writer) and at most one short line, signed
+  "Fitrah Tribune Editors", never a person. To add something, the reader
+  sends a new note mentioning the ref.
+- All Tribunees can **read** the editors' inbox. Only **admins** set a
+  status, write the line, or reopen.
+- A note with a final status (Corrected, Checked, Passed) is **frozen**:
+  nobody can change it, admins included, until it is reopened.
+- The sender decides whether the editors see their name (off by default;
+  the inbox then shows "Name not shared").
+- **Note content is never public.** Not the name, not the words, not the
+  fact that someone wrote in.
+- "Log a public correction" from a note copies **nothing** from the note.
+  The admin writes the public note from scratch. Keep it that way.
 
 **Corrections log:** public and permanent. Admins can edit/delete entries, in
 editing mode only.
@@ -227,9 +235,10 @@ public user, a non-admin Tribunee, and an admin.
   `firebaseDriver` stub marks where Firebase goes; it must keep the same
   function signatures as the localStorage driver.
 - Collections: `articles`, `editions`, `corrections`, `threads` (forum posts),
-  `tribunees`, `allowlist`, `cases`, `casemsgs`, `drafts` (the Writer's
+  `tribunees`, `allowlist`, `cases` (feedback notes), `drafts` (the Writer's
   desk's unpublished work, one per writer per article). (`comments` is
-  legacy and wiped.)
+  legacy and wiped; `casemsgs`, from when notes were chats, is legacy and
+  no longer read.)
 - Schema changes: bump `SCHEMA_VERSION` and add a guarded step in
   `migrateLegacyData()`. Each step must run only once (`if (current < N)`).
 
