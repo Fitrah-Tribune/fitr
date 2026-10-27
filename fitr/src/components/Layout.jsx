@@ -52,7 +52,7 @@ export default function Layout() {
               <Mark decorative />
               <span className="name">Fitrah Tribune</span>
             </div>
-            <p>A student-driven newspaper community at Fitrah Islamic World Academy — keeping the light steady against the storm of misinformation.</p>
+            <p>FIWA's Student Journalism Community, creating Newspaper and more.</p>
           </div>
           <div className="footer-col">
             <h5>Read</h5>
