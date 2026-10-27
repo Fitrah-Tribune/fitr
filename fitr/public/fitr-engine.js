@@ -4260,7 +4260,7 @@ Pages.about = {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -4287,7 +4287,6 @@ const ROSTER = [
   { name: 'Fathan Rasyid',                   email: null,                           role: 'Journalist',                grade: 'G7',  admin: false },
   { name: 'Fathi Rizqi Ramadhan',            email: 'fathi.rizqi1@fiwa.sch.id',     role: 'Writer',                    grade: 'G12', admin: false },
   { name: 'Muhammad Ziya Ibrahim',           email: null,                           role: 'Writer (Science)',          grade: 'G10', admin: false },
-  { name: 'Muhammad Baary Salman',           email: null,                           role: 'Writer',                    grade: 'G10', admin: false },
   { name: 'Mohamad Zahran',                  email: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
   { name: 'Kafa Althaf Habibi',              email: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
   { name: 'Tubagus Attariza Rayyan Athaya',  email: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
@@ -4549,6 +4548,14 @@ async function migrateLegacyData() {
       c.articleId = c.articleId || '';
       c.articleTitle = c.articleTitle || '';
       await Store.save('cases', c);
+    }
+  }
+
+  // ─── v9 → v10 migration (roster, Oct 2026) ─────────────────────────────
+  // Muhammad Baary Salman has left FIWA, so his card comes off the team.
+  if (current < 10) {
+    for (const t of await Store.list('tribunees')) {
+      if (t.name === 'Muhammad Baary Salman') await Store.remove('tribunees', t.id);
     }
   }
 
