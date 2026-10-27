@@ -2060,6 +2060,22 @@ function renderArticleBody(body) {
    ===================================================================== */
 
 const RichEditor = {
+  // Text sizes are numbered like a word processor; 12 is normal article text.
+  // A size is stored as a multiple of the editor's base size (--rte-base),
+  // so it scales with the page and never compounds when sizes are nested.
+  SIZES: [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72],
+  COLOURS: [
+    { name: 'Tribune colours', list: [
+      ['Ink', '#1a1814'], ['Navy', '#1c3658'], ['Deep navy', '#0f2138'], ['Soft navy', '#2d4f7a'],
+      ['Gold', '#c08e3a'], ['Bright gold', '#d8a956'], ['Muted', '#877f6e'], ['Paper', '#ebdfc4'],
+    ]},
+    { name: 'Standard', list: [
+      ['Black', '#000000'], ['Dark grey', '#555555'], ['Grey', '#999999'], ['Red', '#c0392b'],
+      ['Orange', '#d9822b'], ['Yellow', '#e2b714'], ['Green', '#3e7a4a'], ['Blue', '#2f6fb5'],
+      ['Purple', '#7a4fa0'], ['Pink', '#c2477f'],
+    ]},
+  ],
+
   // Mount editor into target element. Returns { editor, getHTML, destroy }
   mount(target, opts = {}) {
     const { initial = '', placeholder = 'Start writing…', allowImages = true } = opts;
@@ -2132,6 +2148,10 @@ const RichEditor = {
     editor.addEventListener('mouseup', _saveSelection);
     editor.addEventListener('focus',   _saveSelection);
     editor.addEventListener('blur',    _saveSelection);
+    // Also catch keyboard and programmatic selections, so the size box and
+    // colour menu always act on the text the writer last selected.
+    const _onSelChange = () => _saveSelection();
+    document.addEventListener('selectionchange', _onSelChange);
 
     toolbar.querySelectorAll('select[data-cmd]').forEach(sel => {
       // Save the live selection BEFORE the native dropdown opens and steals focus.
@@ -2150,14 +2170,109 @@ const RichEditor = {
           this._applyInlineStyle(editor, 'font-family', `'${value}', ${fallback}`);
           // Reflect the chosen font in the closed dropdown's own appearance.
           sel.style.fontFamily = `'${value}', ${fallback}`;
-        } else if (cmd === 'fontSize') {
-          // Map old execCommand sizes (1–7) to readable rem sizes
-          const pxMap = { '1': '0.7rem', '2': '0.85rem', '3': '1rem', '4': '1.15rem', '5': '1.4rem', '6': '1.7rem', '7': '2.1rem' };
-          this._applyInlineStyle(editor, 'font-size', pxMap[value] || '1rem');
         }
         // Save the new (post-edit) selection so successive dropdown changes stack.
         _saveSelection();
       });
+    });
+
+    // The size box and the colour picker take focus away from the page, which
+    // can move the selection. Pin the writer's selection when they reach for
+    // one, and put it back before applying.
+    let _pinned = null;
+    const _pin = () => { if (_savedRange) _pinned = _savedRange.cloneRange(); };
+    const _unpin = () => {
+      editor.focus();
+      if (_pinned) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(_pinned);
+        _pinned = null;
+      } else {
+        _restoreSelection();
+      }
+    };
+
+    // Text size: number box with − / +. 12 = normal text.
+    const sizeInput = toolbar.querySelector('.rte-size-input');
+    const applySize = (n) => {
+      n = Math.max(6, Math.min(96, Math.round(+n || 12)));
+      sizeInput.value = n;
+      _unpin();
+      this._applyInlineStyle(editor, 'font-size', n === 12 ? 'var(--rte-base)' : `calc(var(--rte-base) * ${n} / 12)`);
+      _saveSelection();
+    };
+    sizeInput.addEventListener('focus', _pin);
+    sizeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applySize(sizeInput.value); } });
+    sizeInput.addEventListener('change', () => { if (_pinned) applySize(sizeInput.value); });
+    toolbar.querySelectorAll('[data-size-step]').forEach(b => {
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      b.addEventListener('click', () => {
+        const cur = +sizeInput.value || 12;
+        const up = +b.dataset.sizeStep > 0;
+        const next = up ? this.SIZES.find(x => x > cur) : [...this.SIZES].reverse().find(x => x < cur);
+        applySize(next || cur);
+      });
+    });
+    // Show the size of the text under the caret.
+    const showSize = () => {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount || !editor.contains(sel.anchorNode)) return;
+      const el = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+      const base = parseFloat(getComputedStyle(editor).getPropertyValue('font-size'));
+      const px = parseFloat(getComputedStyle(el).fontSize);
+      if (base && px && document.activeElement !== sizeInput) sizeInput.value = Math.round(px / base * 12);
+    };
+    editor.addEventListener('keyup', showSize);
+    editor.addEventListener('mouseup', showSize);
+
+    // Text colour: "A" applies the last colour; ▾ opens the colour menu.
+    const colourWrap = toolbar.querySelector('.rte-colour');
+    const colourMenu = colourWrap.querySelector('.rte-colour-menu');
+    const colourBar = colourWrap.querySelector('.rte-colour-bar');
+    let lastColour = '#c08e3a';
+    colourBar.style.background = lastColour;
+    const customKey = 'fitrah:customColours';
+    const readCustom = () => { try { return JSON.parse(localStorage.getItem(customKey) || '[]'); } catch (e) { return []; } };
+    const applyColour = (c) => {
+      _unpin();
+      this._applyInlineStyle(editor, 'color', c || 'inherit');
+      _saveSelection();
+      if (c) { lastColour = c; colourBar.style.background = c; }
+      colourMenu.hidden = true;
+    };
+    const swatch = (name, hex) =>
+      `<button type="button" class="rte-swatch" data-colour="${hex}" title="${escapeHtml(name)}" style="background:${hex}"></button>`;
+    const drawMenu = () => {
+      const custom = readCustom();
+      colourMenu.innerHTML = `
+        <button type="button" class="rte-colour-auto" data-colour="">Automatic</button>
+        ${this.COLOURS.map(g => `
+          <div class="rte-colour-label">${g.name}</div>
+          <div class="rte-swatches">${g.list.map(([n, h]) => swatch(n, h)).join('')}</div>`).join('')}
+        <div class="rte-colour-label">Custom</div>
+        <div class="rte-swatches">
+          ${custom.map(h => swatch(h, h)).join('')}
+          <label class="rte-swatch rte-swatch-add" title="Add a custom colour">+<input type="color" value="${lastColour}" /></label>
+        </div>`;
+      colourMenu.querySelectorAll('[data-colour]').forEach(b => {
+        b.addEventListener('mousedown', (e) => e.preventDefault());
+        b.addEventListener('click', () => applyColour(b.dataset.colour));
+      });
+      const picker = colourMenu.querySelector('input[type=color]');
+      picker.addEventListener('change', () => {
+        const h = picker.value;
+        const list = [h, ...readCustom().filter(x => x !== h)].slice(0, 10);
+        try { localStorage.setItem(customKey, JSON.stringify(list)); } catch (e) {}
+        applyColour(h);
+      });
+    };
+    colourWrap.querySelector('.rte-colour-apply').addEventListener('mousedown', (e) => { e.preventDefault(); _saveSelection(); });
+    colourWrap.querySelector('.rte-colour-apply').addEventListener('click', () => applyColour(lastColour));
+    colourWrap.querySelector('.rte-colour-open').addEventListener('mousedown', (e) => { e.preventDefault(); _saveSelection(); _pin(); });
+    colourWrap.querySelector('.rte-colour-open').addEventListener('click', () => {
+      if (colourMenu.hidden) drawMenu();
+      colourMenu.hidden = !colourMenu.hidden;
     });
 
     // Image select on click
@@ -2173,6 +2288,7 @@ const RichEditor = {
     // be removed when the editor unmounts — otherwise opening the article/bio
     // editor repeatedly leaks one listener per open.
     const _onDocClick = (e) => {
+      if (!colourWrap.contains(e.target)) colourMenu.hidden = true;
       if (!target.contains(e.target)) {
         editor.querySelectorAll('img.rte-image.selected').forEach(i => i.classList.remove('selected'));
         this._removeHandles();
@@ -2196,6 +2312,7 @@ const RichEditor = {
       },
       destroy: () => {
         document.removeEventListener('click', _onDocClick);
+        document.removeEventListener('selectionchange', _onSelChange);
         this._removeHandles();
       }
     };
@@ -2219,14 +2336,12 @@ const RichEditor = {
           <option value="Libre Baskerville" style="font-family:var(--headline)">Libre Baskerville</option>
           <option value="Work Sans" style="font-family:var(--ui)">Work Sans</option>
         </select>
-        <select class="rte-tool" data-cmd="fontSize" title="Size">
-          <option value="2">XS</option>
-          <option value="3" selected>S</option>
-          <option value="4">M</option>
-          <option value="5">L</option>
-          <option value="6">XL</option>
-          <option value="7">XXL</option>
-        </select>
+      </div>
+      <div class="rte-tool-group rte-size" title="Text size (12 = normal text)">
+        <button class="rte-tool" type="button" data-size-step="-1" title="Smaller">−</button>
+        <input class="rte-size-input" type="number" min="6" max="96" step="1" value="12" list="rte-size-list" aria-label="Text size" />
+        <datalist id="rte-size-list">${RichEditor.SIZES.map(n => `<option value="${n}">`).join('')}</datalist>
+        <button class="rte-tool" type="button" data-size-step="1" title="Bigger">+</button>
       </div>
       <div class="rte-tool-group">
         <button class="rte-tool" data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
@@ -2234,13 +2349,10 @@ const RichEditor = {
         <button class="rte-tool" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
         <button class="rte-tool" data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
       </div>
-      <div class="rte-tool-group" title="Text color">
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#1a1814" title="Black"><span class="rte-color-dot" style="background:#1a1814"></span></button>
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#1c3658" title="Navy"><span class="rte-color-dot" style="background:#1c3658"></span></button>
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#c08e3a" title="Gold"><span class="rte-color-dot" style="background:#c08e3a"></span></button>
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#a73e3e" title="Red"><span class="rte-color-dot" style="background:#a73e3e"></span></button>
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#3e7a4a" title="Green"><span class="rte-color-dot" style="background:#3e7a4a"></span></button>
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#877f6e" title="Muted"><span class="rte-color-dot" style="background:#877f6e"></span></button>
+      <div class="rte-tool-group rte-colour">
+        <button class="rte-tool rte-colour-apply" type="button" title="Text colour"><span class="rte-colour-a">A</span><span class="rte-colour-bar"></span></button>
+        <button class="rte-tool rte-colour-open" type="button" title="More colours">▾</button>
+        <div class="rte-colour-menu" hidden></div>
       </div>
       <div class="rte-tool-group">
         <button class="rte-tool" data-cmd="justifyLeft" title="Align left">⬅</button>
@@ -2366,6 +2478,16 @@ const RichEditor = {
         span.appendChild(frag);
         range.insertNode(span);
       }
+      // The new style replaces the same style on anything inside it.
+      span.querySelectorAll('[style]').forEach(el => el.style.removeProperty(prop));
+      span.querySelectorAll('font[color]').forEach(el => prop === 'color' && el.removeAttribute('color'));
+      // Tidy up: drop spans left empty by the split, and unwrap spans whose
+      // only style was just removed.
+      editor.querySelectorAll('span').forEach(el => {
+        if (el === span) return;
+        if (!el.textContent && !el.querySelector('img')) el.remove();
+        else if ([...el.attributes].every(a => a.name === 'style' && !a.value.trim())) el.replaceWith(...el.childNodes);
+      });
       // Reselect the wrapped content so consecutive style changes stack
       const newRange = document.createRange();
       newRange.selectNodeContents(span);

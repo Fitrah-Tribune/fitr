@@ -5,6 +5,7 @@
    ====================================================================== */
 
 :root {
+  --rte-base:     1rem;     /* text size "12" in the editor */
   --paper:        #f5ecdb;
   --paper-deep:   #ebdfc4;
   --paper-lift:   #fbf6ea;
@@ -2182,6 +2183,7 @@ body.editing [data-editable]:hover {
   .ar-more-card > :not(.ar-more-img) { grid-column: 1; }
 }
 .article-body {
+  --rte-base: 1.08rem;
   font-family: var(--article);
   font-size: 1.08rem;
   line-height: 1.75;
@@ -2389,14 +2391,55 @@ body.editing [data-editable]:hover {
   padding: 0.2rem 0.3rem;
   outline: none;
 }
-.rte-color-dot {
-  width: 18px; height: 18px;
-  border-radius: 50%;
-  border: 1.5px solid var(--rule);
-  cursor: pointer;
-  transition: transform 0.1s;
+/* Text size box: 12 = normal text (see RichEditor.SIZES). */
+.rte-size { gap: 0; }
+.rte-size-input {
+  width: 3.2rem; text-align: center;
+  font-family: var(--ui); font-size: 0.86rem; color: var(--ink);
+  border: 1px solid var(--rule); background: var(--paper-lift);
+  padding: 0.25rem 0.2rem; border-radius: 2px;
+  -moz-appearance: textfield;
 }
-.rte-color-dot:hover { transform: scale(1.15); border-color: var(--ink); }
+.rte-size-input::-webkit-inner-spin-button,
+.rte-size-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+/* Text colour: "A" with the current colour under it, and a menu. */
+.rte-colour { position: relative; gap: 0; }
+.rte-colour-apply { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 0.2rem; }
+.rte-colour-a { font-family: var(--headline); font-weight: 700; font-size: 0.95rem; line-height: 1; }
+.rte-colour-bar { display: block; width: 16px; height: 4px; border-radius: 1px; }
+.rte-colour-open { min-width: 18px; padding-left: 0.2rem; padding-right: 0.2rem; font-size: 0.7rem; }
+.rte-colour-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  width: 236px; padding: 0.6rem;
+  background: var(--paper-lift); border: 1px solid var(--rule);
+  box-shadow: 0 8px 24px rgba(15,33,56,0.15);
+  font-family: var(--ui);
+}
+.rte-colour-menu[hidden] { display: none; }
+.rte-colour-auto {
+  width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--rule); background: var(--paper);
+  font-family: var(--ui); font-size: 0.82rem; color: var(--ink);
+  padding: 0.35rem 0.5rem; margin-bottom: 0.3rem;
+}
+.rte-colour-auto:hover { border-color: var(--navy); }
+.rte-colour-label {
+  font-size: 0.66rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-muted); margin: 0.5rem 0 0.3rem;
+}
+.rte-swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.rte-swatch {
+  width: 22px; height: 22px; padding: 0; cursor: pointer;
+  border: 1px solid rgba(26,24,20,0.25); border-radius: 50%;
+}
+.rte-swatch:hover { transform: scale(1.15); border-color: var(--ink); }
+.rte-swatch-add {
+  position: relative; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--paper); color: var(--ink-soft); font-size: 0.9rem;
+  border-style: dashed;
+}
+.rte-swatch-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
 .rte-editor {
   padding: 1.2rem 1.4rem;
   min-height: 280px;
@@ -3026,6 +3069,7 @@ footer.tribune-footer { margin-top: 0.5rem; }
 .desk-body .rte-shell { border: none; background: transparent; overflow: visible; }
 .desk-body .rte-toolbar { top: 52px; margin: 0 -0.6rem; border: 1px solid var(--rule); }
 .desk-body .rte-editor {
+  --rte-base: 1.08rem;
   background: transparent; padding: 1rem 0 0; min-height: 360px;
   font-size: 1.08rem; line-height: 1.75;
 }
@@ -3064,3 +3108,4 @@ footer.tribune-footer { margin-top: 0.5rem; }
   .desk-panel { position: static; flex: none; max-height: none; }
   .desk-body .rte-toolbar { margin: 0; position: static; }
 }
+.desk-panel .pdf-import-row { flex-wrap: wrap; }
