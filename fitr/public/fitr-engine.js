@@ -3862,18 +3862,39 @@ Pages.corrections = {
                  onkeydown="if(event.key==='Enter')Pages.corrections.followUp('${c.id}')" />
           <button class="btn-ghost" onclick="Pages.corrections.followUp('${c.id}')">Send</button>
         </div>` : `<p class="note-frozen">${Cases.status(c).help} This note is closed. To add something, send a new note and mention ${escapeHtml(c.ref)}.</p>`;
+      const last = msgs[msgs.length - 1];
+      const open = this._expanded.has(c.id);
       return `
-        <article class="note-row" id="note-${c.id}">
-          <div class="note-top">
-            <span class="note-ref">${escapeHtml(c.ref)}</span>
-            <span class="note-meta">${NOTE_KINDS[c.kind] || 'Other feedback'} · ${relativeTime(c.createdAt)}</span>
-            ${Cases.chip(c)}
+        <article class="note-row ${open ? 'expanded' : ''}" id="note-${c.id}">
+          <div class="note-head" role="button" tabindex="0" aria-expanded="${open}"
+               onclick="Pages.corrections.toggleNote('${c.id}')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Pages.corrections.toggleNote('${c.id}')}">
+            <div class="note-top">
+              <span class="note-ref">${escapeHtml(c.ref)}</span>
+              <span class="note-meta">${NOTE_KINDS[c.kind] || 'Other feedback'} · ${relativeTime(c.createdAt)}</span>
+              ${Cases.chip(c)}
+            </div>
+            ${c.articleTitle || c.subject ? `<h3 class="note-title">${escapeHtml(c.articleTitle || c.subject)}</h3>` : ''}
+            ${last ? `<p class="note-latest"><b>${last.side === 'tribune' ? 'Fitrah Tribune Editors' : 'You'}:</b> ${escapeHtml(last.body)}</p>` : ''}
+            <span class="note-toggle">${msgs.length} message${msgs.length === 1 ? '' : 's'} · <span class="when-closed">Show conversation</span><span class="when-open">Hide</span></span>
           </div>
-          ${c.articleTitle || c.subject ? `<h3 class="note-title">${escapeHtml(c.articleTitle || c.subject)}</h3>` : ''}
-          <div class="note-chat">${msgs.map(m => Cases.msg(m, c, false)).join('')}</div>
-          ${foot}
+          <div class="note-thread">
+            <div class="note-chat">${msgs.map(m => Cases.msg(m, c, false)).join('')}</div>
+            ${foot}
+          </div>
         </article>`;
     }))).join('');
+  },
+
+  /* Open notes stay open across re-renders (e.g. after adding to one). */
+  _expanded: new Set(),
+  toggleNote(id) {
+    const el = $(`#note-${id}`);
+    if (!el) return;
+    const open = !this._expanded.has(id);
+    if (open) this._expanded.add(id); else this._expanded.delete(id);
+    el.classList.toggle('expanded', open);
+    el.querySelector('.note-head')?.setAttribute('aria-expanded', String(open));
   },
 
   /* ── EDITORS' INBOX (Tribunees read / admins reply, close, reopen) ─── */

@@ -1476,8 +1476,33 @@ body.editing .user-name { color: var(--navy-deep); }
 .note-st.passed  { background: #e6dcef; color: #4b3566; }
 
 /* Your notes */
-.note-row { padding: 1.1rem 0; border-bottom: 1px solid var(--rule-soft); }
-.note-row:first-child { padding-top: 0.2rem; }
+.note-row {
+  border: 1px solid var(--rule);
+  background: var(--paper-lift);
+  margin-bottom: 0.8rem;
+}
+.note-row.expanded { border-color: var(--navy); }
+.note-head { padding: 1rem 1.2rem; cursor: pointer; }
+.note-head:hover { background: rgba(28, 54, 88, 0.03); }
+.note-head:focus-visible { outline: 2px solid var(--navy); outline-offset: -2px; }
+.note-latest {
+  font-family: var(--article);
+  font-size: 1rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  margin-top: 0.4rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.note-latest b { font-family: var(--ui); font-size: 0.8rem; font-weight: 600; color: var(--ink); }
+.note-toggle { display: block; margin-top: 0.5rem; font-family: var(--ui); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.06em; color: var(--navy); }
+.note-toggle .when-open, .note-row.expanded .note-toggle .when-closed { display: none; }
+.note-row.expanded .note-toggle .when-open { display: inline; }
+.note-row.expanded .note-latest { display: none; }
+.note-thread { display: none; padding: 0 1.2rem 1.1rem; border-top: 1px dashed var(--rule); }
+.note-row.expanded .note-thread { display: block; }
 .note-top { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
 .note-top .note-st { margin-left: auto; }
 .note-ref { font-family: var(--ui); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; color: #8a6420; }
