@@ -2120,6 +2120,19 @@ body.editing [data-editable]:hover {
   padding: 0.6rem 1.2rem;
   margin: 1.4rem 0;
 }
+/* Drop cap: only on paragraphs the writer gives the "Drop cap" style. */
+.article-body p.drop-cap,
+.rte-editor p.drop-cap { display: flow-root; }
+.article-body p.drop-cap::first-letter,
+.rte-editor p.drop-cap::first-letter {
+  float: left;
+  font-family: var(--headline);
+  font-weight: bold;
+  font-size: 3.4em;
+  line-height: 0.85;
+  padding: 0.06em 0.1em 0 0;
+  color: var(--navy);
+}
 .article-body ul, .article-body ol { padding-left: 1.6rem; margin-bottom: 1.1rem; }
 .article-body li { margin-bottom: 0.4rem; }
 .article-body p:has(> img) { text-align: center; }
@@ -2320,8 +2333,8 @@ body.editing [data-editable]:hover {
 }
 .rte-editor p { margin-bottom: 0.8rem; }
 .rte-editor p:last-child { margin-bottom: 0; }
-/* Text styles only set size and spacing. Bold, italics, caps, font and
-   colour are left to the writer's own formatting. */
+/* Text styles set size and spacing here. Their starting bold, italics and
+   font are inline formatting the editor adds, so the writer can change them. */
 .rte-editor h2 {
   font-size: 1.5rem;
   line-height: 1.25;

@@ -135,10 +135,13 @@ article. On the web, anything a reader settles in to read counts as
 kept for navigation, labels and controls. (Changed Oct 2026: Work Sans
 felt too dominant.)
 
-- Inside an article body, the editor's text styles (Heading, Subheading,
-  Quote) set size and spacing only. Bold, italics, caps, font and colour
-  come from the writer's own formatting, never from the style (decided
-  Oct 2026).
+- Inside an article body, the writer decides the look. Choosing a text
+  style (Heading, Subheading, Quote) sets its size and spacing and gives
+  the text a starting format (Heading: Libre Baskerville bold; Subheading:
+  Times bold; Quote: Libre Baskerville italic), which the writer can then
+  change like any other formatting. Nothing is forced by the page itself:
+  a drop cap appears only on a paragraph the writer gives the "Drop cap"
+  style (decided by Ammar, Oct 2026).
 - Libre Baskerville has **no bold italic**. Never make a headline italic;
   a highlighted word inside a headline stays upright (colour only).
 - New element? Decide which of the three jobs it does and use that variable.

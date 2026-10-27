@@ -2068,7 +2068,7 @@ const RichEditor = {
         // Restore the selection that existed before the dropdown opened.
         _restoreSelection();
         if (cmd === 'formatBlock') {
-          document.execCommand('formatBlock', false, value);
+          if (value) this._applyBlockStyle(editor, value);
           sel.selectedIndex = 0;
         } else if (cmd === 'fontName') {
           const fallback = value === 'Work Sans' ? 'sans-serif' : 'serif';
@@ -2135,6 +2135,7 @@ const RichEditor = {
           <option value="h2">Heading</option>
           <option value="h3">Subheading</option>
           <option value="blockquote">Quote</option>
+          <option value="dropcap">Drop cap</option>
         </select>
       </div>
       <div class="rte-tool-group">
@@ -2202,6 +2203,55 @@ const RichEditor = {
       }
     };
     input.click();
+  },
+
+  /* Text styles. Choosing one sets the block's size and spacing (CSS) and
+     gives its text a starting format: a span the writer can change like any
+     other formatting. Choosing another style swaps that span; Body removes it.
+     "Drop cap" is a Body paragraph with a large first letter, only when the
+     writer asks for it. */
+  STYLE_PRESETS: {
+    h2:         { fontFamily: "'Libre Baskerville', serif", fontWeight: 'bold' },
+    h3:         { fontFamily: "'Times New Roman', serif", fontWeight: 'bold' },
+    blockquote: { fontFamily: "'Libre Baskerville', serif", fontStyle: 'italic' },
+  },
+
+  _applyBlockStyle(editor, value) {
+    document.execCommand('formatBlock', false, value === 'dropcap' ? 'p' : value);
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    const blocks = [...editor.children].filter(b => range.intersectsNode(b));
+    const preset = this.STYLE_PRESETS[value];
+    let last = null;
+    for (const block of blocks) {
+      block.querySelectorAll('span[data-style]').forEach(s => s.replaceWith(...s.childNodes));
+      block.classList.remove('drop-cap');
+      if (value === 'dropcap') block.classList.add('drop-cap');
+      if (!block.classList.length) block.removeAttribute('class');
+      if (!preset) continue;
+      const span = document.createElement('span');
+      span.dataset.style = value;
+      Object.assign(span.style, preset);
+      const empty = !block.textContent.replace(/\u200B/g, '').trim();
+      if (empty) {
+        block.textContent = '';
+        span.textContent = '\u200B';
+      } else {
+        span.append(...block.childNodes);
+      }
+      block.append(span);
+      last = span;
+    }
+    // Keep the caret in the styled text so typing carries the format.
+    if (last && blocks.length === 1) {
+      const r = document.createRange();
+      if (last.textContent === '\u200B') { r.setStart(last.firstChild, 1); r.collapse(true); }
+      else r.selectNodeContents(last);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
   },
 
   // Apply an inline CSS style to the current selection by wrapping in a <span>.
