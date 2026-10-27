@@ -1572,6 +1572,7 @@ const Editor = {
   },
 
   async addTab() {
+    if (!(await Auth.isTribunee())) { toast('Only Tribunees can change categories', 'error'); return; }
     const label = $('#new-tab-label').value.trim();
     if (!label) { toast('Label required', 'error'); return; }
     const section = $('#new-tab-section').value;
@@ -1582,6 +1583,7 @@ const Editor = {
   },
 
   async removeTab(id) {
+    if (!(await Auth.isTribunee())) { toast('Only Tribunees can change categories', 'error'); return; }
     if (!confirm('Remove this category? Articles tagged with it will lose their category.')) return;
     await Store.remove('newsTabs', id);
     Editor.manageTabs();
@@ -1589,6 +1591,7 @@ const Editor = {
   },
 
   async saveTabs() {
+    if (!(await Auth.isTribunee())) { toast('Only Tribunees can change categories', 'error'); return; }
     const rows = $$('#tab-list > .field');
     for (const row of rows) {
       const id = row.dataset.tabId;
