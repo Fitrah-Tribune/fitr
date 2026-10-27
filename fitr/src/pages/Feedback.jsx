@@ -31,11 +31,15 @@ const html = `
         <p>If it leads to a correction, <strong>only the correction</strong> goes on the public record, written by the editors in their own words.</p>
       </div>
       <div class="fc-legend">
-        <div class="fc-q">How it works</div>
+        <div class="fc-q">What the statuses mean</div>
         <dl>
-          <dt><span class="note-st open">Open</span></dt><dd>The editors can reply under your note, and you can add to it.</dd>
-          <dt><span class="note-st closed">Closed</span></dt><dd>The conversation is finished and can’t be changed. Only an admin can reopen it.</dd>
+          <dt><span class="note-st recv">Received</span></dt><dd>The editors have your note.</dd>
+          <dt><span class="note-st prog">In progress</span></dt><dd>The editors are checking it.</dd>
+          <dt><span class="note-st fixed">Corrected</span></dt><dd>We fixed the story and logged it below.</dd>
+          <dt><span class="note-st checked">Checked, no change needed</span></dt><dd>We looked into it; the story stands.</dd>
+          <dt><span class="note-st passed">Thanks, passed to a writer</span></dt><dd>For tips: a Tribunee will follow it up.</dd>
         </dl>
+        <p class="fc-legend-note">While a note is Received or In progress, the editors can reply and you can add to it. The last three close it; only an admin can reopen it.</p>
       </div>
     </aside>
   </div>

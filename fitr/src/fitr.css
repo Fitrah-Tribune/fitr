@@ -1350,6 +1350,7 @@ body.editing .user-name { color: var(--navy-deep); }
 .fc-side .fc-privacy { margin-bottom: 1.4rem; }
 .fc-legend dl { display: grid; gap: 0.55rem; margin-top: 0.6rem; }
 .fc-legend dt { line-height: 1; }
+.fc-legend-note { font-family: var(--article); font-style: italic; font-size: 0.95rem; line-height: 1.45; color: var(--ink-muted); margin-top: 0.8rem; }
 .fc-legend dd {
   font-family: var(--article);
   font-size: 0.98rem;
@@ -1386,8 +1387,8 @@ body.editing .user-name { color: var(--navy-deep); }
   margin: 1.1rem 0 0.5rem;
 }
 .fc-form > .fc-q:first-child { margin-top: 0; }
-.fc-kinds { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.fc-kinds button,
+.fc-kinds, .inbox-statuses { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.fc-kinds button, .inbox-statuses button,
 .inbox-tabs button, .inbox-kinds button {
   font-family: var(--ui);
   font-size: 0.74rem;
@@ -1401,9 +1402,9 @@ body.editing .user-name { color: var(--navy-deep); }
   min-height: 36px;
   cursor: pointer;
 }
-.fc-kinds button:hover,
+.fc-kinds button:hover, .inbox-statuses button:hover,
 .inbox-tabs button:hover, .inbox-kinds button:hover { border-color: var(--navy); color: var(--navy); }
-.fc-kinds button.active,
+.fc-kinds button.active, .inbox-statuses button.active,
 .inbox-tabs button.active, .inbox-kinds button.active {
   background: var(--navy); border-color: var(--navy); color: var(--paper-lift);
 }
@@ -1468,8 +1469,11 @@ body.editing .user-name { color: var(--navy-deep); }
   display: inline-block;
   white-space: nowrap;
 }
-.note-st.open   { background: #f3e3b5; color: #7a5512; }
-.note-st.closed { background: #ebdfc4; color: #5c5446; }
+.note-st.recv    { background: #ebdfc4; color: #5c5446; }
+.note-st.prog    { background: #f3e3b5; color: #7a5512; }
+.note-st.fixed   { background: #dfead8; color: #2f5a2a; }
+.note-st.checked { background: #dde4ee; color: var(--navy); }
+.note-st.passed  { background: #e6dcef; color: #4b3566; }
 
 /* Your notes */
 .note-row { padding: 1.1rem 0; border-bottom: 1px solid var(--rule-soft); }
@@ -1559,6 +1563,7 @@ body.editing .user-name { color: var(--navy-deep); }
 .inbox-from { font-family: var(--ui); font-size: 0.84rem; color: var(--ink-muted); margin-top: 0.8rem; }
 .inbox-from b { color: var(--ink); font-weight: 600; }
 .inbox-head { margin-top: 1.6rem; padding-top: 1rem; border-top: 1px dashed var(--rule); }
+.inbox-hint { font-family: var(--ui); font-size: 0.78rem; color: var(--ink-muted); margin-top: 0.5rem; }
 .inbox-actions { display: flex; justify-content: flex-end; gap: 0.6rem; flex-wrap: wrap; margin-top: 1rem; }
 .inbox-locked { font-family: var(--article); font-style: italic; font-size: 1rem; color: var(--ink-muted); }
 @media (max-width: 720px) {

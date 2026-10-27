@@ -205,10 +205,12 @@ Tribunee and admin come from the `allowlist` collection
 - Each note is a small chat between its sender and the editors. A sender
   sees only their own notes and can add to them while they are open.
 - All Tribunees can **read** the editors' inbox. Only **admins** can reply,
-  close, or reopen. Replies show to the reader as "Fitrah Tribune
+  set a status, or reopen. Replies show to the reader as "Fitrah Tribune
   Editors"; the inbox shows the team which admin wrote them.
-- A closed note is **frozen**: nobody can add to it, admins included. Only
-  an admin can reopen it.
+- Each note has a status: Received, In progress, or a final one
+  (Corrected, Checked no change needed, Thanks passed to a writer). A
+  final status closes the note, and a closed note is **frozen**: nobody can
+  add to it, admins included. Only an admin can reopen it.
 - The sender decides whether the editors see their name (off by default;
   the inbox then shows "Name not shared").
 - **Note content is never public.** Not the name, not the words, not the

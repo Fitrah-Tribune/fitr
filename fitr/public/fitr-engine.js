@@ -3649,19 +3649,30 @@ Pages.forum = {
      Guest      → read the public log. Sign-in prompt.
      Public+    → send tickets, see and add to their own (and only their own).
      Tribunee   → all of the above + READ every ticket in the inbox.
-     Admin      → all of the above + REPLY, CLOSE and REOPEN.
+     Admin      → all of the above + REPLY, SET A STATUS (which can close) and REOPEN.
 
    The sender decides whether the editors see their name. The site still
    stores who sent it, so it can show them their own tickets.
 
-   A closed ticket is FROZEN: nobody can add to it, admins included. Only
-   an admin can reopen it.
+   Each ticket has a status (NOTE_STATUSES). A final one closes it, and a
+   closed ticket is FROZEN: nobody can add to it, admins included. Only an
+   admin can reopen it.
    ─────────────────────────────────────────────────────────────────── */
 
 const NOTE_KINDS = {
   mistake: 'A mistake in a story',
   tip:     'A news tip',
   other:   'Other feedback'
+};
+
+/* Every note has a status. The final ones close it: a closed note is
+   frozen until an admin reopens it. */
+const NOTE_STATUSES = {
+  received:  { label: 'Received',                   cls: 'recv',    final: false, help: 'The editors have your note.' },
+  progress:  { label: 'In progress',                cls: 'prog',    final: false, help: 'The editors are checking it.' },
+  corrected: { label: 'Corrected',                  cls: 'fixed',   final: true,  help: 'We fixed the story and logged it below.' },
+  checked:   { label: 'Checked, no change needed',  cls: 'checked', final: true,  help: 'We looked into it; the story stands.' },
+  passed:    { label: 'Thanks, passed to a writer', cls: 'passed',  final: true,  help: 'For tips: a Tribunee will follow it up.' }
 };
 
 const Cases = {
@@ -3678,8 +3689,9 @@ const Cases = {
   async canReply()     { return await Auth.isAdmin(); },
   async canClose()     { return await Auth.isAdmin(); },
 
-  isOpen(c) { return c.status === 'open'; },
-  chip(c) { return this.isOpen(c) ? `<span class="note-st open">Open</span>` : `<span class="note-st closed">Closed</span>`; },
+  status(c) { return NOTE_STATUSES[c.status] || NOTE_STATUSES.received; },
+  isOpen(c) { return !this.status(c).final; },
+  chip(c) { const st = this.status(c); return `<span class="note-st ${st.cls}">${st.label}</span>`; },
 
   async messagesFor(caseId) {
     const msgs = await Store.list('casemsgs', m => m.caseId === caseId);
@@ -3805,7 +3817,7 @@ Pages.corrections = {
       articleId: article ? article.id : '',
       articleTitle: article ? article.title : '',
       showName: !!$('#fc-showname').checked,
-      status: 'open',
+      status: 'received',
       submitterName:  Auth.current().name,
       submitterEmail: Auth.current().email
     });
@@ -3849,7 +3861,7 @@ Pages.corrections = {
           <input type="text" id="add-${c.id}" maxlength="3000" placeholder="Add something to this note…"
                  onkeydown="if(event.key==='Enter')Pages.corrections.followUp('${c.id}')" />
           <button class="btn-ghost" onclick="Pages.corrections.followUp('${c.id}')">Send</button>
-        </div>` : `<p class="note-frozen">This note is closed. To add something, send a new note and mention ${escapeHtml(c.ref)}.</p>`;
+        </div>` : `<p class="note-frozen">${Cases.status(c).help} This note is closed. To add something, send a new note and mention ${escapeHtml(c.ref)}.</p>`;
       return `
         <article class="note-row" id="note-${c.id}">
           <div class="note-top">
@@ -3924,16 +3936,19 @@ Pages.corrections = {
         <p class="inbox-locked">Closed${c.closedBy ? ` by ${escapeHtml(c.closedBy)}` : ''}${c.closedAt ? ` · ${formatDate(c.closedAt)}` : ''}. Nobody can add to it${canReply ? ' unless you reopen it' : ''}.</p>
         ${canReply ? `<div class="inbox-actions"><button class="btn-ghost" onclick="Pages.corrections.reopenCase('${c.id}')">Reopen</button></div>` : ''}`;
     } else if (!canReply) {
-      action = `<p class="inbox-locked">Only admins reply to or close notes.</p>`;
+      action = `<p class="inbox-locked">Only admins reply to notes or set a status.</p>`;
     } else {
       action = `
         <label class="fc-q" for="inbox-reply">Reply to the reader</label>
         <textarea id="inbox-reply" maxlength="3000" placeholder="Shown to the reader as “Fitrah Tribune Editors”."></textarea>
         <div class="inbox-actions">
           <button class="btn-ghost" onclick="Pages.corrections.caseToCorrection('${c.id}')">Log a public correction</button>
-          <button class="btn-ghost" onclick="Pages.corrections.closeCase('${c.id}')">Close</button>
           <button class="btn-navy" onclick="Pages.corrections.replyToCase('${c.id}')">Send reply</button>
-        </div>`;
+        </div>
+        <div class="fc-q">Set a status</div>
+        <div class="inbox-statuses">${Object.entries(NOTE_STATUSES).filter(([k]) => k !== 'received').map(([k, st]) =>
+          `<button class="${c.status === k ? 'active' : ''}" onclick="Pages.corrections.setStatus('${c.id}','${k}')">${st.label}</button>`).join('')}</div>
+        <p class="inbox-hint">${Object.values(NOTE_STATUSES).filter(st => st.final).map(st => `“${st.label}”`).join(', ')} close the note.</p>`;
     }
     return `
       <div class="note-top"><span class="note-ref">${escapeHtml(c.ref)}</span><span class="note-meta">${NOTE_KINDS[c.kind] || 'Other feedback'} · ${escapeHtml(c.articleTitle || c.subject || 'No story picked')} · ${stamp}</span>${Cases.chip(c)}</div>
@@ -3962,6 +3977,7 @@ Pages.corrections = {
       author: Auth.current().name,
       authorEmail: Auth.current().email
     });
+    if (c.status === 'received') c.status = 'progress'; // a reply means someone is on it
     await Store.save('cases', c); // bumps updatedAt
     this.state.selected = c.id;
     await this.render();
@@ -3986,35 +4002,43 @@ Pages.corrections = {
     toast('Sent', 'success');
   },
 
-  closeCase(caseId) {
+  /* In progress applies at once; a final status asks first, since it
+     closes the note. */
+  async setStatus(caseId, status) {
+    const st = NOTE_STATUSES[status];
+    if (!st || status === 'received') return;
+    if (!(await Cases.canClose())) { toast('Only admins can set a status', 'error'); return; }
+    if (!st.final) return this.applyStatus(caseId, status);
     Modal.open({
-      title: 'Close this note?',
-      body: `<p class="field-hint">Once closed it is frozen: neither the editors nor the reader can add to it. Only an admin can reopen it.</p>`,
+      title: `Mark as “${st.label}” and close?`,
+      body: `<p class="field-hint">Once closed the note is frozen: neither the editors nor the reader can add to it. Only an admin can reopen it.</p>`,
       foot: `
         <button class="btn-ghost" onclick="Modal.close()">Cancel</button>
-        <button class="btn-navy" onclick="Pages.corrections.confirmClose('${caseId}')">Close note</button>
+        <button class="btn-navy" onclick="Modal.close(); Pages.corrections.applyStatus('${caseId}','${status}')">Close note</button>
       `
     });
   },
 
-  async confirmClose(caseId) {
-    Modal.close();
-    if (!(await Cases.canClose())) { toast('Only admins can close notes', 'error'); return; }
+  async applyStatus(caseId, status) {
+    const st = NOTE_STATUSES[status];
+    if (!st || status === 'received') return;
+    if (!(await Cases.canClose())) { toast('Only admins can set a status', 'error'); return; }
     const c = await Store.get('cases', caseId);
-    if (!c || !Cases.isOpen(c)) return;
-    c.status   = 'resolved';
-    c.closedAt = Date.now();
-    c.closedBy = Auth.current().name;
+    if (!c) return;
+    if (!Cases.isOpen(c)) { toast('This note is closed. Reopen it first.', 'error'); return; }
+    c.status = status;
+    if (st.final) { c.closedAt = Date.now(); c.closedBy = Auth.current().name; }
     await Store.save('cases', c);
+    this.state.selected = c.id;
     await this.render();
-    toast(`${c.ref} closed`);
+    toast(`${c.ref}: ${st.label}`);
   },
 
   async reopenCase(caseId) {
     if (!(await Cases.canClose())) { toast('Only admins can reopen notes', 'error'); return; }
     const c = await Store.get('cases', caseId);
     if (!c || Cases.isOpen(c)) return;
-    c.status = 'open';
+    c.status = 'progress';
     c.closedAt = null;
     c.closedBy = null;
     await Store.save('cases', c);
@@ -4499,6 +4523,8 @@ async function migrateLegacyData() {
       if (c.kind) continue;
       c.kind = 'other';
       c.showName = true;
+      c.status = c.status === 'resolved' ? 'checked'
+        : (await Store.list('casemsgs', m => m.caseId === c.id && m.side === 'tribune')).length ? 'progress' : 'received';
       c.articleId = c.articleId || '';
       c.articleTitle = c.articleTitle || '';
       await Store.save('cases', c);
