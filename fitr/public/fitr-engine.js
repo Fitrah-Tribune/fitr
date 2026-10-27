@@ -4778,6 +4778,8 @@ async function mountChrome() {
       Editor.active = true;
       document.body.classList.add('editing');
       $('#edit-banner').style.display = 'flex';
+      // The page may have drawn itself before this check finished.
+      Pages[Router.current]?.render?.(Router.params);
     }
   } catch (e) {}
   await renderTabs();
