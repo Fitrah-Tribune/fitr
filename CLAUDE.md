@@ -227,8 +227,9 @@ public user, a non-admin Tribunee, and an admin.
   `firebaseDriver` stub marks where Firebase goes; it must keep the same
   function signatures as the localStorage driver.
 - Collections: `articles`, `editions`, `corrections`, `threads` (forum posts),
-  `tribunees`, `allowlist`, `cases`, `casemsgs`. (`comments` is legacy and
-  wiped.)
+  `tribunees`, `allowlist`, `cases`, `casemsgs`, `drafts` (the Writer's
+  desk's unpublished work, one per writer per article). (`comments` is
+  legacy and wiped.)
 - Schema changes: bump `SCHEMA_VERSION` and add a guarded step in
   `migrateLegacyData()`. Each step must run only once (`if (current < N)`).
 
