@@ -3046,6 +3046,9 @@ footer.tribune-footer { margin-top: 0.5rem; }
 .desk-back:hover { color: var(--paper-lift); }
 .desk-name { font-family: var(--headline); font-weight: 700; font-size: 1.05rem; color: #e8cf94; }
 .desk-status { color: var(--rule); }
+.desk-saved { color: rgba(235,223,196,0.6); font-size: 0.76rem; }
+.desk-saved a { color: #e8cf94; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.desk-leave-text { font-family: var(--article); font-size: 1.05rem; line-height: 1.55; color: var(--ink-soft); }
 .desk-actions { margin-left: auto; display: flex; gap: 0.6rem; }
 .desk-actions .btn-ghost { color: var(--paper-deep); border-color: rgba(235,223,196,0.35); }
 .desk-actions .desk-delete:hover { color: #f0a090; border-color: #f0a090; }

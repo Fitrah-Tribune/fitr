@@ -351,6 +351,8 @@ const Router = {
 
   go(path) {
     if (typeof path !== 'string' || !path) path = 'home';
+    // Leaving the Writer's desk with unpublished work asks first.
+    if (Editor._guardDesk(() => this.go(path))) return;
     const [page, id] = path.split('/');
     const base = ROUTE_PATHS[page] || '/';
     const url = id && base !== '/' ? `${base}/${id}` : base;
@@ -543,15 +545,42 @@ const Editor = {
     if (s && s.bodyEditor && s.bodyEditor.destroy) {
       try { s.bodyEditor.destroy(); } catch (e) {}
     }
+    if (s && s.stopDraft) s.stopDraft();
     Editor._articleState = null;
+  },
+
+  /* Drafts: the desk saves unpublished work as you go, one draft per
+     writer per article ("new" for a story not yet published). Opening the
+     desk again brings it back. Publishing deletes it. */
+  _draftId(articleId) {
+    const who = (Auth.current().email || 'guest').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return `draft-${who}-${articleId || 'new'}`;
+  },
+
+  /* Returns true (and asks) if leaving now would leave the desk with
+     unpublished changes; `go` runs if the writer chooses to leave. */
+  _guardDesk(go) {
+    const s = Editor._articleState;
+    if (!s || !s.isDirty || !document.querySelector('.desk') || !s.isDirty()) return false;
+    s.flushDraft();
+    Modal.open({
+      title: 'Leave the Writer’s desk?',
+      body: `<p class="desk-leave-text">Your changes aren’t published yet. They’re saved as a draft, and come back when you open ${s.isEditing ? 'this article’s editor' : 'the Writer’s desk'} again.</p>`,
+      foot: `<button class="btn-ghost" id="desk-stay">Keep writing</button><button class="btn-navy" id="desk-leave">Leave</button>`
+    });
+    $('#desk-stay').onclick = () => Modal.close();
+    $('#desk-leave').onclick = () => { Modal.close(); Editor._teardownDesk(); go(); };
+    return true;
   },
 
   /* Builds the Writer's desk into `root`. The page column shows the story in
      the reader's own fonts; settings sit in the side panel. Field ids
      (#art-*) are what saveArticle reads. */
   async mountDesk(root, existing = null) {
-    const a = existing || {};
-    const isEditing = !!(existing && a.id);
+    const isEditing = !!(existing && existing.id);
+    const draftId = Editor._draftId(isEditing ? existing.id : null);
+    const draft = await Store.get('drafts', draftId);
+    const a = { ...(existing || {}), ...(draft ? draft.fields : {}) };
     const articleState = {
       coverImage: a.coverImage || null,
       coverAspect: parseAspect(a.coverAspect, 16/9),
@@ -567,9 +596,10 @@ const Editor = {
     root.innerHTML = `
       <div class="desk">
         <div class="desk-bar">
-          <a class="desk-back" onclick="Router.go(${isEditing ? `'article/${a.id}'` : `'news'`})">← Back</a>
+          <a class="desk-back" onclick="Router.go(${isEditing ? `'article/${existing.id}'` : `'news'`})">← Back</a>
           <span class="desk-name">Writer’s desk</span>
           <span class="desk-status">${isEditing ? 'Editing a published article' : 'New article'}</span>
+          <span class="desk-saved" id="desk-saved">${draft ? `Draft from ${relativeTime(draft.savedAt)} · <a id="desk-discard">Discard draft</a>` : ''}</span>
           <span class="desk-actions">
             ${isEditing ? `<button class="btn-ghost desk-delete" onclick="Editor.deleteArticle('${a.id}')">Delete</button>` : ''}
             <button class="btn-gold" onclick="Editor.saveArticle(${isEditing ? `'${a.id}'` : 'null'})">${isEditing ? 'Save changes' : 'Publish'}</button>
@@ -864,6 +894,80 @@ const Editor = {
     mount.editor.addEventListener('input', drawByline);
     drawWriters();
     drawKicker();
+
+    // Autosave the draft a moment after each change, and on the way out.
+    const collect = () => ({
+      title: $('#art-title').value, deck: $('#art-deck').value,
+      body: mount.getHTML(), author: $('#art-author').value,
+      section: $('#art-section').value, tab: $('#art-tab').value,
+      visibility: $('#art-visibility').value, lang: $('#art-lang').value,
+      edition: $('#art-edition').value ? parseInt($('#art-edition').value, 10) : null,
+      coverImage: articleState.coverImage, coverAspect: articleState.coverAspect,
+      coverFit: articleState.coverFit,
+      coverCaption: articleState.coverImage ? $('#art-cover-caption').value : ''
+    });
+    const original = JSON.stringify(collect());
+    let lastSaved = draft ? null : original;
+    let timer = null;
+    const deskEl = root.querySelector('.desk');
+    const flush = () => {
+      clearTimeout(timer);
+      if (!document.contains(deskEl)) return;
+      const snap = JSON.stringify(collect());
+      if (snap === lastSaved) return;
+      lastSaved = snap;
+      const label = $('#desk-saved');
+      if (snap === original && !draft) {
+        Store.remove('drafts', draftId);
+        if (label) label.textContent = '';
+        return;
+      }
+      Store.save('drafts', { id: draftId, articleId: isEditing ? existing.id : null,
+        email: Auth.current().email, fields: JSON.parse(snap), savedAt: Date.now() })
+        .then(() => { if (label) label.textContent = 'Draft saved'; })
+        .catch(() => { if (label) label.textContent = 'Couldn’t save the draft (too big for this browser)'; });
+    };
+    const schedule = () => { clearTimeout(timer); timer = setTimeout(flush, 1200); };
+    ['input', 'change', 'click'].forEach(ev => deskEl.addEventListener(ev, schedule));
+    const coverWatch = new MutationObserver(schedule);
+    coverWatch.observe($('#cover-preview'), { childList: true });
+    const onUnload = (e) => {
+      flush();
+      if (articleState.isDirty()) { e.preventDefault(); e.returnValue = ''; }
+    };
+    // Links React handles itself (the footer) go through the same question.
+    const onLink = (e) => {
+      const link = e.target.closest('a[href]');
+      if (!link || deskEl.contains(link) || link.target === '_blank') return;
+      const url = new URL(link.href, location.href);
+      if (url.origin !== location.origin) return;
+      if (Editor._guardDesk(() => Router._navigate ? Router._navigate(url.pathname) : (location.href = url.href))) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('beforeunload', onUnload);
+    window.addEventListener('popstate', flush);
+    document.addEventListener('click', onLink, true);
+    articleState.isEditing = isEditing;
+    articleState.flushDraft = flush;
+    articleState.isDirty = () => JSON.stringify(collect()) !== original || !!draft;
+    articleState.discardDraft = () => Store.remove('drafts', draftId);
+    articleState.stopDraft = () => {
+      clearTimeout(timer);
+      coverWatch.disconnect();
+      window.removeEventListener('beforeunload', onUnload);
+      window.removeEventListener('popstate', flush);
+      document.removeEventListener('click', onLink, true);
+    };
+
+    const discard = $('#desk-discard');
+    if (discard) discard.onclick = async () => {
+      if (!confirm('Discard this draft? Your unpublished changes will be lost.')) return;
+      await Store.remove('drafts', draftId);
+      Editor._teardownDesk();
+      Pages.write.render(Router.params);
+    };
   },
 
   async saveArticle(id) {
@@ -907,6 +1011,7 @@ const Editor = {
       });
     }
 
+    state.discardDraft?.();
     Editor._teardownDesk();
     Router.go(`article/${saved.id}`);
     toast(id ? 'Article updated' : 'Article published', 'success');
@@ -916,6 +1021,7 @@ const Editor = {
     if (!(await Auth.isTribunee())) return;
     if (!confirm('Delete this article? This cannot be undone.')) return;
     await Store.remove('articles', id);
+    Editor._articleState?.discardDraft?.();
     Editor._teardownDesk();
     Router.go('news');
     toast('Article deleted');
