@@ -590,6 +590,7 @@ const Editor = {
               ? `<img src="${articleState.coverImage}" alt="" /><button type="button" class="cover-clear" id="cover-clear">×</button>`
               : 'Click to upload cover image'}
           </div>
+          <input type="text" id="art-cover-caption" value="${escapeHtml(a.coverCaption || '')}" placeholder="Caption: what the photo shows, and who took it (optional)" style="margin-top: 0.6rem;" />
         </div>
 
         <div class="field">
@@ -798,6 +799,7 @@ const Editor = {
     item.coverImage = state.coverImage || null;
     item.coverAspect = parseAspect(state.coverAspect, 16/9);
     item.coverFit = state.coverFit === 'letterbox' ? 'letterbox' : 'crop';
+    item.coverCaption = item.coverImage ? $('#art-cover-caption').value.trim() : '';
     const ed = $('#art-edition').value;
     item.edition = ed ? parseInt(ed, 10) : null;
 
@@ -2623,23 +2625,87 @@ Pages.article = {
     const tabLabel = tabs.find(t => t.id === a.tab)?.label || '';
     const isEditing = Editor.active;
     const coverAspect = parseAspect(a.coverAspect, 16/9);
-    const hasOwner = a.authorEmail && a.authorEmail === Auth.current().email;
+
+    // Writers: match each name in the byline to a Tribunee profile, if any.
+    const tribunees = await Store.list('tribunees');
+    const norm = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const names = (a.author || '').split(/\s*(?:&|,|\band\b)\s*/).filter(Boolean);
+    const writers = names.map(n => ({ name: n, t: tribunees.find(t => norm(t.name) === norm(n)) }));
+    const avatar = (w, cls) => w.t && w.t.photo
+      ? `<span class="${cls}"><img src="${w.t.photo}" alt="" /></span>`
+      : `<span class="${cls}">${escapeHtml(initials(w.name))}</span>`;
+    const nameLink = (w) => w.t
+      ? `<a class="author" onclick="Router.go('tribunee/${w.t.id}')">${escapeHtml(w.name)}</a>`
+      : `<span class="author">${escapeHtml(w.name)}</span>`;
+    const byline = writers.map(nameLink).join(' &amp; ');
+    const plain = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent.replace(/\s+/g, ' ').trim(); };
+    const words = plain(renderArticleBody(a.body)).split(' ').filter(Boolean).length;
+    const readMins = Math.max(1, Math.round(words / 200));
+
+    // More stories from the same section, newest first.
+    const more = (await listVisibleArticles(x => x.id !== a.id && x.section === a.section))
+      .sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0)).slice(0, 3);
+    const secLabel = sectionLabel(a.section);
 
     root.innerHTML = `
       <div class="article-page">
-        <a class="ar-back" onclick="Router.go('news')">← Back to News</a>
-        ${a.coverImage ? `<div class="article-cover" style="aspect-ratio: ${coverAspect};">
-          <img src="${a.coverImage}" alt="" />
-        </div>` : ''}
-        <div class="ar-cat">${escapeHtml(articleKicker({ ...a, tabLabel }, { fiwaLabel: 'FIWA-only' }))}</div>
-        <h1 class="article-headline">${escapeHtml(a.title)}</h1>
-        ${a.deck ? `<p class="article-deck">${escapeHtml(a.deck)}</p>` : ''}
-        <div class="article-byline">By <span class="author">${escapeHtml(a.author)}</span> · ${formatDate(a.createdAt)}${a.edition ? ` · From Edition ${a.edition}` : ''}</div>
+        <div class="ar-head">
+          <a class="ar-back" onclick="Router.go('news')">← News</a>
+          <div class="ar-cat">${escapeHtml(articleKicker({ ...a, tabLabel }, { fiwaLabel: 'FIWA-only' }))}</div>
+          <h1 class="article-headline">${escapeHtml(a.title)}</h1>
+          ${a.deck ? `<p class="article-deck">${escapeHtml(a.deck)}</p>` : ''}
+          <div class="article-byline">
+            <span class="ar-avatars">${writers.map(w => avatar(w, 'ar-avatar')).join('')}</span>
+            <div class="ar-byline-text">
+              <div>By ${byline}</div>
+              <div class="ar-date">${formatDate(a.createdAt)} · ${readMins} min read</div>
+            </div>
+            ${a.edition ? `<span class="ar-print">In print · Edition ${a.edition}</span>` : ''}
+          </div>
+        </div>
+        ${a.coverImage ? `<figure class="article-cover-fig">
+          <div class="article-cover" style="aspect-ratio: ${coverAspect};">
+            <img src="${a.coverImage}" alt="" />
+          </div>
+          ${a.coverCaption ? `<figcaption>${escapeHtml(a.coverCaption)}</figcaption>` : ''}
+        </figure>` : ''}
         <div class="article-body">${renderArticleBody(a.body)}</div>
-        ${isEditing ? `
-          <div class="article-edit-bar">
-            <button class="btn-ghost" onclick="Editor.editArticleById('${a.id}')">Edit article</button>
-            <button class="btn-ghost" style="color: #c0392b; border-color: rgba(192,57,62,0.4);" onclick="Editor.deleteArticleAndReturn('${a.id}')">Delete</button>
+        <div class="ar-after">
+          ${writers.filter(w => w.t).map(w => `
+            <div class="ar-writer">
+              ${avatar(w, 'ar-avatar lg')}
+              <div>
+                <div class="ar-writer-name">${escapeHtml(w.t.name)}</div>
+                ${w.t.bio ? `<p class="ar-writer-bio">${escapeHtml(plain(w.t.bio).slice(0, 220))}${plain(w.t.bio).length > 220 ? '…' : ''}</p>` : ''}
+                <a class="ar-link" onclick="Router.go('tribunee/${w.t.id}')">More by ${escapeHtml(w.t.name.split(' ')[0])}</a>
+              </div>
+            </div>
+          `).join('')}
+          <div class="ar-error-box">
+            <p><strong>Spot an error in this story?</strong> Tell the editors privately. If we got it wrong, we fix it and log a public correction.</p>
+            <button class="btn-navy" onclick="Router.go('corrections/submit')">Report an error</button>
+          </div>
+          ${isEditing ? `
+            <div class="article-edit-bar">
+              <button class="btn-ghost" onclick="Editor.editArticleById('${a.id}')">Edit article</button>
+              <button class="btn-ghost" style="color: #c0392b; border-color: rgba(192,57,62,0.4);" onclick="Editor.deleteArticleAndReturn('${a.id}')">Delete</button>
+            </div>
+          ` : ''}
+        </div>
+        ${more.length ? `
+          <div class="ar-more">
+            <div class="ar-more-head">
+              <h2>More ${escapeHtml(secLabel || 'News')}</h2>
+              <a class="ar-link" onclick="Router.go('news')">All news</a>
+            </div>
+            <div class="ar-more-grid">${more.map(m => `
+              <article class="ar-more-card" onclick="Router.go('article/${m.id}')">
+                ${m.coverImage ? `<div class="ar-more-img" style="background-image: url('${m.coverImage}')"></div>` : ''}
+                <div class="story-cat">${escapeHtml(articleKicker(m))}</div>
+                <h3>${escapeHtml(m.title)}</h3>
+                <div class="ar-date">${formatDate(m.createdAt)}</div>
+              </article>
+            `).join('')}</div>
           </div>
         ` : ''}
       </div>
