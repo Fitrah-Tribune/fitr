@@ -7,28 +7,45 @@ const html = `
 <section class="page active" id="page-corrections">
   <div class="section-head">
     <h2>Feedback &amp; Corrections</h2>
-    <span class="sub">— tell us what we got wrong</span>
+    <span class="sub">Spot an error, or know something we should report? Tell the editors.</span>
   </div>
 
-  <!-- The public/private boundary. This must never be quiet. -->
-  <div class="fc-privacy">
-    <h4>Your submission is private</h4>
-    <p>What you send us is read only by the Tribune. It is <strong>never published</strong> — not your name, not your words, not the fact that you wrote to us.</p>
-    <p>If what you tell us leads to a correction, <strong>only the correction is published</strong> — a plain note saying what we got wrong and that we fixed it. Your message stays between us.</p>
-  </div>
+  <div class="fc-layout">
+    <div class="fc-main">
+      <div class="fc-block" id="fc-submit-block">
+        <div class="fc-label"><span>Send a note to the editors</span></div>
+        <div id="fc-submit-area"><!-- rendered by JS --></div>
+      </div>
 
-  <div class="fc-block" id="fc-submit-block">
-    <div class="fc-label"><span>Send us a correction</span></div>
-    <div id="fc-submit-area"><!-- rendered by JS --></div>
-  </div>
+      <div class="fc-block" id="fc-mycases-block" style="display:none;">
+        <div class="fc-label"><span>Your notes</span><span class="count" id="fc-mycases-count"></span></div>
+        <div id="fc-mycases-area"><!-- rendered by JS --></div>
+      </div>
+    </div>
 
-  <div class="fc-block" id="fc-mycases-block" style="display:none;">
-    <div class="fc-label"><span>Your cases</span><span class="count" id="fc-mycases-count"></span></div>
-    <div id="fc-mycases-area"><!-- rendered by JS --></div>
+    <aside class="fc-side">
+      <!-- The public/private boundary. This must never be quiet. -->
+      <div class="fc-privacy">
+        <h4>Only the editorial team sees your note</h4>
+        <p>It is <strong>never published</strong>: not your name, not your words, not the fact that you wrote in.</p>
+        <p>If it leads to a correction, <strong>only the correction</strong> goes on the public record, written by the editors in their own words.</p>
+      </div>
+      <div class="fc-legend">
+        <div class="fc-q">What the statuses mean</div>
+        <dl>
+          <dt><span class="note-st recv">Received</span></dt><dd>The editors have your note.</dd>
+          <dt><span class="note-st prog">In progress</span></dt><dd>The editors are checking it.</dd>
+          <dt><span class="note-st fixed">Corrected</span></dt><dd>We fixed the story and logged it below.</dd>
+          <dt><span class="note-st checked">Checked, no change needed</span></dt><dd>We looked into it; the story stands.</dd>
+          <dt><span class="note-st passed">Thanks, passed to a writer</span></dt><dd>For tips: a Tribunee will follow it up.</dd>
+        </dl>
+        <p class="fc-legend-note">While a note is Received or In progress, the editors can reply and you can add to it. The last three close it; only an admin can reopen it.</p>
+      </div>
+    </aside>
   </div>
 
   <div class="fc-block" id="fc-inbox-block" style="display:none;">
-    <div class="fc-label"><span>Case inbox — Tribunees only</span><span class="count" id="fc-inbox-count"></span></div>
+    <div class="fc-label"><span>Editors’ inbox · Tribunees only</span><span class="count" id="fc-inbox-count"></span></div>
     <div id="fc-inbox-area"><!-- rendered by JS --></div>
   </div>
 
