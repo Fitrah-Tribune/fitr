@@ -429,6 +429,7 @@ async function renderUserArea() {
   } else {
     const editingActive = Editor.active;
     slot.innerHTML = `
+      ${isTribunee ? `<button class="btn-ghost btn-write" style="display:inline-flex" onclick="Router.go('write')">Write</button>` : ''}
       ${isTribunee ? `<button class="btn-ghost ${editingActive ? 'editing-active' : ''}" style="display:inline-flex" onclick="Editor.toggle(${!editingActive})">${editingActive ? 'Exit editing' : 'Editing mode'}</button>` : ''}
       <span class="tier-badge ${user.tier}">${user.tier === 'fiwa' ? 'FIWA' : 'Public'}</span>
       <span class="user-name">${escapeHtml(user.name)}</span>

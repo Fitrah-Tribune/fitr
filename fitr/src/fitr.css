@@ -2882,6 +2882,8 @@ body.editing .tribune-band .user-name {
   padding: 0.35rem 0.75rem;
 }
 .tribune-band .btn-ghost:hover, .tribune-band .btn-signout:hover { border-color: var(--gold-bright); color: var(--gold-bright); background: transparent; }
+.tribune-band .btn-ghost.btn-write { background: var(--gold); border-color: var(--gold); color: var(--navy-deep); }
+.tribune-band .btn-ghost.btn-write:hover { background: var(--gold-bright); border-color: var(--gold-bright); color: var(--navy-deep); }
 .tribune-band .btn-ghost.editing-active { background: var(--gold-bright); color: var(--navy-deep); border-color: var(--gold-bright); }
 .tab-btn {
   font-size: 0.8rem;
