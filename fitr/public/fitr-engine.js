@@ -4184,7 +4184,7 @@ Pages.about = {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -4457,6 +4457,30 @@ async function migrateLegacyData() {
     const tabs = await Store.list('newsTabs');
     if (tabs.length && !tabs.some(t => t.label === 'Sports' && t.section === 'internal')) {
       await Store.save('newsTabs', { label: 'Sports', section: 'internal', subtabs: [] });
+    }
+  }
+
+  // ─── v8 → v9 migration (one-way feedback notes, Oct 2026) ───────────
+  // Cases were chats (messages in `casemsgs`). Each becomes a note: the
+  // reader's messages are its body, the editors' last reply is its one line.
+  // `casemsgs` is left as it was and no longer read.
+  if (current < 9) {
+    for (const c of await Store.list('cases')) {
+      if (c.body !== undefined) continue;
+      const msgs = (await Store.list('casemsgs', m => m.caseId === c.id))
+                     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      const reader = msgs.filter(m => m.side === 'reader');
+      const lastReply = msgs.filter(m => m.side === 'tribune').pop();
+      const line = lastReply ? lastReply.body.trim() : '';
+      c.body = reader.map(m => m.body).join('\n\n');
+      c.editorNote = line.length > NOTE_LINE_MAX ? line.slice(0, NOTE_LINE_MAX - 1) + '…' : line;
+      c.kind = 'other';
+      c.status = c.status === 'resolved' ? 'checked' : (lastReply ? 'progress' : 'received');
+      c.showName = true; // they wrote before the choice existed, under their own name
+      c.articleId = c.articleId || '';
+      c.articleTitle = c.articleTitle || '';
+      c.history = [{ at: c.createdAt || Date.now(), what: 'Note received' }];
+      await Store.save('cases', c);
     }
   }
 
