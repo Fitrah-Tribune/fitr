@@ -145,6 +145,9 @@ felt too dominant.)
   style (decided by Ammar, Oct 2026).
 - Libre Baskerville has **no bold italic**. Never make a headline italic;
   a highlighted word inside a headline stays upright (colour only).
+  One exception: the About page headline, "Documenting FIWA *& Beyond*",
+  sets "& Beyond" in gold Libre Baskerville italic at regular weight
+  (decided by Ammar, Oct 2026).
 - New element? Decide which of the three jobs it does and use that variable.
   If people read it as sentences, it's `--article`; if it's a label or
   control, it's Work Sans.

@@ -10,10 +10,10 @@ const html = `
     <div class="about-hero-img"><img src="__MARK__" alt="Fitrah Tribune lighthouse" /></div>
     <div class="about-hero-text">
       <div class="eyebrow">About Us · Fitrah Tribune</div>
-      <h2>A lighthouse in the <em>storm of misinformation.</em></h2>
-      <p class="lead">Fitrah Tribune is a student-driven newspaper community at Fitrah Islamic World Academy. We are the community's record of itself — written from within FIWA, for the readers who live it.</p>
+      <h2>Documenting FIWA <em>&amp; Beyond</em></h2>
+      <p class="lead">Fitrah Tribune (FITR) is FIWA’s Student Journalism Community. We document what happens in our lives in FIWA, and the world beyond it, all written by students, for the whole FIWA community.</p>
       <p>We were born out of frustration with the rumor-mills that travel faster than verified facts in any school. Our promise is simple: we publish what we can verify, we correct what we get wrong, and we leave the record for everyone to see.</p>
-      <p>Our newspapers ship every fortnight in English, with Indonesian translations following soon after. The website is a younger sibling — built to extend the reach of the print, host community discussion, and keep our corrections honest.</p>
+      <p>This website is where we publish first. Every few weeks we also print an edition of the paper, and every edition is kept in the Editions archive.</p>
     </div>
   </div>
 
@@ -68,7 +68,7 @@ const html = `
 
   <div class="section-head" style="margin-top: 3.5rem;">
     <h2>The Tribunees</h2>
-    <span class="sub">— our team of writers, editors, and translators</span>
+    <span class="sub">— our team of writers, editors and photographers</span>
     <div class="head-action admin-only">
       <button class="btn-add" onclick="Editor.newTribunee()">+ Add Tribunee</button>
     </div>

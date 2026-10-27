@@ -1687,7 +1687,9 @@ body.editing .user-name { color: var(--navy-deep); }
   margin-bottom: 1.2rem;
   letter-spacing: -0.02em;
 }
-.about-hero-text h2 em { font-style: normal; color: var(--gold); }
+/* The one italic headline on the site: Libre Baskerville's real italic
+   comes only in regular weight, so the highlight drops to 400. */
+.about-hero-text h2 em { font-style: italic; font-weight: 400; color: var(--gold); }
 .about-hero-text p.lead {
   font-size: 1.2rem;
   color: var(--ink);
