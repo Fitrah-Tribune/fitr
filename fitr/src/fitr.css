@@ -1913,7 +1913,7 @@ footer.tribune-footer {
   color: var(--ink-soft);
   margin-bottom: 0.4rem;
 }
-.field input:not(.rte-tool), .field textarea:not(.rte-tool), .field select:not(.rte-tool) {
+.field input:not(.rte-toolbar *), .field textarea, .field select:not(.rte-toolbar *) {
   width: 100%;
   font-family: var(--ui);
   font-size: 0.95rem;
@@ -2343,86 +2343,84 @@ body.editing [data-editable]:hover {
   border: 1px solid var(--rule);
   background: var(--paper-lift);
   border-radius: 2px;
-  overflow: hidden;
+  overflow: visible;
 }
+/* Toolbar modelled on Google Docs: one rounded pill, flat icon buttons,
+   thin separators, menus that drop down from the button. */
 .rte-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 1px;
-  padding: 0.4rem;
-  border-bottom: 1px solid var(--rule);
-  background: var(--paper-deep);
+  padding: 0.3rem 0.45rem;
+  margin: 0.45rem;
+  background: #eef2f7;
+  border-radius: 22px;
   position: sticky;
   top: 0;
   z-index: 5;
-  align-items: center;
-}
-.rte-tool-group {
-  display: flex;
-  gap: 1px;
-  padding: 0 0.35rem;
-  border-right: 1px solid var(--rule);
-  align-items: center;
-}
-.rte-tool-group:last-child { border-right: none; }
-.rte-tool {
-  background: transparent;
-  border: 1px solid transparent;
-  padding: 0.3rem 0.55rem;
   font-family: var(--ui);
-  font-size: 0.86rem;
-  color: var(--ink-soft);
-  cursor: pointer;
-  border-radius: 2px;
-  min-width: 30px;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-  line-height: 1;
 }
-.rte-tool:hover { background: var(--paper-lift); color: var(--navy); border-color: var(--rule); }
-.rte-tool.active { background: var(--navy); color: var(--paper-lift); border-color: var(--navy); }
-.rte-tool b, .rte-tool i, .rte-tool u, .rte-tool s { display: inline-block; }
-.rte-tool select {
-  background: transparent;
-  border: none;
-  font-family: var(--ui);
-  font-size: 0.84rem;
-  color: var(--ink-soft);
-  cursor: pointer;
-  padding: 0.2rem 0.3rem;
-  outline: none;
+.rte-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 28px; min-width: 26px; padding: 0 3px;
+  background: transparent; border: none; border-radius: 4px;
+  color: #3c4043; cursor: pointer;
+  font-family: var(--ui); font-size: 1rem; line-height: 1;
+  transition: background 0.12s;
 }
+.rte-btn svg { width: 18px; height: 18px; fill: currentColor; display: block; }
+.rte-btn:hover { background: rgba(28,54,88,0.08); }
+.rte-btn:active { background: rgba(28,54,88,0.14); }
+.rte-btn.on { background: #d3e3fd; color: #0b3c7a; }
+.rte-toolbar > *, .rte-more-pop > * { flex-shrink: 0; }
+.rte-sep { width: 1px; height: 20px; background: #c4c9d0; margin: 0 3px; flex: none; }
+.rte-select {
+  height: 28px; padding: 0 1.4rem 0 0.5rem;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z' fill='%233c4043'/%3E%3C/svg%3E") no-repeat right 2px center / 18px;
+  border: none; border-radius: 4px;
+  font-family: var(--ui); font-size: 0.86rem; color: #3c4043;
+  cursor: pointer; outline: none;
+  -webkit-appearance: none; appearance: none;
+}
+.rte-select:hover { background-color: rgba(28,54,88,0.08); }
+.rte-style { width: 7rem; }
+.rte-font { width: 8.2rem; text-overflow: ellipsis; }
 /* Text size box: 12 = normal text (see RichEditor.SIZES). */
-.rte-size { gap: 0; }
-.rte-size-input {
-  width: 3.2rem; text-align: center;
-  font-family: var(--ui); font-size: 0.86rem; color: var(--ink);
-  border: 1px solid var(--rule); background: var(--paper-lift);
-  padding: 0.25rem 0.2rem; border-radius: 2px;
+.rte-size { display: inline-flex; align-items: center; gap: 1px; }
+.rte-step { font-size: 1.1rem; min-width: 24px; }
+.rte-toolbar .rte-size-input {
+  width: 2.6rem; height: 24px; text-align: center;
+  font-family: var(--ui); font-size: 0.86rem; color: #202124;
+  border: 1px solid #747775; background: transparent;
+  padding: 0; border-radius: 4px;
   -moz-appearance: textfield;
 }
+.rte-toolbar .rte-size-input:focus { outline: 2px solid #0b57d0; outline-offset: -1px; border-color: transparent; }
 .rte-size-input::-webkit-inner-spin-button,
 .rte-size-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-/* Text colour: "A" with the current colour under it, and a menu. */
-.rte-colour { position: relative; gap: 0; }
-.rte-colour-apply { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 0.2rem; }
-.rte-colour-a { font-family: var(--headline); font-weight: 700; font-size: 0.95rem; line-height: 1; }
-.rte-colour-bar { display: block; width: 16px; height: 4px; border-radius: 1px; }
-.rte-colour-open { min-width: 18px; padding-left: 0.2rem; padding-right: 0.2rem; font-size: 0.7rem; }
-.rte-colour-menu {
+/* Colour tools: icon with the current colour as a bar under it. */
+.rte-colour, .rte-link { position: relative; display: inline-flex; align-items: center; }
+.rte-colour-apply { flex-direction: column; gap: 0; padding: 2px 4px 3px; border-radius: 4px 0 0 4px; }
+.rte-colour-apply svg { width: 16px; height: 16px; }
+.rte-colour-bar { display: block; width: 18px; height: 4px; margin-top: 1px; border-radius: 1px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
+.rte-colour-open { min-width: 14px; padding: 0; border-radius: 0 4px 4px 0; }
+.rte-colour-open svg { width: 16px; height: 16px; }
+.rte-pop {
   position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
   width: 236px; padding: 0.6rem;
-  background: var(--paper-lift); border: 1px solid var(--rule);
-  box-shadow: 0 8px 24px rgba(15,33,56,0.15);
+  background: #fff; border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(60,64,67,0.15), 0 1px 2px rgba(60,64,67,0.3);
   font-family: var(--ui);
 }
-.rte-colour-menu[hidden] { display: none; }
+.rte-pop[hidden] { display: none; }
 .rte-colour-auto {
   width: 100%; text-align: left; cursor: pointer;
-  border: 1px solid var(--rule); background: var(--paper);
-  font-family: var(--ui); font-size: 0.82rem; color: var(--ink);
-  padding: 0.35rem 0.5rem; margin-bottom: 0.3rem;
+  border: none; border-radius: 4px; background: transparent;
+  font-family: var(--ui); font-size: 0.84rem; color: #202124;
+  padding: 0.4rem 0.5rem; margin-bottom: 0.2rem;
 }
-.rte-colour-auto:hover { border-color: var(--navy); }
+.rte-colour-auto:hover { background: rgba(28,54,88,0.08); }
 .rte-colour-label {
   font-size: 0.66rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--ink-muted); margin: 0.5rem 0 0.3rem;
@@ -2440,6 +2438,35 @@ body.editing [data-editable]:hover {
   border-style: dashed;
 }
 .rte-swatch-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+/* ⋮ menu for the tools that don't fit */
+.rte-more { position: relative; display: inline-flex; margin-left: auto; }
+.rte-more[hidden] { display: none; }
+.rte-more-pop {
+  left: auto; right: 0; width: max-content;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 1px;
+  padding: 0.35rem; max-width: min(340px, 86vw);
+}
+.rte-more-pop[hidden] { display: none; }
+.rte-more-pop > .rte-sep:first-child { display: none; }
+/* Link box */
+.rte-link-pop { width: 300px; }
+.rte-toolbar .rte-link-pop input {
+  width: 100%; box-sizing: border-box;
+  font-family: var(--ui); font-size: 0.88rem; color: #202124;
+  border: 1px solid #747775; border-radius: 4px; background: #fff;
+  padding: 0.45rem 0.55rem;
+}
+.rte-toolbar .rte-link-pop input:focus { outline: 2px solid #0b57d0; outline-offset: -1px; border-color: transparent; }
+.rte-link-actions { display: flex; justify-content: flex-end; gap: 0.4rem; margin-top: 0.5rem; }
+.rte-link-actions button {
+  font-family: var(--ui); font-size: 0.82rem; font-weight: 500;
+  padding: 0.4rem 0.9rem; border-radius: 16px; cursor: pointer;
+  border: none; background: transparent; color: #0b57d0;
+}
+.rte-link-actions button:hover { background: rgba(11,87,208,0.08); }
+.rte-link-actions button.primary { background: #0b57d0; color: #fff; }
+.rte-link-actions button.primary:hover { background: #0a4fbd; }
+.rte-editor a, .article-body a { color: var(--navy); text-decoration: underline; text-underline-offset: 2px; }
 .rte-editor {
   padding: 1.2rem 1.4rem;
   min-height: 280px;
@@ -3067,7 +3094,7 @@ footer.tribune-footer { margin-top: 0.5rem; }
 }
 .desk-body { margin-top: 0.4rem; }
 .desk-body .rte-shell { border: none; background: transparent; overflow: visible; }
-.desk-body .rte-toolbar { top: 52px; margin: 0 -0.6rem; border: 1px solid var(--rule); }
+.desk-body .rte-toolbar { top: 52px; margin: 0 -0.6rem; box-shadow: 0 1px 0 rgba(15,33,56,0.06); }
 .desk-body .rte-editor {
   --rte-base: 1.08rem;
   background: transparent; padding: 1rem 0 0; min-height: 360px;
