@@ -82,6 +82,7 @@ fitr/
 | `/about`, `/about/standards`, `/about/tribunees` | `about` | `About.jsx` |
 | `/article/:id` | `article` | `Article.jsx` |
 | `/tribunee/:id` | `tribunee` | `Tribunee.jsx` |
+| `/write`, `/write/:id` | `write` | `Write.jsx` (the Writer's desk; Tribunees only) |
 
 Note the one mismatch: URL `/feedback` → engine key `corrections`.
 
@@ -90,8 +91,11 @@ Note the one mismatch: URL `/feedback` → engine key `corrections`.
 Every article belongs to one of two **permanent sections**: Internal News
 (inside FIWA) or External News (everything outside FIWA). They sit above
 categories, are fixed in code (`NEWS_SECTIONS` in the engine), and are
-required. Categories and sub-categories are optional and can belong to one
-section or both. The website is the Tribune's main outlet, not a mirror of
+required. There are only two tiers: section, then category. Each category
+belongs to exactly one section, and an article's category is optional.
+There are no sub-categories (removed Oct 2026). Defaults: Internal News →
+Construction, Sports; External News → Science & Technology, World, Indonesia,
+Sports. Editors add more in "Manage categories". The website is the Tribune's main outlet, not a mirror of
 the printed editions, so don't describe articles as "from the latest
 edition" (decided by Ammar, Oct 2026).
 
@@ -132,10 +136,13 @@ article. On the web, anything a reader settles in to read counts as
 kept for navigation, labels and controls. (Changed Oct 2026: Work Sans
 felt too dominant.)
 
-- Inside an article body, the editor's text styles (Heading, Subheading,
-  Quote) set size and spacing only. Bold, italics, caps, font and colour
-  come from the writer's own formatting, never from the style (decided
-  Oct 2026).
+- Inside an article body, the writer decides the look. Choosing a text
+  style (Heading, Subheading, Quote) sets its size and spacing and gives
+  the text a starting format (Heading: Libre Baskerville bold; Subheading:
+  Times bold; Quote: Libre Baskerville italic), which the writer can then
+  change like any other formatting. Nothing is forced by the page itself:
+  a drop cap appears only on a paragraph the writer gives the "Drop cap"
+  style (decided by Ammar, Oct 2026).
 - Libre Baskerville has **no bold italic**. Never make a headline italic;
   a highlighted word inside a headline stays upright (colour only).
 - New element? Decide which of the three jobs it does and use that variable.
@@ -220,8 +227,9 @@ public user, a non-admin Tribunee, and an admin.
   `firebaseDriver` stub marks where Firebase goes; it must keep the same
   function signatures as the localStorage driver.
 - Collections: `articles`, `editions`, `corrections`, `threads` (forum posts),
-  `tribunees`, `allowlist`, `cases`, `casemsgs`. (`comments` is legacy and
-  wiped.)
+  `tribunees`, `allowlist`, `cases`, `casemsgs`, `drafts` (the Writer's
+  desk's unpublished work, one per writer per article). (`comments` is
+  legacy and wiped.)
 - Schema changes: bump `SCHEMA_VERSION` and add a guarded step in
   `migrateLegacyData()`. Each step must run only once (`if (current < N)`).
 

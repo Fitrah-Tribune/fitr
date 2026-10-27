@@ -308,10 +308,6 @@ const Modal = {
   close() {
     // Tear down any active rich editor BEFORE removing modal DOM, otherwise
     // the document-level click listeners pile up across modal opens.
-    if (Editor._articleState && Editor._articleState.bodyEditor && Editor._articleState.bodyEditor.destroy) {
-      try { Editor._articleState.bodyEditor.destroy(); } catch (e) {}
-      Editor._articleState.bodyEditor = null;
-    }
     if (Editor._tribuneeState && Editor._tribuneeState.bioEditor && Editor._tribuneeState.bioEditor.destroy) {
       try { Editor._tribuneeState.bioEditor.destroy(); } catch (e) {}
       Editor._tribuneeState.bioEditor = null;
@@ -344,7 +340,8 @@ const ROUTE_PATHS = {
   corrections: '/feedback',
   about:       '/about',
   article:     '/article',
-  tribunee:    '/tribunee'
+  tribunee:    '/tribunee',
+  write:       '/write'
 };
 
 const Router = {
@@ -354,6 +351,8 @@ const Router = {
 
   go(path) {
     if (typeof path !== 'string' || !path) path = 'home';
+    // Leaving the Writer's desk with unpublished work asks first.
+    if (Editor._guardDesk(() => this.go(path))) return;
     const [page, id] = path.split('/');
     const base = ROUTE_PATHS[page] || '/';
     const url = id && base !== '/' ? `${base}/${id}` : base;
@@ -395,6 +394,8 @@ const Icons = {
   forum:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
   pencil:  `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   about:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L8 8v6l4 8 4-8V8l-4-6z"/><circle cx="12" cy="10" r="1.5" fill="currentColor"/></svg>`,
+  view_list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><rect x="3" y="5" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="11" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="17" width="2.5" height="2.5" fill="currentColor" stroke="none"/></svg>`,
+  view_grid: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="6.5" height="6.5"/><rect x="13.5" y="4" width="6.5" height="6.5"/><rect x="4" y="13.5" width="6.5" height="6.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5"/></svg>`,
   empty:   `<svg class="es-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M32 8L24 24v18l8 16 8-16V24L32 8z"/><circle cx="32" cy="28" r="3" fill="currentColor"/><circle cx="14" cy="20" r="1" fill="currentColor"/><circle cx="50" cy="22" r="1" fill="currentColor"/><circle cx="48" cy="40" r="1" fill="currentColor"/></svg>`
 };
 
@@ -432,6 +433,7 @@ async function renderUserArea() {
   } else {
     const editingActive = Editor.active;
     slot.innerHTML = `
+      ${isTribunee ? `<button class="btn-ghost btn-write" style="display:inline-flex" onclick="Router.go('write')">Write</button>` : ''}
       ${isTribunee ? `<button class="btn-ghost ${editingActive ? 'editing-active' : ''}" style="display:inline-flex" onclick="Editor.toggle(${!editingActive})">${editingActive ? 'Exit editing' : 'Editing mode'}</button>` : ''}
       <span class="tier-badge ${user.tier}">${user.tier === 'fiwa' ? 'FIWA' : 'Public'}</span>
       <span class="user-name">${escapeHtml(user.name)}</span>
@@ -534,268 +536,445 @@ const Editor = {
     if (a) this.newArticle(a);
   },
 
+  // Articles are written on the Writer's desk, a page of its own
+  // (/write and /write/:id). See Pages.write and mountDesk below.
   newArticle(existing = null) {
-    const a = existing || {};
-    const isEditing = !!(existing && a.id);
+    Router.go(existing && existing.id ? `write/${existing.id}` : 'write');
+  },
+
+  _teardownDesk() {
+    const s = Editor._articleState;
+    if (s && s.bodyEditor && s.bodyEditor.destroy) {
+      try { s.bodyEditor.destroy(); } catch (e) {}
+    }
+    if (s && s.stopDraft) s.stopDraft();
+    Editor._articleState = null;
+  },
+
+  /* Drafts: the desk saves unpublished work as you go, one draft per
+     writer per article ("new" for a story not yet published). Opening the
+     desk again brings it back. Publishing deletes it. */
+  _draftId(articleId) {
+    const who = (Auth.current().email || 'guest').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return `draft-${who}-${articleId || 'new'}`;
+  },
+
+  /* Returns true (and asks) if leaving now would leave the desk with
+     unpublished changes; `go` runs if the writer chooses to leave. */
+  _guardDesk(go) {
+    const s = Editor._articleState;
+    if (!s || !s.isDirty || !document.querySelector('.desk') || !s.isDirty()) return false;
+    s.flushDraft();
+    Modal.open({
+      title: 'Leave the Writer’s desk?',
+      body: `<p class="desk-leave-text">Your changes aren’t published yet. They’re saved as a draft, and come back when you open ${s.isEditing ? 'this article’s editor' : 'the Writer’s desk'} again.</p>`,
+      foot: `<button class="btn-ghost" id="desk-stay">Keep writing</button><button class="btn-navy" id="desk-leave">Leave</button>`
+    });
+    $('#desk-stay').onclick = () => Modal.close();
+    $('#desk-leave').onclick = () => { Modal.close(); Editor._teardownDesk(); go(); };
+    return true;
+  },
+
+  /* Builds the Writer's desk into `root`. The page column shows the story in
+     the reader's own fonts; settings sit in the side panel. Field ids
+     (#art-*) are what saveArticle reads. */
+  async mountDesk(root, existing = null) {
+    const isEditing = !!(existing && existing.id);
+    const draftId = Editor._draftId(isEditing ? existing.id : null);
+    const draft = await Store.get('drafts', draftId);
+    const a = { ...(existing || {}), ...(draft ? draft.fields : {}) };
     const articleState = {
       coverImage: a.coverImage || null,
       coverAspect: parseAspect(a.coverAspect, 16/9),
       coverFit: a.coverFit === 'letterbox' ? 'letterbox' : 'crop',
       bodyEditor: null
     };
+    Editor._articleState = articleState;
 
-    Modal.open({
-      title: isEditing ? 'Edit article' : 'New article',
-      wide: true,
-      body: `
-        ${!isEditing ? `
-          <div class="pdf-import-row">
-            <div class="pdf-icon">PDF</div>
-            <div class="pdf-text">
-              <strong>Import from PDF</strong> — text gets dropped into the editor; images go at the bottom for you to place.
-            </div>
-            <button id="pdf-import-btn">Choose PDF</button>
-          </div>
-        ` : ''}
+    const tribunees = (await Store.list('tribunees')).slice().sort((x, y) => (x.name || '').localeCompare(y.name || ''));
+    const writers = (a.author || Auth.current().name || '').split(/\s*(?:&|,|\band\b)\s*/).filter(Boolean);
+    const emptyCover = 'Click to add a cover photo (optional)';
 
-        <div class="field">
-          <label>Cover image (optional)</label>
-          <div class="afp-picker" id="art-afp">
-            <div class="afp-row">
-              <label>Aspect</label>
-              <div class="afp-pills">
-                <button type="button" data-w="16" data-h="9">16:9</button>
-                <button type="button" data-w="4" data-h="3">4:3</button>
-                <button type="button" data-w="3" data-h="2">3:2</button>
-                <button type="button" data-w="1" data-h="1">1:1</button>
-                <button type="button" data-custom="1">Custom</button>
-              </div>
-              <div class="afp-custom-row" style="display:none">
-                <input type="number" class="afp-w" min="0.1" step="any" value="16" />
-                <span>:</span>
-                <input type="number" class="afp-h" min="0.1" step="any" value="9" />
-              </div>
-            </div>
-            <div class="afp-row afp-fit">
-              <label>Fit</label>
-              <div class="afp-pills">
-                <button type="button" data-fit="crop">Crop</button>
-                <button type="button" data-fit="letterbox">Letterbox</button>
-              </div>
-            </div>
-            <div class="afp-hint">Crop trims the source to fit; letterbox preserves every pixel and fills the slack with cream so nothing is lost.</div>
-          </div>
-          <div class="cover-preview afp-preview" id="cover-preview" style="aspect-ratio: ${articleState.coverAspect};">
-            ${articleState.coverImage
-              ? `<img src="${articleState.coverImage}" alt="" /><button type="button" class="cover-clear" id="cover-clear">×</button>`
-              : 'Click to upload cover image'}
-          </div>
+    root.innerHTML = `
+      <div class="desk">
+        <div class="desk-bar">
+          <a class="desk-back" onclick="Router.go(${isEditing ? `'article/${existing.id}'` : `'news'`})">← Back</a>
+          <span class="desk-name">Writer’s desk</span>
+          <span class="desk-status">${isEditing ? 'Editing a published article' : 'New article'}</span>
+          <span class="desk-saved" id="desk-saved">${draft ? `Draft from ${relativeTime(draft.savedAt)} · <a id="desk-discard">Discard draft</a>` : ''}</span>
+          <span class="desk-actions">
+            ${isEditing ? `<button class="btn-ghost desk-delete" onclick="Editor.deleteArticle('${a.id}')">Delete</button>` : ''}
+            <button class="btn-gold" onclick="Editor.saveArticle(${isEditing ? `'${a.id}'` : 'null'})">${isEditing ? 'Save changes' : 'Publish'}</button>
+          </span>
         </div>
+        <div class="desk-main">
+          <div class="desk-page">
+            <div class="desk-kicker" id="desk-kicker"></div>
+            <textarea id="art-title" class="desk-headline" rows="1" placeholder="Headline">${escapeHtml(a.title || '')}</textarea>
+            <textarea id="art-deck" class="desk-deck" rows="1" placeholder="Deck: one line that sums up the story">${escapeHtml(a.deck || '')}</textarea>
+            <div class="desk-byline" id="desk-byline"></div>
+            <div class="cover-preview afp-preview desk-cover" id="cover-preview" style="aspect-ratio: ${articleState.coverAspect};">
+              ${articleState.coverImage
+                ? `<img src="${articleState.coverImage}" alt="" /><button type="button" class="cover-clear" id="cover-clear">×</button>`
+                : emptyCover}
+            </div>
+            <input type="text" id="art-cover-caption" class="desk-caption" value="${escapeHtml(a.coverCaption || '')}" placeholder="Caption: what the photo shows, and who took it" />
+            <div id="art-body-editor" class="desk-body"></div>
+          </div>
 
-        <div class="field">
-          <label>Section</label>
-          <select id="art-section">
-            <option value="">— Select section —</option>
-            ${NEWS_SECTIONS.map(x => `<option value="${x.id}" ${a.section === x.id ? 'selected' : ''}>${x.label}: ${x.hint}</option>`).join('')}
-          </select>
+          <aside class="desk-panel">
+            <h2>Article settings</h2>
+            <div class="field">
+              <label>Section</label>
+              <div class="desk-seg" id="desk-section">
+                ${NEWS_SECTIONS.map(x => `<button type="button" data-sec="${x.id}" class="${a.section === x.id ? 'active' : ''}">${x.label}</button>`).join('')}
+              </div>
+              <select id="art-section" hidden>
+                <option value=""></option>
+                ${NEWS_SECTIONS.map(x => `<option value="${x.id}" ${a.section === x.id ? 'selected' : ''}>${x.label}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field">
+              <label>Category (optional)</label>
+              <select id="art-tab"></select>
+            </div>
+            <div class="field">
+              <label>Writers</label>
+              <div class="desk-chips" id="desk-writers"></div>
+              <select id="desk-add-writer">
+                <option value="">+ Add a Tribunee</option>
+                ${tribunees.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('')}
+              </select>
+              <input type="text" id="desk-other-writer" placeholder="Or type another name and press Enter" />
+              <input type="hidden" id="art-author" />
+              <div class="field-hint">Tribunees’ names link to their profiles on the article.</div>
+            </div>
+            <div class="field">
+              <label>Cover photo</label>
+              <div class="afp-picker" id="art-afp">
+                <div class="afp-row">
+                  <label>Aspect</label>
+                  <div class="afp-pills">
+                    <button type="button" data-w="16" data-h="9">16:9</button>
+                    <button type="button" data-w="4" data-h="3">4:3</button>
+                    <button type="button" data-w="3" data-h="2">3:2</button>
+                    <button type="button" data-w="1" data-h="1">1:1</button>
+                    <button type="button" data-custom="1">Custom</button>
+                  </div>
+                  <div class="afp-custom-row" style="display:none">
+                    <input type="number" class="afp-w" min="0.1" step="any" value="16" />
+                    <span>:</span>
+                    <input type="number" class="afp-h" min="0.1" step="any" value="9" />
+                  </div>
+                </div>
+                <div class="afp-row afp-fit">
+                  <label>Fit</label>
+                  <div class="afp-pills">
+                    <button type="button" data-fit="crop">Crop</button>
+                    <button type="button" data-fit="letterbox">Letterbox</button>
+                  </div>
+                </div>
+                <div class="afp-hint">Pick these before uploading. Click the picture area on the page to upload.</div>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Visibility</label>
+                <select id="art-visibility">
+                  <option value="public" ${a.visibility !== 'fiwa' ? 'selected' : ''}>Public</option>
+                  <option value="fiwa" ${a.visibility === 'fiwa' ? 'selected' : ''}>FIWA only</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Language</label>
+                <select id="art-lang">
+                  <option value="en" ${(a.lang || 'en') === 'en' ? 'selected' : ''}>English</option>
+                  <option value="id" ${a.lang === 'id' ? 'selected' : ''}>Indonesian</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Also in print? Edition number</label>
+              <input type="number" id="art-edition" value="${a.edition || ''}" placeholder="Leave empty for web-only" min="1" />
+              <div class="field-hint">Adds “In print · Edition N” to the byline.</div>
+            </div>
+            ${!isEditing ? `
+              <div class="pdf-import-row">
+                <div class="pdf-icon">PDF</div>
+                <div class="pdf-text"><strong>Import from PDF</strong>: text goes into the page; images go at the bottom for you to place.</div>
+                <button id="pdf-import-btn">Choose PDF</button>
+              </div>
+            ` : `
+              <div class="field" style="background: var(--paper-deep); padding: 0.9rem 1rem; border-left: 3px solid var(--gold);">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                  <input type="checkbox" id="art-log-correction" style="width: auto;" />
+                  <span style="text-transform: none; letter-spacing: 0; font-family: var(--ui); font-size: 0.9rem; color: var(--ink);">Log this edit as a public correction</span>
+                </label>
+                <div class="field-hint" style="margin-top: 0.4rem;">If checked, this change appears on the Corrections page (article itself stays clean).</div>
+                <input type="text" id="art-correction-note" placeholder="What was corrected? (e.g. 'Misspelled name', 'Wrong date')" style="margin-top: 0.6rem; display: none;" />
+              </div>
+            `}
+            <div class="desk-count" id="desk-count"></div>
+          </aside>
         </div>
-        <div class="field">
-          <label>Category (optional)</label>
-          <select id="art-tab"></select>
-        </div>
-        <div class="field">
-          <label>Sub-category (optional)</label>
-          <select id="art-subtab"><option value="">— None —</option></select>
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label>Visibility</label>
-            <select id="art-visibility">
-              <option value="public" ${a.visibility !== 'fiwa' ? 'selected' : ''}>Public — visible to everyone</option>
-              <option value="fiwa" ${a.visibility === 'fiwa' ? 'selected' : ''}>FIWA only — hidden from non-FIWA</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Language</label>
-            <select id="art-lang">
-              <option value="en" ${(a.lang || 'en') === 'en' ? 'selected' : ''}>English</option>
-              <option value="id" ${a.lang === 'id' ? 'selected' : ''}>Indonesian</option>
-            </select>
-          </div>
-        </div>
-        <div class="field">
-          <label>Title</label>
-          <input type="text" id="art-title" value="${escapeHtml(a.title || '')}" placeholder="Article headline" />
-        </div>
-        <div class="field">
-          <label>Deck (subtitle / one-line summary)</label>
-          <input type="text" id="art-deck" value="${escapeHtml(a.deck || '')}" placeholder="A brief summary shown under the title" />
-        </div>
-        <div class="field">
-          <label>Body</label>
-          <div id="art-body-editor"></div>
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label>Author (byline)</label>
-            <input type="text" id="art-author" value="${escapeHtml(a.author || Auth.current().name)}" />
-          </div>
-          <div class="field">
-            <label>Edition number (optional)</label>
-            <input type="number" id="art-edition" value="${a.edition || ''}" placeholder="e.g. 2" />
-          </div>
-        </div>
-        ${isEditing ? `
-          <div class="field" style="background: var(--paper-deep); padding: 0.9rem 1rem; border-left: 3px solid var(--gold);">
-            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-              <input type="checkbox" id="art-log-correction" style="width: auto;" />
-              <span style="text-transform: none; letter-spacing: 0; font-family: var(--ui); font-size: 0.9rem; color: var(--ink);">Log this edit as a public correction</span>
-            </label>
-            <div class="field-hint" style="margin-top: 0.4rem;">If checked, this change appears on the Corrections page (article itself stays clean).</div>
-            <input type="text" id="art-correction-note" placeholder="What was corrected? (e.g. 'Misspelled name', 'Wrong date')" style="margin-top: 0.6rem; display: none;" />
-          </div>
-        ` : ''}
-      `,
-      foot: `
-        ${isEditing ? `<button class="btn-ghost" style="margin-right: auto; color: #c0392b;" onclick="Editor.deleteArticle('${a.id}')">Delete</button>` : ''}
-        <button class="btn-ghost" onclick="Modal.close()">Cancel</button>
-        <button class="btn-navy" onclick="Editor.saveArticle(${a.id ? `'${a.id}'` : 'null'})">${isEditing ? 'Save changes' : 'Publish'}</button>
-      `
+      </div>
+    `;
+
+    // Headline and deck grow with their text; Enter doesn't add a line.
+    root.querySelectorAll('.desk-headline, .desk-deck').forEach(t => {
+      const fit = () => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; };
+      t.addEventListener('input', fit);
+      t.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+      requestAnimationFrame(fit);
     });
 
-    // Make modal fullscreen-ish for the rich editor
-    $('#modal-shell').classList.add('fullscreen');
+    // Section buttons drive the hidden select the save code reads.
+    $('#desk-section').querySelectorAll('button').forEach(b => {
+      b.onclick = () => {
+        $('#desk-section').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+        $('#art-section').value = b.dataset.sec;
+        $('#art-section').onchange?.();
+      };
+    });
 
-    // Wire everything up after DOM exists
-    setTimeout(async () => {
-      // Mount rich editor
-      const mount = RichEditor.mount($('#art-body-editor'), {
-        initial: a.body || '',
-        placeholder: 'Write your article here. Use the toolbar above to format text, add headings, lists, quotes, and images…',
-        allowImages: true
+    // Writers: chips, kept in sync with the hidden byline field.
+    const drawWriters = () => {
+      $('#art-author').value = writers.join(' & ');
+      $('#desk-writers').innerHTML = writers.map((n, i) => `
+        <span class="desk-chip"><span class="ar-avatar sm">${escapeHtml(initials(n))}</span>${escapeHtml(n)}
+          <button type="button" data-i="${i}" title="Remove">×</button></span>`).join('');
+      $('#desk-writers').querySelectorAll('button').forEach(b => {
+        b.onclick = () => { writers.splice(+b.dataset.i, 1); drawWriters(); };
       });
-      articleState.bodyEditor = mount;
+      drawByline();
+    };
+    const addWriter = (n) => { n = (n || '').trim(); if (n && !writers.includes(n)) writers.push(n); drawWriters(); };
+    $('#desk-add-writer').onchange = (e) => { addWriter(e.target.value); e.target.value = ''; };
+    $('#desk-other-writer').onkeydown = (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault(); addWriter(e.target.value); e.target.value = '';
+    };
 
-      // Wire tab dropdown
-      const tabs = await Store.list('newsTabs');
-      const tabSelect = $('#art-tab');
-      const sectionSelect = $('#art-section');
-      // Only offer categories that belong to the chosen section (or to both).
-      const refreshTabs = () => {
-        const sec = sectionSelect.value;
-        const keep = tabSelect.value || a.tab;
-        const fits = tabs.filter(t => !t.section || !sec || t.section === sec);
-        tabSelect.innerHTML = '<option value="">— None —</option>' +
-          fits.map(t => `<option value="${t.id}" ${keep === t.id ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
+    // Live kicker, byline and word count, as the reader will see them.
+    const countWords = () => {
+      const ed = articleState.bodyEditor && articleState.bodyEditor.editor;
+      return ed ? ed.textContent.replace(/\u200B/g, '').split(/\s+/).filter(Boolean).length : 0;
+    };
+    const drawByline = () => {
+      const words = countWords();
+      const mins = Math.max(1, Math.round(words / 200));
+      $('#desk-byline').innerHTML = `
+        <span class="ar-avatars">${writers.map(n => `<span class="ar-avatar">${escapeHtml(initials(n))}</span>`).join('')}</span>
+        <span>By <b>${writers.map(escapeHtml).join(' &amp; ') || '…'}</b> <span class="ar-date">· ${mins} min read</span></span>`;
+      $('#desk-count').textContent = `${words} word${words === 1 ? '' : 's'} · ${mins} min read`;
+    };
+    const tabsAll = await Store.list('newsTabs');
+    const drawKicker = () => {
+      const tabLabel = tabsAll.find(t => t.id === $('#art-tab').value)?.label || '';
+      $('#desk-kicker').textContent = articleKicker({ section: $('#art-section').value, tabLabel, visibility: $('#art-visibility').value }, { fiwaLabel: 'FIWA-only' });
+    };
+    const coverPreview = $('#cover-preview');
+    const syncCaption = () => { $('#art-cover-caption').style.display = articleState.coverImage ? '' : 'none'; };
+    new MutationObserver(syncCaption).observe(coverPreview, { childList: true });
+    syncCaption();
+
+    // Mount rich editor
+    const mount = RichEditor.mount($('#art-body-editor'), {
+      initial: a.body || '',
+      placeholder: 'Write your article here. Use the toolbar above to format text, add headings, lists, quotes, and images…',
+      allowImages: true
+    });
+    articleState.bodyEditor = mount;
+
+    // Wire tab dropdown
+    const tabs = await Store.list('newsTabs');
+    const tabSelect = $('#art-tab');
+    const sectionSelect = $('#art-section');
+    // Only offer categories that belong to the chosen section.
+    const refreshTabs = () => {
+      const sec = sectionSelect.value;
+      const keep = tabSelect.value || a.tab;
+      const fits = tabs.filter(t => !sec || t.section === sec);
+      tabSelect.innerHTML = '<option value="">— None —</option>' +
+        fits.map(t => `<option value="${t.id}" ${keep === t.id ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
+    };
+    refreshTabs();
+    sectionSelect.onchange = () => { refreshTabs(); drawKicker(); };
+    tabSelect.onchange = drawKicker;
+    $('#art-visibility').onchange = drawKicker;
+
+    // Cover image: aspect + fit picker
+    const previewEl = $('#cover-preview');
+    const pickerEl = $('#art-afp');
+    wireAspectFitPicker(pickerEl, previewEl, articleState, 'coverAspect', 'coverFit');
+
+    // Cover image: click preview to upload
+    previewEl.onclick = async (e) => {
+      if (e.target.id === 'cover-clear') return; // handled below
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async (ev) => {
+        const file = ev.target.files[0];
+        if (!file) return;
+        try {
+          const cropped = await compressImageWithFit(
+            file, articleState.coverFit, articleState.coverAspect, 1600, 0.85
+          );
+          articleState.coverImage = cropped;
+          previewEl.innerHTML = `<img src="${cropped}" alt="" /><button type="button" class="cover-clear" id="cover-clear">×</button>`;
+          // Re-bind clear button
+          $('#cover-clear').onclick = (e2) => {
+            e2.stopPropagation();
+            articleState.coverImage = null;
+            previewEl.innerHTML = emptyCover;
+          };
+        } catch (err) {
+          toast('Cover image upload failed: ' + err.message, 'error');
+        }
       };
-      refreshTabs();
-      sectionSelect.onchange = () => { refreshTabs(); refreshSubtabs(); };
-      const refreshSubtabs = () => {
-        const subSelect = $('#art-subtab');
-        const tab = tabs.find(t => t.id === tabSelect.value);
-        const subs = tab && tab.subtabs ? tab.subtabs : [];
-        subSelect.innerHTML = '<option value="">— None —</option>' +
-          subs.map(s => `<option value="${escapeHtml(s)}" ${a.subtab === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
+      input.click();
+    };
+    // Bind clear if image already there
+    const existingClear = $('#cover-clear');
+    if (existingClear) {
+      existingClear.onclick = (e2) => {
+        e2.stopPropagation();
+        articleState.coverImage = null;
+        previewEl.innerHTML = emptyCover;
       };
-      tabSelect.onchange = refreshSubtabs;
-      refreshSubtabs();
+    }
 
-      // Cover image: aspect + fit picker
-      const previewEl = $('#cover-preview');
-      const pickerEl = $('#art-afp');
-      wireAspectFitPicker(pickerEl, previewEl, articleState, 'coverAspect', 'coverFit');
-
-      // Cover image: click preview to upload
-      previewEl.onclick = async (e) => {
-        if (e.target.id === 'cover-clear') return; // handled below
+    // PDF import button
+    const pdfBtn = $('#pdf-import-btn');
+    if (pdfBtn) {
+      pdfBtn.onclick = async () => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'image/*';
+        input.accept = 'application/pdf,.pdf';
         input.onchange = async (ev) => {
           const file = ev.target.files[0];
           if (!file) return;
+          pdfBtn.disabled = true;
+          pdfBtn.textContent = 'Importing…';
           try {
-            const cropped = await compressImageWithFit(
-              file, articleState.coverFit, articleState.coverAspect, 1600, 0.85
-            );
-            articleState.coverImage = cropped;
-            previewEl.innerHTML = `<img src="${cropped}" alt="" /><button type="button" class="cover-clear" id="cover-clear">×</button>`;
-            // Re-bind clear button
-            $('#cover-clear').onclick = (e2) => {
-              e2.stopPropagation();
-              articleState.coverImage = null;
-              previewEl.innerHTML = 'Click to upload cover image';
-            };
+            const result = await importFromPDF(file);
+            if (!result) { pdfBtn.disabled = false; pdfBtn.textContent = 'Choose PDF'; return; }
+
+            // Inject text as paragraphs into editor
+            const editor = articleState.bodyEditor.editor;
+            const textHTML = result.text.split(/\n\n+/)
+              .filter(p => p.trim())
+              .map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+              .join('');
+
+            // Append images at the bottom with a visible header
+            const imagesHTML = result.images.length
+              ? `<hr><p><em>— Images extracted from the PDF (drag/move them into place):</em></p>` +
+                result.images.map(src => `<img class="rte-image" src="${src}" alt="" />`).join('')
+              : '';
+
+            editor.innerHTML = (textHTML || '<p><br></p>') + imagesHTML;
+            toast(`Imported ${result.text.split(/\s+/).length} words${result.images.length ? ' + ' + result.images.length + ' images' : ''}`, 'success');
           } catch (err) {
-            toast('Cover image upload failed: ' + err.message, 'error');
+            console.error(err);
+            toast('PDF import failed: ' + (err.message || 'unknown error'), 'error');
           }
+          pdfBtn.disabled = false;
+          pdfBtn.textContent = 'Choose PDF';
         };
         input.click();
       };
-      // Bind clear if image already there
-      const existingClear = $('#cover-clear');
-      if (existingClear) {
-        existingClear.onclick = (e2) => {
-          e2.stopPropagation();
-          articleState.coverImage = null;
-          previewEl.innerHTML = 'Click to upload cover image';
-        };
+    }
+
+    // Correction checkbox
+    const cb = $('#art-log-correction');
+    if (cb) cb.onchange = () => {
+      $('#art-correction-note').style.display = cb.checked ? 'block' : 'none';
+    };
+
+    mount.editor.addEventListener('input', drawByline);
+    drawWriters();
+    drawKicker();
+
+    // Autosave the draft a moment after each change, and on the way out.
+    const collect = () => ({
+      title: $('#art-title').value, deck: $('#art-deck').value,
+      body: mount.getHTML(), author: $('#art-author').value,
+      section: $('#art-section').value, tab: $('#art-tab').value,
+      visibility: $('#art-visibility').value, lang: $('#art-lang').value,
+      edition: $('#art-edition').value ? parseInt($('#art-edition').value, 10) : null,
+      coverImage: articleState.coverImage, coverAspect: articleState.coverAspect,
+      coverFit: articleState.coverFit,
+      coverCaption: articleState.coverImage ? $('#art-cover-caption').value : ''
+    });
+    const original = JSON.stringify(collect());
+    let lastSaved = draft ? null : original;
+    let timer = null;
+    const deskEl = root.querySelector('.desk');
+    const flush = () => {
+      clearTimeout(timer);
+      if (!document.contains(deskEl)) return;
+      const snap = JSON.stringify(collect());
+      if (snap === lastSaved) return;
+      lastSaved = snap;
+      const label = $('#desk-saved');
+      if (snap === original && !draft) {
+        Store.remove('drafts', draftId);
+        if (label) label.textContent = '';
+        return;
       }
-
-      // PDF import button
-      const pdfBtn = $('#pdf-import-btn');
-      if (pdfBtn) {
-        pdfBtn.onclick = async () => {
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = 'application/pdf,.pdf';
-          input.onchange = async (ev) => {
-            const file = ev.target.files[0];
-            if (!file) return;
-            pdfBtn.disabled = true;
-            pdfBtn.textContent = 'Importing…';
-            try {
-              const result = await importFromPDF(file);
-              if (!result) { pdfBtn.disabled = false; pdfBtn.textContent = 'Choose PDF'; return; }
-
-              // Inject text as paragraphs into editor
-              const editor = articleState.bodyEditor.editor;
-              const textHTML = result.text.split(/\n\n+/)
-                .filter(p => p.trim())
-                .map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
-                .join('');
-
-              // Append images at the bottom with a visible header
-              const imagesHTML = result.images.length
-                ? `<hr><p><em>— Images extracted from the PDF (drag/move them into place):</em></p>` +
-                  result.images.map(src => `<img class="rte-image" src="${src}" alt="" />`).join('')
-                : '';
-
-              editor.innerHTML = (textHTML || '<p><br></p>') + imagesHTML;
-              toast(`Imported ${result.text.split(/\s+/).length} words${result.images.length ? ' + ' + result.images.length + ' images' : ''}`, 'success');
-            } catch (err) {
-              console.error(err);
-              toast('PDF import failed: ' + (err.message || 'unknown error'), 'error');
-            }
-            pdfBtn.disabled = false;
-            pdfBtn.textContent = 'Choose PDF';
-          };
-          input.click();
-        };
+      Store.save('drafts', { id: draftId, articleId: isEditing ? existing.id : null,
+        email: Auth.current().email, fields: JSON.parse(snap), savedAt: Date.now() })
+        .then(() => { if (label) label.textContent = 'Draft saved'; })
+        .catch(() => { if (label) label.textContent = 'Couldn’t save the draft (too big for this browser)'; });
+    };
+    const schedule = () => { clearTimeout(timer); timer = setTimeout(flush, 1200); };
+    ['input', 'change', 'click'].forEach(ev => deskEl.addEventListener(ev, schedule));
+    const coverWatch = new MutationObserver(schedule);
+    coverWatch.observe($('#cover-preview'), { childList: true });
+    const onUnload = (e) => {
+      flush();
+      if (articleState.isDirty()) { e.preventDefault(); e.returnValue = ''; }
+    };
+    // Links React handles itself (the footer) go through the same question.
+    const onLink = (e) => {
+      const link = e.target.closest('a[href]');
+      if (!link || deskEl.contains(link) || link.target === '_blank') return;
+      const url = new URL(link.href, location.href);
+      if (url.origin !== location.origin) return;
+      if (Editor._guardDesk(() => Router._navigate ? Router._navigate(url.pathname) : (location.href = url.href))) {
+        e.preventDefault();
+        e.stopPropagation();
       }
+    };
+    window.addEventListener('beforeunload', onUnload);
+    window.addEventListener('popstate', flush);
+    document.addEventListener('click', onLink, true);
+    articleState.isEditing = isEditing;
+    articleState.flushDraft = flush;
+    articleState.isDirty = () => JSON.stringify(collect()) !== original || !!draft;
+    articleState.discardDraft = () => Store.remove('drafts', draftId);
+    articleState.stopDraft = () => {
+      clearTimeout(timer);
+      coverWatch.disconnect();
+      window.removeEventListener('beforeunload', onUnload);
+      window.removeEventListener('popstate', flush);
+      document.removeEventListener('click', onLink, true);
+    };
 
-      // Correction checkbox
-      const cb = $('#art-log-correction');
-      if (cb) cb.onchange = () => {
-        $('#art-correction-note').style.display = cb.checked ? 'block' : 'none';
-      };
-    }, 50);
-
-    // Stash state on the editor for saveArticle to retrieve
-    Editor._articleState = articleState;
+    const discard = $('#desk-discard');
+    if (discard) discard.onclick = async () => {
+      if (!confirm('Discard this draft? Your unpublished changes will be lost.')) return;
+      await Store.remove('drafts', draftId);
+      Editor._teardownDesk();
+      Pages.write.render(Router.params);
+    };
   },
 
   async saveArticle(id) {
+    // Only Tribunees publish. (Later: writers' stories wait for an Editor.)
+    if (!(await Auth.isTribunee())) { toast('Only Tribunees can publish articles', 'error'); return; }
     const state = Editor._articleState || {};
     const item = id ? (await Store.get('articles', id)) || {} : {};
     item.title = $('#art-title').value.trim();
@@ -805,12 +984,13 @@ const Editor = {
     item.authorEmail = item.authorEmail || Auth.current().email;
     item.section = $('#art-section').value;
     item.tab = $('#art-tab').value;
-    item.subtab = $('#art-subtab').value;
+    item.subtab = '';
     item.visibility = $('#art-visibility').value;
     item.lang = $('#art-lang').value;
     item.coverImage = state.coverImage || null;
     item.coverAspect = parseAspect(state.coverAspect, 16/9);
     item.coverFit = state.coverFit === 'letterbox' ? 'letterbox' : 'crop';
+    item.coverCaption = item.coverImage ? $('#art-cover-caption').value.trim() : '';
     const ed = $('#art-edition').value;
     item.edition = ed ? parseInt(ed, 10) : null;
 
@@ -833,33 +1013,24 @@ const Editor = {
       });
     }
 
-    $('#modal-shell').classList.remove('fullscreen');
-    Modal.close();
-    Editor._articleState = null;
-
-    // If currently viewing the article being saved, re-render it
-    if (Router.current === 'article' && Router.params.id === saved.id) {
-      Pages.article.render(Router.params);
-    } else {
-      Pages[Router.current]?.render?.(Router.params);
-    }
+    state.discardDraft?.();
+    Editor._teardownDesk();
+    Router.go(`article/${saved.id}`);
     toast(id ? 'Article updated' : 'Article published', 'success');
   },
 
   async deleteArticle(id) {
+    if (!(await Auth.isTribunee())) return;
     if (!confirm('Delete this article? This cannot be undone.')) return;
     await Store.remove('articles', id);
-    $('#modal-shell').classList.remove('fullscreen');
-    Modal.close();
-    if (Router.current === 'article') {
-      Router.go('news');
-    } else {
-      Pages[Router.current]?.render?.(Router.params);
-    }
+    Editor._articleState?.discardDraft?.();
+    Editor._teardownDesk();
+    Router.go('news');
     toast('Article deleted');
   },
 
   async deleteArticleAndReturn(id) {
+    if (!(await Auth.isTribunee())) return;
     if (!confirm('Delete this article? This cannot be undone.')) return;
     await Store.remove('articles', id);
     Router.go('news');
@@ -1473,16 +1644,16 @@ const Editor = {
 
   /* Tabs ─────────────────────────────── */
   manageTabs() {
-    const sectionOptions = (cur) => `<option value="" ${!cur ? 'selected' : ''}>Both</option>` +
+    const sectionOptions = (cur) =>
       NEWS_SECTIONS.map(x => `<option value="${x.id}" ${cur === x.id ? 'selected' : ''}>${x.label}</option>`).join('');
     Store.list('newsTabs').then(tabs => {
       Modal.open({
         title: 'Manage News Categories',
         body: `
-          <div class="field-hint" style="margin-bottom: 1rem;">Categories sit inside Internal or External News (or both). Each can have sub-categories (e.g. "Sports" → "Football", "Motorsport").</div>
+          <div class="field-hint" style="margin-bottom: 1rem;">Each category sits inside Internal or External News (e.g. Internal News → Construction, External News → Sports).</div>
           <div id="tab-list">
             ${tabs.map(t => `
-              <div class="field" style="display: grid; grid-template-columns: 1fr 0.8fr 1fr auto; gap: 0.5rem; align-items: end;" data-tab-id="${t.id}">
+              <div class="field" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: end;" data-tab-id="${t.id}">
                 <div>
                   <label>Label</label>
                   <input type="text" value="${escapeHtml(t.label)}" data-tab-label />
@@ -1491,18 +1662,13 @@ const Editor = {
                   <label>Section</label>
                   <select data-tab-section>${sectionOptions(t.section)}</select>
                 </div>
-                <div>
-                  <label>Sub-tabs (comma separated)</label>
-                  <input type="text" value="${escapeHtml((t.subtabs || []).join(', '))}" data-tab-subs />
-                </div>
                 <button class="btn-ghost" onclick="Editor.removeTab('${t.id}')" style="padding: 0.7rem;">×</button>
               </div>
             `).join('')}
           </div>
-          <div class="field" style="display: grid; grid-template-columns: 1fr 0.8fr 1fr auto; gap: 0.5rem; align-items: end; padding-top: 1rem; border-top: 1px dashed var(--rule);">
+          <div class="field" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; align-items: end; padding-top: 1rem; border-top: 1px dashed var(--rule);">
             <div><label>New label</label><input type="text" id="new-tab-label" placeholder="e.g. Sports" /></div>
             <div><label>Section</label><select id="new-tab-section">${sectionOptions('')}</select></div>
-            <div><label>Sub-tabs</label><input type="text" id="new-tab-subs" placeholder="e.g. Football, Motorsport" /></div>
             <button class="btn-add" onclick="Editor.addTab()">+ Add</button>
           </div>
         `,
@@ -1515,18 +1681,18 @@ const Editor = {
   },
 
   async addTab() {
+    if (!(await Auth.isTribunee())) { toast('Only Tribunees can change categories', 'error'); return; }
     const label = $('#new-tab-label').value.trim();
-    const subsRaw = $('#new-tab-subs').value.trim();
     if (!label) { toast('Label required', 'error'); return; }
-    const subs = subsRaw ? subsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
     const section = $('#new-tab-section').value;
-    await Store.save('newsTabs', { label, section, subtabs: subs });
+    await Store.save('newsTabs', { label, section, subtabs: [] });
     Editor.manageTabs();
     Pages.news.render();
     toast('Category added', 'success');
   },
 
   async removeTab(id) {
+    if (!(await Auth.isTribunee())) { toast('Only Tribunees can change categories', 'error'); return; }
     if (!confirm('Remove this category? Articles tagged with it will lose their category.')) return;
     await Store.remove('newsTabs', id);
     Editor.manageTabs();
@@ -1534,17 +1700,16 @@ const Editor = {
   },
 
   async saveTabs() {
+    if (!(await Auth.isTribunee())) { toast('Only Tribunees can change categories', 'error'); return; }
     const rows = $$('#tab-list > .field');
     for (const row of rows) {
       const id = row.dataset.tabId;
       const label = row.querySelector('[data-tab-label]').value.trim();
-      const subsRaw = row.querySelector('[data-tab-subs]').value.trim();
-      const subs = subsRaw ? subsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
       const t = await Store.get('newsTabs', id);
       if (t) {
         t.label = label;
         t.section = row.querySelector('[data-tab-section]').value;
-        t.subtabs = subs;
+        t.subtabs = [];
         await Store.save('newsTabs', t);
       }
     }
@@ -1617,7 +1782,7 @@ const sectionLabel = (id) => NEWS_SECTIONS.find(x => x.id === id)?.label || '';
 
 /* Kicker line on cards and article pages: "Internal News · Sports · Football". */
 function articleKicker(a, { fiwaLabel = 'FIWA' } = {}) {
-  const parts = [sectionLabel(a.section), a.tabLabel, a.subtab].filter(Boolean);
+  const parts = [sectionLabel(a.section), a.tabLabel].filter(Boolean);
   if (a.visibility === 'fiwa') parts.push(fiwaLabel);
   return parts.join(' · ') || 'News';
 }
@@ -2007,6 +2172,22 @@ function renderArticleBody(body) {
    ===================================================================== */
 
 const RichEditor = {
+  // Text sizes are numbered like a word processor; 12 is normal article text.
+  // A size is stored as a multiple of the editor's base size (--rte-base),
+  // so it scales with the page and never compounds when sizes are nested.
+  SIZES: [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72],
+  COLOURS: [
+    { name: 'Tribune colours', list: [
+      ['Ink', '#1a1814'], ['Navy', '#1c3658'], ['Deep navy', '#0f2138'], ['Soft navy', '#2d4f7a'],
+      ['Gold', '#c08e3a'], ['Bright gold', '#d8a956'], ['Muted', '#877f6e'], ['Paper', '#ebdfc4'],
+    ]},
+    { name: 'Standard', list: [
+      ['Black', '#000000'], ['Dark grey', '#555555'], ['Grey', '#999999'], ['Red', '#c0392b'],
+      ['Orange', '#d9822b'], ['Yellow', '#e2b714'], ['Green', '#3e7a4a'], ['Blue', '#2f6fb5'],
+      ['Purple', '#7a4fa0'], ['Pink', '#c2477f'],
+    ]},
+  ],
+
   // Mount editor into target element. Returns { editor, getHTML, destroy }
   mount(target, opts = {}) {
     const { initial = '', placeholder = 'Start writing…', allowImages = true } = opts;
@@ -2034,30 +2215,9 @@ const RichEditor = {
       editor.innerHTML = '<p><br></p>';
     }
 
-    // Wire up buttons
-    toolbar.querySelectorAll('button[data-cmd]').forEach(btn => {
-      btn.addEventListener('mousedown', (e) => e.preventDefault());
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const cmd = btn.dataset.cmd;
-        const arg = btn.dataset.arg;
-        editor.focus();
-        if (cmd === 'image') {
-          if (allowImages) this._insertImage(editor);
-        } else if (cmd === 'foreColor') {
-          document.execCommand('foreColor', false, arg);
-        } else if (cmd === 'formatBlock') {
-          document.execCommand('formatBlock', false, arg);
-        } else {
-          document.execCommand(cmd, false, null);
-        }
-      });
-    });
-
-    // Track the selection inside the editor so dropdowns (which steal focus
-    // when opened) don't lose it. We save on mousedown of the dropdown and
-    // restore on change. Without this, the bio editor breaks because the
-    // modal stacking context swallows the selection.
+    // Track the selection inside the editor so toolbar controls that take
+    // focus (dropdowns, the size box, colour and link menus) still act on the
+    // text the writer selected.
     let _savedRange = null;
     const _saveSelection = () => {
       const sel = window.getSelection();
@@ -2074,38 +2234,298 @@ const RichEditor = {
       sel.addRange(_savedRange);
       return true;
     };
-    // Save whenever the user changes selection inside the editor.
-    editor.addEventListener('keyup',   _saveSelection);
-    editor.addEventListener('mouseup', _saveSelection);
-    editor.addEventListener('focus',   _saveSelection);
-    editor.addEventListener('blur',    _saveSelection);
-
-    toolbar.querySelectorAll('select[data-cmd]').forEach(sel => {
-      // Save the live selection BEFORE the native dropdown opens and steals focus.
-      sel.addEventListener('mousedown', () => _saveSelection());
-      sel.addEventListener('change', () => {
-        const cmd = sel.dataset.cmd;
-        const value = sel.value;
-        editor.focus();
-        // Restore the selection that existed before the dropdown opened.
+    editor.addEventListener('focus', _saveSelection);
+    editor.addEventListener('blur',  _saveSelection);
+    // Pin the selection when the writer reaches for a control that takes
+    // focus, and put it back before applying.
+    let _pinned = null;
+    const _pin = () => { _saveSelection(); if (_savedRange) _pinned = _savedRange.cloneRange(); };
+    const _unpin = () => {
+      editor.focus();
+      if (_pinned) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(_pinned);
+        _pinned = null;
+      } else {
         _restoreSelection();
-        if (cmd === 'formatBlock') {
-          document.execCommand('formatBlock', false, value);
-          sel.selectedIndex = 0;
-        } else if (cmd === 'fontName') {
-          const fallback = value === 'Work Sans' ? 'sans-serif' : 'serif';
-          this._applyInlineStyle(editor, 'font-family', `'${value}', ${fallback}`);
-          // Reflect the chosen font in the closed dropdown's own appearance.
-          sel.style.fontFamily = `'${value}', ${fallback}`;
-        } else if (cmd === 'fontSize') {
-          // Map old execCommand sizes (1–7) to readable rem sizes
-          const pxMap = { '1': '0.7rem', '2': '0.85rem', '3': '1rem', '4': '1.15rem', '5': '1.4rem', '6': '1.7rem', '7': '2.1rem' };
-          this._applyInlineStyle(editor, 'font-size', pxMap[value] || '1rem');
+      }
+    };
+    const $t = (sel) => toolbar.querySelector(sel);
+
+    /* ── Undo / redo ──────────────────────────────────────────────────
+       Toolbar actions rewrite the page directly, which the browser's own
+       undo can't follow (that's what made Ctrl+Z jump about). So the editor
+       keeps its own history of snapshots: typing is grouped into one step
+       per pause, every toolbar action is one step. */
+    const hist = { stack: [], at: -1, timer: null, mute: false };
+    const cleanHTML = () => {
+      const clone = editor.cloneNode(true);
+      clone.querySelectorAll('img.rte-image.selected').forEach(i => i.classList.remove('selected'));
+      clone.querySelectorAll('.rte-resize-handle').forEach(h => h.remove());
+      return clone.innerHTML;
+    };
+    const offsetOf = (node, off) => {
+      const r = document.createRange();
+      r.selectNodeContents(editor);
+      r.setEnd(node, off);
+      return r.toString().length;
+    };
+    const pointAt = (n) => {
+      const w = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+      let t, last = null;
+      while ((t = w.nextNode())) {
+        if (n <= t.data.length) return [t, n];
+        n -= t.data.length;
+        last = t;
+      }
+      return last ? [last, last.data.length] : [editor, editor.childNodes.length];
+    };
+    const snap = () => {
+      const sel = window.getSelection();
+      let at = null;
+      if (sel.rangeCount && editor.contains(sel.anchorNode)) {
+        const r = sel.getRangeAt(0);
+        at = [offsetOf(r.startContainer, r.startOffset), offsetOf(r.endContainer, r.endOffset)];
+      }
+      return { html: cleanHTML(), at };
+    };
+    const record = () => {
+      clearTimeout(hist.timer);
+      hist.timer = null;
+      const s = snap();
+      const cur = hist.stack[hist.at];
+      if (cur && cur.html === s.html) { if (s.at) cur.at = s.at; return; }
+      hist.stack.splice(hist.at + 1);
+      hist.stack.push(s);
+      if (hist.stack.length > 200) hist.stack.shift();
+      hist.at = hist.stack.length - 1;
+      updateState();
+    };
+    const restore = (i) => {
+      hist.at = i;
+      const s = hist.stack[i];
+      this._removeHandles();
+      editor.innerHTML = s.html;
+      editor.focus();
+      if (s.at) {
+        const r = document.createRange();
+        r.setStart(...pointAt(s.at[0]));
+        r.setEnd(...pointAt(s.at[1]));
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+      updateState();
+    };
+    // Commands that change the page in several steps (a style is
+    // formatBlock and then a span) are saved as one undo step.
+    const asOneStep = (fn) => { hist.mute = true; try { fn(); } finally { hist.mute = false; } record(); };
+    const undo = () => { if (hist.timer) record(); if (hist.at > 0) restore(hist.at - 1); };
+    const redo = () => { if (hist.at < hist.stack.length - 1) restore(hist.at + 1); };
+    editor.addEventListener('input', (e) => {
+      if (hist.mute) return;
+      const typing = e.inputType && /^(insertText|insertCompositionText|deleteContent)/.test(e.inputType);
+      if (typing) { clearTimeout(hist.timer); hist.timer = setTimeout(record, 700); }
+      else record();
+    });
+    editor.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+    });
+    editor.addEventListener('beforeinput', (e) => {
+      if (e.inputType === 'historyUndo') { e.preventDefault(); undo(); }
+      if (e.inputType === 'historyRedo') { e.preventDefault(); redo(); }
+    });
+    // A toolbar action is its own step: close off any typing first.
+    toolbar.addEventListener('mousedown', () => { if (hist.timer) record(); }, true);
+
+    /* ── Show what's under the caret (like Docs) ─────────────────────── */
+    const styleSel = $t('select[data-cmd="formatBlock"]');
+    const fontSel = $t('select[data-cmd="fontName"]');
+    const sizeInput = $t('.rte-size-input');
+    const updateState = () => {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount || !editor.contains(sel.anchorNode)) return;
+      const el = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+      toolbar.querySelectorAll('button[data-cmd]').forEach(b => {
+        let on = false;
+        try { on = document.queryCommandState(b.dataset.cmd); } catch (e) {}
+        b.classList.toggle('on', !!on);
+      });
+      const block = el.closest('h2, h3, blockquote, p, li, div.rte-editor');
+      const tag = block && block !== editor ? block.tagName.toLowerCase() : 'p';
+      styleSel.value = tag === 'p' && block.classList.contains('drop-cap') ? 'dropcap'
+        : ['h2', 'h3', 'blockquote'].includes(tag) ? tag : 'p';
+      const fam = getComputedStyle(el).fontFamily;
+      const match = [...fontSel.options].find(o => fam.includes(o.value));
+      if (match) fontSel.value = match.value;
+      if (document.activeElement !== sizeInput) {
+        const base = parseFloat(getComputedStyle(editor).fontSize);
+        const px = parseFloat(getComputedStyle(el).fontSize);
+        if (base && px) sizeInput.value = Math.round(px / base * 12);
+      }
+    };
+    const _onSelChange = () => {
+      _saveSelection();
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount && editor.contains(sel.anchorNode)) updateState();
+    };
+    document.addEventListener('selectionchange', _onSelChange);
+
+    /* ── Buttons ─────────────────────────────────────────────────────── */
+    toolbar.querySelectorAll('button[data-cmd], button[data-act]').forEach(btn => {
+      btn.addEventListener('mousedown', (e) => e.preventDefault());
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const act = btn.dataset.act;
+        if (act === 'undo') return undo();
+        if (act === 'redo') return redo();
+        editor.focus();
+        _restoreSelection();
+        if (act === 'image') { if (allowImages) this._insertImage(editor); return; }
+        if (act === 'indent' || act === 'outdent') return this._indent(editor, act === 'indent' ? 1 : -1);
+        if (act === 'clear') {
+          document.execCommand('removeFormat', false, null);
+          this._clearInline(editor);
+          return;
         }
-        // Save the new (post-edit) selection so successive dropdown changes stack.
-        _saveSelection();
+        document.execCommand(btn.dataset.cmd, false, null);
+        updateState();
       });
     });
+
+    /* ── Style and font dropdowns ────────────────────────────────────── */
+    [styleSel, fontSel].forEach(sel => {
+      sel.addEventListener('mousedown', _pin);
+      sel.addEventListener('change', () => {
+        _unpin();
+        if (sel === styleSel) {
+          asOneStep(() => this._applyBlockStyle(editor, sel.value));
+        } else {
+          const fallback = sel.value === 'Work Sans' ? 'sans-serif' : 'serif';
+          this._applyInlineStyle(editor, 'font-family', `'${sel.value}', ${fallback}`);
+        }
+        _saveSelection();
+        updateState();
+      });
+    });
+
+    /* ── Text size: number box with − / +. 12 = normal text. ─────────── */
+    const applySize = (n) => {
+      n = Math.max(6, Math.min(96, Math.round(+n || 12)));
+      sizeInput.value = n;
+      _unpin();
+      this._applyInlineStyle(editor, 'font-size', n === 12 ? 'var(--rte-base)' : `calc(var(--rte-base) * ${n} / 12)`);
+      _saveSelection();
+    };
+    sizeInput.addEventListener('focus', _pin);
+    sizeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applySize(sizeInput.value); } });
+    sizeInput.addEventListener('change', () => { if (_pinned) applySize(sizeInput.value); });
+    toolbar.querySelectorAll('[data-size-step]').forEach(b => {
+      b.addEventListener('mousedown', (e) => { e.preventDefault(); _pin(); });
+      b.addEventListener('click', () => {
+        const cur = +sizeInput.value || 12;
+        const up = +b.dataset.sizeStep > 0;
+        const next = up ? this.SIZES.find(x => x > cur) : [...this.SIZES].reverse().find(x => x < cur);
+        applySize(next || cur);
+      });
+    });
+
+    /* ── Pop-up menus: text colour, highlight, link ──────────────────── */
+    const closeMenus = (except) => toolbar.querySelectorAll('.rte-pop').forEach(p => { if (p !== except && !p.contains(except)) p.hidden = true; });
+    const customKey = 'fitrah:customColours';
+    const readCustom = () => { try { return JSON.parse(localStorage.getItem(customKey) || '[]'); } catch (e) { return []; } };
+    const swatch = (name, hex) =>
+      `<button type="button" class="rte-swatch" data-colour="${hex}" title="${escapeHtml(name)}" style="background:${hex}"></button>`;
+    const colourTool = (wrap, prop, first, autoValue, autoLabel) => {
+      const menu = wrap.querySelector('.rte-pop');
+      const bar = wrap.querySelector('.rte-colour-bar');
+      let last = first;
+      bar.style.background = last;
+      const apply = (c) => {
+        _unpin();
+        this._applyInlineStyle(editor, prop, c || autoValue);
+        _saveSelection();
+        if (c) { last = c; bar.style.background = c; }
+        menu.hidden = true;
+      };
+      const draw = () => {
+        menu.innerHTML = `
+          <button type="button" class="rte-colour-auto" data-colour="">${autoLabel}</button>
+          ${this.COLOURS.map(g => `
+            <div class="rte-colour-label">${g.name}</div>
+            <div class="rte-swatches">${g.list.map(([n, h]) => swatch(n, h)).join('')}</div>`).join('')}
+          <div class="rte-colour-label">Custom</div>
+          <div class="rte-swatches">
+            ${readCustom().map(h => swatch(h, h)).join('')}
+            <label class="rte-swatch rte-swatch-add" title="Add a custom colour">+<input type="color" value="${last}" /></label>
+          </div>`;
+        menu.querySelectorAll('[data-colour]').forEach(b => {
+          b.addEventListener('mousedown', (e) => e.preventDefault());
+          b.addEventListener('click', () => apply(b.dataset.colour));
+        });
+        const picker = menu.querySelector('input[type=color]');
+        picker.addEventListener('change', () => {
+          const h = picker.value;
+          const list = [h, ...readCustom().filter(x => x !== h)].slice(0, 16);
+          try { localStorage.setItem(customKey, JSON.stringify(list)); } catch (e) {}
+          apply(h);
+        });
+      };
+      const main = wrap.querySelector('.rte-colour-apply');
+      const open = wrap.querySelector('.rte-colour-open');
+      main.addEventListener('mousedown', (e) => { e.preventDefault(); _pin(); });
+      main.addEventListener('click', () => apply(last));
+      open.addEventListener('mousedown', (e) => { e.preventDefault(); _pin(); });
+      open.addEventListener('click', () => {
+        if (menu.hidden) draw();
+        closeMenus(menu);
+        menu.hidden = !menu.hidden;
+      });
+    };
+    colourTool($t('.rte-colour[data-prop="color"]'), 'color', '#c08e3a', 'inherit', 'Automatic');
+    colourTool($t('.rte-colour[data-prop="background-color"]'), 'background-color', '#f3e3b5', 'transparent', 'None');
+
+    // Link: a small box to paste the address into.
+    const linkWrap = $t('.rte-link');
+    const linkMenu = linkWrap.querySelector('.rte-pop');
+    const linkInput = linkMenu.querySelector('input');
+    linkWrap.querySelector('.rte-link-open').addEventListener('mousedown', (e) => { e.preventDefault(); _pin(); });
+    linkWrap.querySelector('.rte-link-open').addEventListener('click', () => {
+      closeMenus(linkMenu);
+      linkMenu.hidden = !linkMenu.hidden;
+      if (!linkMenu.hidden) {
+        const a = _pinned && (_pinned.startContainer.nodeType === 1 ? _pinned.startContainer : _pinned.startContainer.parentElement).closest('a');
+        linkInput.value = a ? a.getAttribute('href') : '';
+        linkInput.focus();
+      }
+    });
+    const applyLink = () => {
+      let url = linkInput.value.trim();
+      if (url && !/^(https?:|mailto:)/i.test(url)) url = 'https://' + url.replace(/^\/+/, '');
+      linkMenu.hidden = true;
+      _unpin();
+      if (!url) { document.execCommand('unlink', false, null); return; }
+      if (window.getSelection().isCollapsed) {
+        document.execCommand('insertHTML', false, `<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`);
+      } else {
+        document.execCommand('createLink', false, url);
+      }
+      editor.querySelectorAll('a[href]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    linkInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); applyLink(); }
+      if (e.key === 'Escape') { linkMenu.hidden = true; _unpin(); }
+    });
+    linkMenu.querySelector('[data-link="apply"]').addEventListener('click', applyLink);
+    linkMenu.querySelector('[data-link="remove"]').addEventListener('click', () => { linkInput.value = ''; applyLink(); });
+
+    record();
 
     // Image select on click
     editor.addEventListener('click', (e) => {
@@ -2119,7 +2539,33 @@ const RichEditor = {
     // Click outside editor deselects images. We track this listener so it can
     // be removed when the editor unmounts — otherwise opening the article/bio
     // editor repeatedly leaks one listener per open.
+    // Like Docs: whatever doesn't fit on one line goes into a ⋮ menu at
+    // the end, a group at a time, and comes back when there's room.
+    const more = toolbar.querySelector('.rte-more');
+    const morePop = more.querySelector('.rte-pop');
+    more.querySelector('.rte-more-open').addEventListener('click', () => {
+      closeMenus(morePop);
+      morePop.hidden = !morePop.hidden;
+    });
+    const fitToolbar = () => {
+      while (morePop.firstChild) toolbar.insertBefore(morePop.firstChild, more);
+      more.hidden = true;
+      if (toolbar.scrollWidth <= toolbar.clientWidth + 1) return;
+      more.hidden = false;
+      while (toolbar.scrollWidth > toolbar.clientWidth + 1) {
+        const group = [];
+        let el = more.previousElementSibling;
+        while (el && !el.classList.contains('rte-sep')) { group.unshift(el); el = el.previousElementSibling; }
+        if (!el || !el.previousElementSibling) break;
+        group.unshift(el);
+        group.reverse().forEach(g => morePop.prepend(g));
+      }
+    };
+    const _fitObserver = new ResizeObserver(fitToolbar);
+    _fitObserver.observe(toolbar);
+
     const _onDocClick = (e) => {
+      toolbar.querySelectorAll('.rte-pop').forEach(p => { if (!p.parentElement.contains(e.target)) p.hidden = true; });
       if (!target.contains(e.target)) {
         editor.querySelectorAll('img.rte-image.selected').forEach(i => i.classList.remove('selected'));
         this._removeHandles();
@@ -2143,66 +2589,141 @@ const RichEditor = {
       },
       destroy: () => {
         document.removeEventListener('click', _onDocClick);
+        document.removeEventListener('selectionchange', _onSelChange);
+        _fitObserver.disconnect();
         this._removeHandles();
       }
     };
   },
 
+  // Toolbar icons (Material icon shapes, drawn inline like Icons above).
+  ICONS: {
+    undo: 'M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z',
+    redo: 'M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z',
+    bold: 'M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z',
+    italic: 'M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z',
+    underline: 'M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z',
+    strike: 'M10 19h4v-3h-4v3zM5 4v3h5v3h4V7h5V4H5zM3 14h18v-2H3v2z',
+    textcolor: 'M5.49 17h2.42l1.27-3.58h5.65L16.09 17h2.42L13.25 3h-2.5L5.49 17zm4.42-5.61l2.03-5.79h.12l2.03 5.79H9.91z',
+    highlight: 'M13.06 3.19l3.75 3.75L7.75 16H4v-3.75l9.06-9.06zm4.82 2.68-3.75-3.75 1.83-1.83c.39-.39 1.02-.39 1.41 0l2.34 2.34c.39.39.39 1.02 0 1.41l-1.83 1.83z',
+    link: 'M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z',
+    image: 'M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z',
+    left: 'M15 15H3v2h12v-2zm0-8H3v2h12V7zM3 13h18v-2H3v2zm0 8h18v-2H3v2zM3 3v2h18V3H3z',
+    center: 'M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z',
+    right: 'M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z',
+    justify: 'M3 21h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18V7H3v2zm0-6v2h18V3H3z',
+    bullets: 'M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z',
+    numbers: 'M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z',
+    outdent: 'M11 17h10v-2H11v2zm-8-5l4 4V8l-4 4zm0 9h18v-2H3v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z',
+    indent: 'M3 21h18v-2H3v2zM3 8v8l4-4-4-4zm8 9h10v-2H11v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z',
+    more: 'M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+    clear: 'M3.27 5L2 6.27l6.97 6.97L6.5 19h3l1.57-3.66L16.73 21 18 19.73 3.55 5.27 3.27 5zM6 5v.18L8.82 8h2.4l-.72 1.68 2.1 2.1L14.21 8H20V5H6z',
+    caret: 'M7 10l5 5 5-5z',
+  },
+
   _toolbarHTML(allowImages) {
+    const ic = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${RichEditor.ICONS[name]}"/></svg>`;
+    const btn = (attr, name, title) => `<button type="button" class="rte-btn" ${attr} title="${title}">${ic(name)}</button>`;
+    const sep = '<span class="rte-sep"></span>';
     return `
-      <div class="rte-tool-group">
-        <select class="rte-tool" data-cmd="formatBlock" title="Block style">
-          <option value="">— Style —</option>
-          <option value="p">Body</option>
-          <option value="h2">Heading</option>
-          <option value="h3">Subheading</option>
-          <option value="blockquote">Quote</option>
-        </select>
-      </div>
-      <div class="rte-tool-group">
-        <select class="rte-tool" data-cmd="fontName" title="Font" style="min-width: 130px;">
-          <option value="Times New Roman" style="font-family:var(--article)">Times New Roman</option>
-          <option value="Libre Baskerville" style="font-family:var(--headline)">Libre Baskerville</option>
-          <option value="Work Sans" style="font-family:var(--ui)">Work Sans</option>
-        </select>
-        <select class="rte-tool" data-cmd="fontSize" title="Size">
-          <option value="2">XS</option>
-          <option value="3" selected>S</option>
-          <option value="4">M</option>
-          <option value="5">L</option>
-          <option value="6">XL</option>
-          <option value="7">XXL</option>
-        </select>
-      </div>
-      <div class="rte-tool-group">
-        <button class="rte-tool" data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
-        <button class="rte-tool" data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
-        <button class="rte-tool" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
-        <button class="rte-tool" data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
-      </div>
-      <div class="rte-tool-group" title="Text color">
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#1a1814" title="Black"><span class="rte-color-dot" style="background:#1a1814"></span></button>
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#1c3658" title="Navy"><span class="rte-color-dot" style="background:#1c3658"></span></button>
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#c08e3a" title="Gold"><span class="rte-color-dot" style="background:#c08e3a"></span></button>
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#a73e3e" title="Red"><span class="rte-color-dot" style="background:#a73e3e"></span></button>
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#3e7a4a" title="Green"><span class="rte-color-dot" style="background:#3e7a4a"></span></button>
-        <button class="rte-tool" data-cmd="foreColor" data-arg="#877f6e" title="Muted"><span class="rte-color-dot" style="background:#877f6e"></span></button>
-      </div>
-      <div class="rte-tool-group">
-        <button class="rte-tool" data-cmd="justifyLeft" title="Align left">⬅</button>
-        <button class="rte-tool" data-cmd="justifyCenter" title="Center">↔</button>
-        <button class="rte-tool" data-cmd="justifyRight" title="Align right">➡</button>
-      </div>
-      <div class="rte-tool-group">
-        <button class="rte-tool" data-cmd="insertUnorderedList" title="Bulleted list">•</button>
-        <button class="rte-tool" data-cmd="insertOrderedList" title="Numbered list">1.</button>
-      </div>
-      ${allowImages ? `
-      <div class="rte-tool-group">
-        <button class="rte-tool" data-cmd="image" title="Insert image" style="font-family: var(--ui); font-size: 0.72rem; letter-spacing: 0.1em;">+ IMG</button>
-      </div>
-      ` : ''}
+      ${btn('data-act="undo"', 'undo', 'Undo (Ctrl+Z)')}
+      ${btn('data-act="redo"', 'redo', 'Redo (Ctrl+Y)')}
+      ${sep}
+      <select class="rte-select rte-style" data-cmd="formatBlock" title="Styles">
+        <option value="p">Normal text</option>
+        <option value="h2">Heading</option>
+        <option value="h3">Subheading</option>
+        <option value="blockquote">Quote</option>
+        <option value="dropcap">Drop cap</option>
+      </select>
+      ${sep}
+      <select class="rte-select rte-font" data-cmd="fontName" title="Font">
+        <option value="Times New Roman">Times New Roman</option>
+        <option value="Libre Baskerville">Libre Baskerville</option>
+        <option value="Work Sans">Work Sans</option>
+      </select>
+      ${sep}
+      <span class="rte-size" title="Font size (12 = normal text)">
+        <button type="button" class="rte-btn rte-step" data-size-step="-1" title="Decrease font size">−</button>
+        <input class="rte-size-input" type="number" min="6" max="96" step="1" value="12" list="rte-size-list" aria-label="Font size" />
+        <datalist id="rte-size-list">${RichEditor.SIZES.map(n => `<option value="${n}">`).join('')}</datalist>
+        <button type="button" class="rte-btn rte-step" data-size-step="1" title="Increase font size">+</button>
+      </span>
+      ${sep}
+      ${btn('data-cmd="bold"', 'bold', 'Bold (Ctrl+B)')}
+      ${btn('data-cmd="italic"', 'italic', 'Italic (Ctrl+I)')}
+      ${btn('data-cmd="underline"', 'underline', 'Underline (Ctrl+U)')}
+      ${btn('data-cmd="strikeThrough"', 'strike', 'Strikethrough')}
+      <span class="rte-colour" data-prop="color">
+        <button type="button" class="rte-btn rte-colour-apply" title="Text colour">${ic('textcolor')}<span class="rte-colour-bar"></span></button><button type="button" class="rte-btn rte-colour-open" title="More text colours">${ic('caret')}</button>
+        <div class="rte-pop" hidden></div>
+      </span>
+      <span class="rte-colour" data-prop="background-color">
+        <button type="button" class="rte-btn rte-colour-apply" title="Highlight colour">${ic('highlight')}<span class="rte-colour-bar"></span></button><button type="button" class="rte-btn rte-colour-open" title="More highlight colours">${ic('caret')}</button>
+        <div class="rte-pop" hidden></div>
+      </span>
+      ${sep}
+      <span class="rte-link">
+        <button type="button" class="rte-btn rte-link-open" title="Insert link (paste a web address)">${ic('link')}</button>
+        <div class="rte-pop rte-link-pop" hidden>
+          <input type="text" placeholder="Paste or type a link" />
+          <div class="rte-link-actions">
+            <button type="button" data-link="remove">Remove</button>
+            <button type="button" data-link="apply" class="primary">Apply</button>
+          </div>
+        </div>
+      </span>
+      ${allowImages ? btn('data-act="image"', 'image', 'Insert image') : ''}
+      ${sep}
+      ${btn('data-cmd="justifyLeft"', 'left', 'Left align')}
+      ${btn('data-cmd="justifyCenter"', 'center', 'Center align')}
+      ${btn('data-cmd="justifyRight"', 'right', 'Right align')}
+      ${btn('data-cmd="justifyFull"', 'justify', 'Justify')}
+      ${sep}
+      ${btn('data-cmd="insertUnorderedList"', 'bullets', 'Bulleted list')}
+      ${btn('data-cmd="insertOrderedList"', 'numbers', 'Numbered list')}
+      ${btn('data-act="outdent"', 'outdent', 'Decrease indent')}
+      ${btn('data-act="indent"', 'indent', 'Increase indent')}
+      ${sep}
+      ${btn('data-act="clear"', 'clear', 'Clear formatting')}
+      <span class="rte-more" hidden>
+        <button type="button" class="rte-btn rte-more-open" title="More">${ic('more')}</button>
+        <div class="rte-pop rte-more-pop" hidden></div>
+      </span>
     `;
+  },
+
+  // Indent paragraphs by 2em steps (lists use the browser's own nesting).
+  // Not execCommand('indent') on paragraphs: Chrome wraps them in a
+  // blockquote, which would look like a Quote.
+  _indent(editor, dir) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const el = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
+    if (el.closest('li')) {
+      document.execCommand(dir > 0 ? 'indent' : 'outdent', false, null);
+      return;
+    }
+    [...editor.children].filter(b => range.intersectsNode(b)).forEach(b => {
+      const cur = parseFloat(b.style.marginLeft) || 0;
+      const next = Math.max(0, Math.min(8, cur + 2 * dir));
+      b.style.marginLeft = next ? next + 'em' : '';
+      if (!b.getAttribute('style')) b.removeAttribute('style');
+    });
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  },
+
+  // Clear formatting also removes the size, font and colour spans this
+  // editor adds (the browser's removeFormat leaves some of them).
+  _clearInline(editor) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    editor.querySelectorAll('span[style]:not([data-style]), font').forEach(el => {
+      if (range.intersectsNode(el)) el.replaceWith(...el.childNodes);
+    });
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
   },
 
   _insertImage(editor) {
@@ -2224,6 +2745,55 @@ const RichEditor = {
       }
     };
     input.click();
+  },
+
+  /* Text styles. Choosing one sets the block's size and spacing (CSS) and
+     gives its text a starting format: a span the writer can change like any
+     other formatting. Choosing another style swaps that span; Body removes it.
+     "Drop cap" is a Body paragraph with a large first letter, only when the
+     writer asks for it. */
+  STYLE_PRESETS: {
+    h2:         { fontFamily: "'Libre Baskerville', serif", fontWeight: 'bold' },
+    h3:         { fontFamily: "'Times New Roman', serif", fontWeight: 'bold' },
+    blockquote: { fontFamily: "'Libre Baskerville', serif", fontStyle: 'italic' },
+  },
+
+  _applyBlockStyle(editor, value) {
+    document.execCommand('formatBlock', false, value === 'dropcap' ? 'p' : value);
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    const blocks = [...editor.children].filter(b => range.intersectsNode(b));
+    const preset = this.STYLE_PRESETS[value];
+    let last = null;
+    for (const block of blocks) {
+      block.querySelectorAll('span[data-style]').forEach(s => s.replaceWith(...s.childNodes));
+      block.classList.remove('drop-cap');
+      if (value === 'dropcap') block.classList.add('drop-cap');
+      if (!block.classList.length) block.removeAttribute('class');
+      if (!preset) continue;
+      const span = document.createElement('span');
+      span.dataset.style = value;
+      Object.assign(span.style, preset);
+      const empty = !block.textContent.replace(/\u200B/g, '').trim();
+      if (empty) {
+        block.textContent = '';
+        span.textContent = '\u200B';
+      } else {
+        span.append(...block.childNodes);
+      }
+      block.append(span);
+      last = span;
+    }
+    // Keep the caret in the styled text so typing carries the format.
+    if (last && blocks.length === 1) {
+      const r = document.createRange();
+      if (last.textContent === '\u200B') { r.setStart(last.firstChild, 1); r.collapse(true); }
+      else r.selectNodeContents(last);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
   },
 
   // Apply an inline CSS style to the current selection by wrapping in a <span>.
@@ -2250,22 +2820,59 @@ const RichEditor = {
       sel.removeAllRanges();
       sel.addRange(newRange);
     } else {
-      // Wrap the selected fragment in a styled span
-      const span = document.createElement('span');
-      span.style.setProperty(prop, value);
-      try {
-        // surroundContents fails if the selection crosses element boundaries.
-        // In that case, fall back to extracting+wrapping which handles partial
-        // overlaps gracefully.
-        range.surroundContents(span);
-      } catch (e) {
-        const frag = range.extractContents();
-        span.appendChild(frag);
-        range.insertNode(span);
+      // Style each selected run of text on its own, so a selection that
+      // crosses paragraphs never wraps whole paragraphs in a span.
+      const { startContainer: sc, startOffset: so, endContainer: ec, endOffset: eo } = range;
+      const root = range.commonAncestorContainer;
+      const texts = [];
+      if (root.nodeType === 3) texts.push(root);
+      else {
+        const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let t;
+        while ((t = w.nextNode())) if (range.intersectsNode(t)) texts.push(t);
       }
-      // Reselect the wrapped content so consecutive style changes stack
+      const wrapped = [];
+      texts.forEach(t => {
+        const s = t === sc ? so : 0;
+        const e = t === ec ? eo : t.data.length;
+        if (s >= e) return;
+        // Skip the line breaks between paragraphs and list items.
+        if (!t.data.slice(s, e).trim() && /^(UL|OL|DIV)$/.test(t.parentElement.tagName)) return;
+        let node = t;
+        if (e < node.data.length) node.splitText(e);
+        if (s > 0) node = node.splitText(s);
+        const par = node.parentElement;
+        if (par.tagName === 'SPAN' && !par.dataset.style && par.childNodes.length === 1) {
+          par.style.setProperty(prop, value);
+          wrapped.push(par);
+        } else {
+          const span = document.createElement('span');
+          span.style.setProperty(prop, value);
+          node.replaceWith(span);
+          span.appendChild(node);
+          wrapped.push(span);
+        }
+      });
+      if (!wrapped.length) return;
+      // The new style replaces the same style further up the same text.
+      wrapped.forEach(span => {
+        for (let el = span.parentElement; el && el !== editor; el = el.parentElement) {
+          if (el.tagName === 'SPAN' && el.style.getPropertyValue(prop) && el.textContent === span.textContent) {
+            el.style.removeProperty(prop);
+          }
+          if (el.tagName === 'FONT' && prop === 'color' && el.textContent === span.textContent) el.removeAttribute('color');
+        }
+      });
+      // Tidy up: drop empty spans, and unwrap spans with no style left.
+      editor.querySelectorAll('span').forEach(el => {
+        if (wrapped.includes(el)) return;
+        if (!el.textContent && !el.querySelector('img')) el.remove();
+        else if ([...el.attributes].every(a => a.name === 'style' && !a.value.trim())) el.replaceWith(...el.childNodes);
+      });
+      // Reselect the styled text so consecutive style changes stack
       const newRange = document.createRange();
-      newRange.selectNodeContents(span);
+      newRange.setStartBefore(wrapped[0].firstChild);
+      newRange.setEndAfter(wrapped[wrapped.length - 1].lastChild);
       sel.removeAllRanges();
       sel.addRange(newRange);
     }
@@ -2395,12 +3002,11 @@ Pages.home = {
       const coverStyle = (a) => a.coverImage
         ? `style="background-image: url('${a.coverImage}'); background-size: cover; background-position: center;"`
         : '';
-      const coverClass = (a) => a.coverImage ? '' : 'placeholder';
       const single = sides.length === 0 && !isEditing;
       fa.innerHTML = `
         <div class="featured-grid${single ? ' single' : ''}">
           <article class="featured-main" onclick="Pages.news.openArticle('${main.id}')">
-            <div class="feat-img ${coverClass(main)}" ${coverStyle(main)}></div>
+            ${main.coverImage ? `<div class="feat-img" ${coverStyle(main)}></div>` : ''}
             <div class="feat-cat">${escapeHtml(articleKicker(main))}</div>
             <h3 class="feat-title">${escapeHtml(main.title)}</h3>
             <p class="feat-deck">${escapeHtml(main.deck || '')}</p>
@@ -2476,15 +3082,19 @@ Pages.home = {
 
 /* ── NEWS ────────────────────────────────────────────────────────────── */
 Pages.news = {
-  state: { activeSection: 'all', activeTab: 'all', activeSubtab: null, lang: 'en', search: '' },
+  state: { activeSection: 'all', activeTab: 'all', search: '' },
 
   async render() {
     const isEditing = Editor.active;
     const sec = this.state.activeSection;
-    const tabs = (await Store.list('newsTabs')).filter(t => sec === 'all' || !t.section || t.section === sec);
+    const allTabs = await Store.list('newsTabs');
+    // Under All News, categories with the same name in both sections
+    // (e.g. Sports) show as one pill and match both.
+    const tabs = allTabs.filter((t, i) => sec === 'all'
+      ? allTabs.findIndex(x => x.label === t.label) === i
+      : t.section === sec);
     if (this.state.activeTab !== 'all' && !tabs.some(t => t.id === this.state.activeTab)) {
       this.state.activeTab = 'all';
-      this.state.activeSubtab = null;
     }
 
     // Section switch: Internal / External News
@@ -2502,59 +3112,104 @@ Pages.news = {
           <span class="pill-edit" onclick="event.stopPropagation(); Editor.manageTabs()">✎</span>
         </button>
       `).join('')}
-      ${isEditing ? `<button class="filter-pill" style="border-style: dashed; color: var(--gold);" onclick="Editor.manageTabs()">+ Manage tabs</button>` : ''}
+      ${isEditing ? `<button class="filter-pill" style="border-style: dashed; color: var(--gold);" onclick="Editor.manageTabs()">+ Manage categories</button>` : ''}
     `;
-
-    // Sub-tabs
-    const subs = $('#news-subtabs');
-    const activeTab = tabs.find(t => t.id === this.state.activeTab);
-    if (activeTab && activeTab.subtabs && activeTab.subtabs.length) {
-      subs.style.display = 'flex';
-      subs.innerHTML = `
-        <button class="subtab-pill ${!this.state.activeSubtab ? 'active' : ''}" onclick="Pages.news.setSubtab(null)">All</button>
-        ${activeTab.subtabs.map((s, i) => `
-          <button class="subtab-pill ${this.state.activeSubtab === s ? 'active' : ''}" onclick="Pages.news.setSubtabByIndex(${i})">${escapeHtml(s)}</button>
-        `).join('')}
-      `;
-    } else {
-      subs.style.display = 'none';
-    }
 
     // Articles
     let articles = await listVisibleArticles();
     if (sec !== 'all') articles = articles.filter(a => a.section === sec);
-    if (this.state.activeTab !== 'all') articles = articles.filter(a => a.tab === this.state.activeTab);
-    if (this.state.activeSubtab) articles = articles.filter(a => a.subtab === this.state.activeSubtab);
-    articles = articles.filter(a => (a.lang || 'en') === this.state.lang);
+    if (this.state.activeTab !== 'all') {
+      const label = allTabs.find(t => t.id === this.state.activeTab)?.label;
+      const ids = sec === 'all' ? allTabs.filter(t => t.label === label).map(t => t.id) : [this.state.activeTab];
+      articles = articles.filter(a => ids.includes(a.tab));
+    }
+    // No EN/ID toggle for now (Ammar, Oct 2026): every language shows.
     if (this.state.search) {
+      // Search the words people read, not the HTML around them.
       const q = this.state.search.toLowerCase();
+      const d = document.createElement('div');
+      const bodyText = (html) => { d.innerHTML = html || ''; return d.textContent.toLowerCase(); };
       articles = articles.filter(a =>
         a.title.toLowerCase().includes(q) ||
         (a.deck || '').toLowerCase().includes(q) ||
-        (a.body || '').toLowerCase().includes(q)
+        (a.author || '').toLowerCase().includes(q) ||
+        bodyText(a.body).includes(q)
       );
     }
+    // The page's HTML is rebuilt each visit, but the filters are kept,
+    // so show the language and search the list is actually using.
+    const searchBox = $('.news-search');
+    if (searchBox && document.activeElement !== searchBox) searchBox.value = this.state.search;
     articles.sort((a, b) => b.createdAt - a.createdAt);
+
+    // List or grid: each reader's choice, kept in this browser.
+    const view = this.view();
+    $('#news-view').innerHTML = [['list', 'List'], ['grid', 'Grid']].map(([v, label]) => `
+      <button type="button" class="${view === v ? 'active' : ''}" aria-pressed="${view === v}" onclick="Pages.news.setView('${v}')">${Icons['view_' + v]}<span>${label}</span></button>
+    `).join('');
+
+    // Browse: every category with how many stories it has.
+    const visible = await listVisibleArticles();
+    const count = (fn) => visible.filter(fn).length;
+    const browseLink = (label, n, active, onclick) => `
+      <a class="browse-link ${active ? 'active' : ''}" onclick="${onclick}"><span>${escapeHtml(label)}</span><span class="browse-n">${n}</span></a>`;
+    $('#news-browse').innerHTML = `
+      <div class="browse-head">Browse</div>
+      ${browseLink('Everything', visible.length, sec === 'all' && this.state.activeTab === 'all', "Pages.news.browse('all','all')")}
+      ${NEWS_SECTIONS.map(x => `
+        <div class="browse-head">${x.label}</div>
+        ${browseLink('All ' + x.label, count(a => a.section === x.id), sec === x.id && this.state.activeTab === 'all', `Pages.news.browse('${x.id}','all')`)}
+        ${allTabs.filter(t => t.section === x.id).map(t =>
+          browseLink(t.label, count(a => a.section === x.id && a.tab === t.id), sec === x.id && this.state.activeTab === t.id, `Pages.news.browse('${x.id}','${t.id}')`)).join('')}
+      `).join('')}
+      ${isEditing ? `<button class="browse-manage" onclick="Editor.manageTabs()">+ Manage categories</button>` : ''}
+      <p class="browse-note">Looking for a printed paper? The <a onclick="Router.go('archive')">Editions</a> page has every PDF.</p>
+    `;
 
     const grid = $('#news-grid');
     if (articles.length === 0) {
       grid.innerHTML = `
         <div class="empty-state">
           ${Icons.empty}
-          <h3>${this.state.search ? 'No articles match your search' : 'No articles in this category yet'}</h3>
-          <p>${isEditing ? 'Click "+ New Article" up top to publish the first piece.' : 'Tribunees are still drafting. New stories every fortnight.'}</p>
+          <h3>${this.state.search ? `Nothing matches “${escapeHtml(this.state.search)}”`
+            : 'No stories here yet'}</h3>
+          <p>${this.state.search ? 'Try another word, or clear the search to see every story.'
+            : isEditing ? 'Click "+ New Article" up top to write the first one.'
+            : 'Tribunees are working on it. Check back soon.'}</p>
         </div>
       `;
+    } else if (view === 'list') {
+      // Newest first, grouped by the day they were published.
+      const plain = document.createElement('div');
+      const mins = (a) => { plain.innerHTML = renderArticleBody(a.body); return Math.max(1, Math.round(plain.textContent.split(/\s+/).filter(Boolean).length / 200)); };
+      const days = [];
+      articles.forEach(a => {
+        const d = formatDate(a.createdAt);
+        if (!days.length || days[days.length - 1].d !== d) days.push({ d, items: [] });
+        days[days.length - 1].items.push(a);
+      });
+      grid.innerHTML = days.map(({ d, items }) => `
+        <div class="news-day"><h2>${escapeHtml(d)}</h2><span>${items.length} ${items.length === 1 ? 'story' : 'stories'}</span></div>
+        ${items.map(a => `
+          <article class="news-row" onclick="Pages.news.openArticle('${a.id}')">
+            <div class="news-row-text">
+              <div class="story-cat">${escapeHtml(articleKicker(a))}</div>
+              <h3 class="story-title">${escapeHtml(a.title)}</h3>
+              ${a.deck ? `<p class="story-deck">${escapeHtml(a.deck)}</p>` : ''}
+              <div class="story-meta">By <span class="author">${escapeHtml(a.author)}</span> · ${mins(a)} min read</div>
+            </div>
+            ${a.coverImage ? `<img class="news-row-img" src="${a.coverImage}" alt="" />` : ''}
+          </article>
+        `).join('')}
+      `).join('');
     } else {
       const newsCoverStyle = (a) => {
         const ar = parseAspect(a.coverAspect, 16/9);
-        return a.coverImage
-          ? `style="background-image: url('${a.coverImage}'); background-size: cover; background-position: center; aspect-ratio: ${ar};"`
-          : `style="aspect-ratio: ${ar};"`;
+        return `style="background-image: url('${a.coverImage}'); background-size: cover; background-position: center; aspect-ratio: ${ar};"`;
       };
       grid.innerHTML = `<div class="news-grid">${articles.map(a => `
         <article class="story-card" onclick="Pages.news.openArticle('${a.id}')">
-          <div class="feat-img ${a.coverImage ? '' : 'placeholder'}" ${newsCoverStyle(a)}></div>
+          ${a.coverImage ? `<div class="feat-img" ${newsCoverStyle(a)}></div>` : ''}
           <div class="story-cat">${escapeHtml(articleKicker(a))}</div>
           <h3 class="story-title">${escapeHtml(a.title)}</h3>
           <p class="story-deck">${escapeHtml(a.deck || '')}</p>
@@ -2565,21 +3220,17 @@ Pages.news = {
   },
 
   setSection(id) { this.state.activeSection = id; this.render(); },
-  setTab(id) { this.state.activeTab = id; this.state.activeSubtab = null; this.render(); },
-  setSubtab(s) { this.state.activeSubtab = s; this.render(); },
-  async setSubtabByIndex(i) {
-    const tabs = await Store.list('newsTabs');
-    const tab = tabs.find(t => t.id === this.state.activeTab);
-    if (tab && tab.subtabs && tab.subtabs[i] != null) {
-      this.state.activeSubtab = tab.subtabs[i];
-      this.render();
-    }
+  browse(sec, tab) { this.state.activeSection = sec; this.state.activeTab = tab; this.render(); },
+  view() {
+    let v = null;
+    try { v = localStorage.getItem('fitrah:newsView'); } catch (e) {}
+    return v === 'grid' ? 'grid' : 'list';
   },
-  setLang(lang) {
-    this.state.lang = lang;
-    $$('.lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  setView(v) {
+    try { localStorage.setItem('fitrah:newsView', v); } catch (e) {}
     this.render();
   },
+  setTab(id) { this.state.activeTab = id; this.render(); },
   search(q) {
     this.state.search = q.trim();
     this.render();
@@ -2615,27 +3266,110 @@ Pages.article = {
     const tabLabel = tabs.find(t => t.id === a.tab)?.label || '';
     const isEditing = Editor.active;
     const coverAspect = parseAspect(a.coverAspect, 16/9);
-    const hasOwner = a.authorEmail && a.authorEmail === Auth.current().email;
+
+    // Writers: match each name in the byline to a Tribunee profile, if any.
+    const tribunees = await Store.list('tribunees');
+    const norm = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const names = (a.author || '').split(/\s*(?:&|,|\band\b)\s*/).filter(Boolean);
+    const writers = names.map(n => ({ name: n, t: tribunees.find(t => norm(t.name) === norm(n)) }));
+    const avatar = (w, cls) => w.t && w.t.photo
+      ? `<span class="${cls}"><img src="${w.t.photo}" alt="" /></span>`
+      : `<span class="${cls}">${escapeHtml(initials(w.name))}</span>`;
+    const nameLink = (w) => w.t
+      ? `<a class="author" onclick="Router.go('tribunee/${w.t.id}')">${escapeHtml(w.name)}</a>`
+      : `<span class="author">${escapeHtml(w.name)}</span>`;
+    const byline = writers.map(nameLink).join(' &amp; ');
+    const plain = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent.replace(/\s+/g, ' ').trim(); };
+    const words = plain(renderArticleBody(a.body)).split(' ').filter(Boolean).length;
+    const readMins = Math.max(1, Math.round(words / 200));
+
+    // More stories from the same section, newest first.
+    const more = (await listVisibleArticles(x => x.id !== a.id && x.section === a.section))
+      .sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0)).slice(0, 3);
+    const secLabel = sectionLabel(a.section);
 
     root.innerHTML = `
       <div class="article-page">
-        <a class="ar-back" onclick="Router.go('news')">← Back to News</a>
-        <div class="article-cover ${a.coverImage ? '' : 'placeholder'}" style="aspect-ratio: ${coverAspect};">
-          ${a.coverImage ? `<img src="${a.coverImage}" alt="" />` : ''}
+        <div class="ar-head">
+          <a class="ar-back" onclick="Router.go('news')">← News</a>
+          <div class="ar-cat">${escapeHtml(articleKicker({ ...a, tabLabel }, { fiwaLabel: 'FIWA-only' }))}</div>
+          <h1 class="article-headline">${escapeHtml(a.title)}</h1>
+          ${a.deck ? `<p class="article-deck">${escapeHtml(a.deck)}</p>` : ''}
+          <div class="article-byline">
+            <span class="ar-avatars">${writers.map(w => avatar(w, 'ar-avatar')).join('')}</span>
+            <div class="ar-byline-text">
+              <div>By ${byline}</div>
+              <div class="ar-date">${formatDate(a.createdAt)} · ${readMins} min read</div>
+            </div>
+            ${a.edition ? `<span class="ar-print">In print · Edition ${a.edition}</span>` : ''}
+          </div>
         </div>
-        <div class="ar-cat">${escapeHtml(articleKicker({ ...a, tabLabel }, { fiwaLabel: 'FIWA-only' }))}</div>
-        <h1 class="article-headline">${escapeHtml(a.title)}</h1>
-        ${a.deck ? `<p class="article-deck">${escapeHtml(a.deck)}</p>` : ''}
-        <div class="article-byline">By <span class="author">${escapeHtml(a.author)}</span> · ${formatDate(a.createdAt)}${a.edition ? ` · From Edition ${a.edition}` : ''}</div>
+        ${a.coverImage ? `<figure class="article-cover-fig">
+          <div class="article-cover" style="aspect-ratio: ${coverAspect};">
+            <img src="${a.coverImage}" alt="" />
+          </div>
+          ${a.coverCaption ? `<figcaption>${escapeHtml(a.coverCaption)}</figcaption>` : ''}
+        </figure>` : ''}
         <div class="article-body">${renderArticleBody(a.body)}</div>
-        ${isEditing ? `
-          <div class="article-edit-bar">
-            <button class="btn-ghost" onclick="Editor.editArticleById('${a.id}')">Edit article</button>
-            <button class="btn-ghost" style="color: #c0392b; border-color: rgba(192,57,62,0.4);" onclick="Editor.deleteArticleAndReturn('${a.id}')">Delete</button>
+        <div class="ar-after">
+          ${writers.filter(w => w.t).map(w => `
+            <div class="ar-writer">
+              ${avatar(w, 'ar-avatar lg')}
+              <div>
+                <div class="ar-writer-name">${escapeHtml(w.t.name)}</div>
+                ${w.t.bio ? `<p class="ar-writer-bio">${escapeHtml(plain(w.t.bio).slice(0, 220))}${plain(w.t.bio).length > 220 ? '…' : ''}</p>` : ''}
+                <a class="ar-link" onclick="Router.go('tribunee/${w.t.id}')">More by ${escapeHtml(w.t.name.split(' ')[0])}</a>
+              </div>
+            </div>
+          `).join('')}
+          <div class="ar-error-box">
+            <p><strong>Spot an error in this story?</strong> Send a note to the editors. Only the editorial team sees it. If we got it wrong, we fix it and log a public correction.</p>
+            <button class="btn-navy" onclick="Router.go('corrections/submit')">Report an error</button>
+          </div>
+          ${isEditing ? `
+            <div class="article-edit-bar">
+              <button class="btn-ghost" onclick="Editor.editArticleById('${a.id}')">Edit article</button>
+              <button class="btn-ghost" style="color: #c0392b; border-color: rgba(192,57,62,0.4);" onclick="Editor.deleteArticleAndReturn('${a.id}')">Delete</button>
+            </div>
+          ` : ''}
+        </div>
+        ${more.length ? `
+          <div class="ar-more">
+            <div class="ar-more-head">
+              <h2>More ${escapeHtml(secLabel || 'News')}</h2>
+              <a class="ar-link" onclick="Router.go('news')">All news</a>
+            </div>
+            <div class="ar-more-grid">${more.map(m => `
+              <article class="ar-more-card" onclick="Router.go('article/${m.id}')">
+                ${m.coverImage ? `<div class="ar-more-img" style="background-image: url('${m.coverImage}')"></div>` : ''}
+                <div class="story-cat">${escapeHtml(articleKicker(m))}</div>
+                <h3>${escapeHtml(m.title)}</h3>
+                <div class="ar-date">${formatDate(m.createdAt)}</div>
+              </article>
+            `).join('')}</div>
           </div>
         ` : ''}
       </div>
     `;
+  }
+};
+
+/* ── WRITER'S DESK (/write, /write/:id) ──────────────────────────────── */
+Pages.write = {
+  async render(params) {
+    const root = $('#write-content');
+    Editor._teardownDesk();
+    if (!(await Auth.isTribunee())) {
+      root.innerHTML = `<div class="empty-state">${Icons.empty}<h3>The Writer’s desk is for Tribunees</h3><p>Sign in with your FIWA email to write for the Tribune.</p></div>`;
+      return;
+    }
+    const id = params && params.id;
+    const a = id ? await Store.get('articles', id) : null;
+    if (id && !a) {
+      root.innerHTML = `<div class="empty-state">${Icons.empty}<h3>Article not found</h3><p>It may have been removed.</p></div>`;
+      return;
+    }
+    await Editor.mountDesk(root, a);
   }
 };
 
@@ -3411,7 +4145,7 @@ Pages.about = {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 8;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -3460,8 +4194,16 @@ const rosterTribunee = (p) => {
 };
 const rosterAllowlist = () => ROSTER.filter(p => p.email).map(p => ({ email: p.email, admin: p.admin }));
 
-const DEFAULT_NEWS_TABS = ['Indonesia', 'World', 'Technology/Science', 'Sports'];
-// Default categories that only make sense outside FIWA. The rest show under both.
+// Default categories, each inside one section (decided by Ammar, Oct 2026).
+const DEFAULT_NEWS_TABS = [
+  { label: 'Construction', section: 'internal' },
+  { label: 'Sports', section: 'internal' },
+  { label: 'Science & Technology', section: 'external' },
+  { label: 'World', section: 'external' },
+  { label: 'Indonesia', section: 'external' },
+  { label: 'Sports', section: 'external' },
+];
+// Used by the v6 migration: the categories that were External News then.
 const EXTERNAL_NEWS_TABS = ['Indonesia', 'World'];
 
 async function migrateLegacyData() {
@@ -3593,8 +4335,8 @@ async function migrateLegacyData() {
 
     // News categories: seed the four defaults once, only if there are none.
     if ((await Store.list('newsTabs')).length === 0) {
-      for (const label of DEFAULT_NEWS_TABS) {
-        await Store.save('newsTabs', { label, section: EXTERNAL_NEWS_TABS.includes(label) ? 'external' : '', subtabs: [] });
+      for (const { label, section } of DEFAULT_NEWS_TABS) {
+        await Store.save('newsTabs', { label, section, subtabs: [] });
       }
     }
   }
@@ -3638,6 +4380,47 @@ async function migrateLegacyData() {
     }
   }
 
+  // ─── v6 → v7 migration (two tiers only, Oct 2026) ─────────────────────
+  // Sections → categories; sub-categories are gone. Every category now sits
+  // in exactly one section: "Technology/Science" becomes "Science &
+  // Technology", the old defaults and any "both" category go to External
+  // News, and Construction and Sports are added under Internal News. An
+  // article keeps its section; if its category now sits in the other
+  // section, it moves to the category with the same name in its own
+  // section, or loses its category if there is none.
+  if (current < 7) {
+    const tabs = await Store.list('newsTabs');
+    for (const t of tabs) {
+      if (t.label === 'Technology/Science') t.label = 'Science & Technology';
+      if (t.section !== 'internal') t.section = 'external';
+      t.subtabs = [];
+      await Store.save('newsTabs', t);
+    }
+    for (const label of ['Construction', 'Sports']) {
+      if (tabs.length && !tabs.some(t => t.label === label && t.section === 'internal')) {
+        tabs.push(await Store.save('newsTabs', { label, section: 'internal', subtabs: [] }));
+      }
+    }
+    for (const a of await Store.list('articles')) {
+      const tab = tabs.find(t => t.id === a.tab);
+      if (!a.subtab && (!a.tab || (tab && tab.section === a.section))) continue;
+      a.subtab = '';
+      if (a.tab && (!tab || tab.section !== a.section)) {
+        a.tab = tabs.find(t => tab && t.label === tab.label && t.section === a.section)?.id || '';
+      }
+      await Store.save('articles', a);
+    }
+  }
+
+  // ─── v7 → v8 migration (Sports under Internal News too, Oct 2026) ──────
+  // Browsers that already ran v7 before Sports was added to Internal News.
+  if (current < 8 && current >= 7) {
+    const tabs = await Store.list('newsTabs');
+    if (tabs.length && !tabs.some(t => t.label === 'Sports' && t.section === 'internal')) {
+      await Store.save('newsTabs', { label: 'Sports', section: 'internal', subtabs: [] });
+    }
+  }
+
   localStorage.setItem('fitrah:schemaVersion', String(SCHEMA_VERSION));
 }
 
@@ -3669,6 +4452,7 @@ async function seedIfEmpty() {
   }
 
   await seedDemoArticles();
+  await seedDemoPlaceholders();
 }
 
 /* Placeholder articles from Edition 5 (public/fitr-demo-articles.js), so the
@@ -3686,7 +4470,7 @@ async function seedDemoArticles() {
     const { featured, tabLabel, ...article } = d;
     await Store.save('articles', {
       ...article,
-      tab: tabs.find(t => t.label === tabLabel)?.id || '',
+      tab: tabs.find(t => t.label === tabLabel && t.section === article.section)?.id || '',
       subtab: '',
       visibility: 'public',
       lang: 'en',
@@ -3697,6 +4481,41 @@ async function seedDemoArticles() {
     if (featured !== undefined) {
       await Store.save('featured', { articleId: article.id, order: featured });
     }
+  }
+}
+
+// Second demo step (Oct 2026): the rest of Edition 5, so every category has
+// an article. It also files all the demo stories under the current
+// categories (they changed in v7). Runs once per browser per version
+// (fitrah:demoPlaceholders), even if the browser already has articles.
+async function seedDemoPlaceholders() {
+  const items = window.FITR_DEMO_PLACEHOLDERS;
+  const first = window.FITR_DEMO_ARTICLES;
+  if (!Array.isArray(items) || localStorage.getItem('fitrah:demoPlaceholders') === '2') return;
+  localStorage.setItem('fitrah:demoPlaceholders', '2');
+
+  const tabs = await Store.list('newsTabs');
+  const tabFor = (label, section) => tabs.find(t => t.label === label && t.section === section)?.id || '';
+  const existing = await Store.list('articles');
+  for (const { id, tabLabel } of Array.isArray(first) ? first : []) {
+    const a = existing.find(x => x.id === id);
+    if (a) { a.tab = tabFor(tabLabel, a.section); a.subtab = ''; await Store.save('articles', a); }
+  }
+  const published = Date.UTC(2026, 9, 21, 1, 0);   // 21 Oct 2026, 08:00 WIB
+  for (const [i, { tabLabel, ...article }] of items.entries()) {
+    const old = existing.find(x => x.id === article.id);
+    if (old) { old.tab = tabFor(tabLabel, old.section); old.subtab = ''; await Store.save('articles', old); continue; }
+    await Store.save('articles', {
+      coverAspect: 16 / 9,
+      coverFit: 'crop',
+      ...article,
+      edition: 5,
+      tab: tabFor(tabLabel, article.section),
+      subtab: '',
+      visibility: 'public',
+      lang: 'en',
+      createdAt: published - (10 + i) * 60000,
+    });
   }
 }
 

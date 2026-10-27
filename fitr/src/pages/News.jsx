@@ -16,16 +16,15 @@ const html = `
   <div class="section-tabs" id="news-sections"><!-- rendered --></div>
   <div class="news-toolbar">
     <div class="filter-pills" id="news-tabs"><!-- rendered --></div>
-    <div style="display: flex; gap: 0.7rem; align-items: center;">
-      <div class="lang-toggle">
-        <button class="active" data-lang="en" onclick="Pages.news.setLang('en')">EN</button>
-        <button data-lang="id" onclick="Pages.news.setLang('id')">ID</button>
-      </div>
+    <div class="news-tools">
+      <div class="view-toggle" id="news-view"><!-- rendered --></div>
       <input type="search" class="news-search" placeholder="Search articles…" oninput="Pages.news.search(this.value)" />
     </div>
   </div>
-  <div class="subtab-bar" id="news-subtabs"><!-- rendered --></div>
-  <div id="news-grid"><!-- rendered --></div>
+  <div class="news-layout">
+    <div id="news-grid"><!-- rendered --></div>
+    <aside class="news-browse" id="news-browse"><!-- rendered --></aside>
+  </div>
 </section>
 `
 
