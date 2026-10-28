@@ -408,7 +408,7 @@ const NAV_TABS = [
   { id: 'news',        label: 'News',        icon: 'news' },
   { id: 'archive',     label: 'Editions',    icon: 'archive' },
   { id: 'forum',       label: 'Forum',       icon: 'forum' },
-  { id: 'corrections', label: 'Feedback',    icon: 'pencil' },
+  { id: 'corrections', label: 'Feedback & Corrections', icon: 'pencil' },
   { id: 'about',       label: 'About',       icon: 'about' }
 ];
 
