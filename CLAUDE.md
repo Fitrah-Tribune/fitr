@@ -145,6 +145,9 @@ felt too dominant.)
   style (decided by Ammar, Oct 2026).
 - Libre Baskerville has **no bold italic**. Never make a headline italic;
   a highlighted word inside a headline stays upright (colour only).
+  One exception: the About page headline, "Documenting FIWA *& Beyond*",
+  sets "& Beyond" in gold Libre Baskerville italic at regular weight
+  (decided by Ammar, Oct 2026).
 - New element? Decide which of the three jobs it does and use that variable.
   If people read it as sentences, it's `--article`; if it's a label or
   control, it's Work Sans.
@@ -153,33 +156,13 @@ felt too dominant.)
 
 ---
 
-## Copy sheet
+## Changing site text
 
-All user-visible text on the site is tracked in one Google Sheet:
-https://docs.google.com/spreadsheets/d/1SfqBOvc5Zm0mwZZPsqN4sG_3wTZwD1o0loFL1hwLBXo/edit?usp=sharing
-
-File "FITR | Website Text Lists", tab "Main". One row per piece of text.
-Columns: **A** ID · **B** Page · **C** Where on the page · **D** Current
-text · **E** Our version · **F** Status · **G** Source (file:line).
-`{name}`-style slots are filled in by the site; keep them when rewriting.
-`A / B` means one spot that switches between versions.
-
-1. **"Apply the copy sheet"** means: apply every row whose Status is
-   **Ready** — replace the site's text with "Our version" — then set those
-   rows to **Applied**, and open a PR into `development`. Touch no other
-   rows. Engine strings live in `public/fitr-engine.js`; that is a text
-   edit, not a page conversion.
-   - Find each string by its **Source** and **Where on the page**, not by
-     searching for "Current text": people edit that column in the sheet, so
-     it may not match the code. Line numbers drift as files change.
-   - In the PR, list every applied row whose code text didn't match
-     "Current text", so a person can check it.
-2. **Whenever you add or change visible text on the site**, add or update
-   its row in the sheet in the same piece of work.
-
-If you can't open or edit the sheet, don't guess its contents. Say so, and
-put the rows you would have added or changed in the PR description so a
-person can paste them in.
+Ammar edits page text on the design canvas ("FITR Website Redesign",
+https://claude.ai/artifact/9DDahFcnC2E5GsHKnBYS3K) and says what changed.
+Apply what the canvas shows. The old Google copy sheet ("FITR | Website
+Text Lists") is no longer used, so PRs don't need copy-sheet rows
+(decided by Ammar, Oct 2026).
 
 ---
 
@@ -221,7 +204,10 @@ Tribunee and admin come from the `allowlist` collection
 **Corrections log:** public and permanent. Admins can edit/delete entries, in
 editing mode only.
 
-**Profiles:** admins edit anyone. A Tribunee edits only their own photo and bio.
+**Profiles:** admins edit anyone, and only admins set name, role, grade and
+the print credits (articles, photos, editions worked on). A Tribunee edits
+only their own photo and writes their own bio; if a bio needs changing, the
+admins sort it out in person (decided by Ammar, Oct 2026).
 
 After changing any of these areas, test each rule by signing in as a guest, a
 public user, a non-admin Tribunee, and an admin.
