@@ -1052,10 +1052,10 @@ const Editor = {
     Editor._editionState = editionState;
 
     Modal.open({
-      title: 'Archive a newspaper edition',
+      title: 'Add a printed edition',
       body: `
         <div class="field">
-          <label>Front-page cover (optional)</label>
+          <label>Front-page cover (optional: page 1 of the PDF is used if empty)</label>
           <div class="afp-picker" id="ed-afp">
             <div class="afp-row">
               <label>Aspect</label>
@@ -1099,27 +1099,38 @@ const Editor = {
           <label>Headline / cover title</label>
           <input type="text" id="ed-title" placeholder="The lead story of this edition" />
         </div>
-        <div class="field">
-          <label>Canva (or PDF) link — view-only</label>
-          <input type="url" id="ed-link" placeholder="https://www.canva.com/design/..." />
-          <div class="field-hint">Paste the Canva share link (set to "Anyone with link can view").</div>
-        </div>
+        ${Editor._editionFileFields({})}
         <div class="field">
           <label>Brief description</label>
           <textarea id="ed-desc" rows="3" placeholder="A short note about this edition's contents."></textarea>
-          <div class="field-hint">Shown below the title on the archive card. Keep it to a sentence or two — it's clamped to 3 lines.</div>
+          <div class="field-hint">Shown under the headline when this is the latest edition. A sentence or two.</div>
         </div>
         <div class="signin-tier-info">
-          <strong>Note:</strong> Once archived, an edition is preserved exactly as it was — including any errors. Archived editions are immune to silent corrections.
+          <strong>Note:</strong> An edition stays as it was printed. Swapping the PDF to fix a typo or the layout is fine; a factual fix goes in the Corrections log.
         </div>
       `,
       foot: `
         <button class="btn-ghost" onclick="Modal.close()">Cancel</button>
-        <button class="btn-navy" onclick="Editor.saveEdition()">Archive edition</button>
+        <button class="btn-navy" onclick="Editor.saveEdition()">Add edition</button>
       `
     });
 
     setTimeout(() => Editor._wireEditionCoverPicker(editionState), 50);
+  },
+
+  // The PDF and the page titles, shared by the add and edit dialogs.
+  _editionFileFields(e) {
+    return `
+        <div class="field">
+          <label>PDF of the edition</label>
+          <input type="text" id="ed-pdf" value="${escapeHtml(e.pdf || '')}" placeholder="/editions/edition-6.pdf" />
+          <div class="field-hint">Where the PDF lives: a file in the website's <code>public/editions/</code> folder, or a full https:// link. Readers read it page by page here and can download it.</div>
+        </div>
+        <div class="field">
+          <label>What's on each page (optional)</label>
+          <textarea id="ed-contents" rows="5" placeholder="Front page&#10;Internal News: Building H&#10;…">${escapeHtml((e.contents || []).join('\n'))}</textarea>
+          <div class="field-hint">One line per page, in order. Shown as the edition's contents; leave empty to hide them.</div>
+        </div>`;
   },
 
   _wireEditionCoverPicker(state) {
@@ -1190,16 +1201,25 @@ const Editor = {
       ? (await Store.get('editions', Editor._editingEditionId)) || {}
       : {};
 
-    // The link field is only present on the NEW edition modal. When editing
-    // an existing edition, the link is locked — fall back to existing.link.
-    const linkEl = $('#ed-link');
-    const link = linkEl ? linkEl.value.trim() : (existing.link || '');
+    const pdf = ($('#ed-pdf')?.value || '').trim();
+    if (pdf && !/^(\/|https:\/\/)/.test(pdf)) {
+      toast('The PDF must be a site path starting with / or an https:// link', 'error');
+      return;
+    }
+    const contents = ($('#ed-contents')?.value || '').split('\n').map(l => l.trim()).filter(Boolean);
+    // Count the pages from the PDF itself when it changes.
+    let pages = pdf === existing.pdf ? existing.pages || 0 : 0;
+    if (pdf && !pages && window.pdfjsLib) {
+      try { pages = (await pdfjsLib.getDocument(pdf).promise).numPages; }
+      catch (err) { toast('Saved, but the PDF could not be opened. Check its address.', 'error'); }
+    }
 
     const item = {
       ...existing,
       number: num,
       date: new Date(date).getTime(),
-      title, link, desc,
+      title, desc, pdf, contents,
+      pages: pages || contents.length || 0,
       coverImage: state.coverImage || null,
       coverAspect: parseAspect(state.coverAspect, 1/1.4),
       coverFit: state.coverFit === 'letterbox' ? 'letterbox' : 'crop',
@@ -1212,9 +1232,10 @@ const Editor = {
     Editor._editionState = null;
 
     Modal.close();
-    Pages.archive.render();
-    Pages.home.render();
-    toast(`Edition ${num} ${wasEditing ? 'updated' : 'archived'}`, 'success');
+    // On an edition's own page whose number just changed, follow it.
+    if (Router.current === 'archive' && Router.params.id && Number(Router.params.id) !== num) Router.go('archive/' + num);
+    else Pages.archive.render(Router.params);
+    toast(`${Editions.label(num)} ${wasEditing ? 'updated' : 'added'}`, 'success');
   },
 
   async editEdition(id) {
@@ -1234,10 +1255,10 @@ const Editor = {
 
     const dateStr = new Date(e.date).toISOString().slice(0, 10);
     Modal.open({
-      title: `Edit Edition ${e.number}`,
+      title: `Edit ${Editions.label(e.number)}`,
       body: `
         <div class="field">
-          <label>Front-page cover (optional)</label>
+          <label>Front-page cover (optional: page 1 of the PDF is used if empty)</label>
           <div class="afp-picker" id="ed-afp">
             <div class="afp-row">
               <label>Aspect</label>
@@ -1281,21 +1302,11 @@ const Editor = {
           <label>Headline / cover title</label>
           <input type="text" id="ed-title" value="${escapeHtml(e.title || '')}" />
         </div>
-        <div class="field">
-          <label>Canva link
-            <span style="color: var(--ink-muted); font-weight: 400; font-size: 0.7rem; letter-spacing: 0.06em; text-transform: none; margin-left: 0.5rem;">— locked once archived</span>
-          </label>
-          <div class="readonly-link">
-            ${e.link
-              ? `<a href="${escapeHtml(e.link)}" target="_blank" rel="noopener">${escapeHtml(e.link)}</a>`
-              : `<span class="empty">No link saved.</span>`}
-          </div>
-          <div class="field-hint">Archive entries preserve the original link as it was published — that's the whole point of an archive. To replace the link, remove this entry and archive a new edition.</div>
-        </div>
+        ${Editor._editionFileFields(e)}
         <div class="field">
           <label>Brief description</label>
           <textarea id="ed-desc" rows="3">${escapeHtml(e.desc || '')}</textarea>
-          <div class="field-hint">Shown below the title on the archive card. Keep it to a sentence or two — it's clamped to 3 lines.</div>
+          <div class="field-hint">Shown under the headline when this is the latest edition. A sentence or two.</div>
         </div>
       `,
       foot: `
@@ -1316,13 +1327,13 @@ const Editor = {
     const e = await Store.get('editions', id);
     if (!e) { toast('Edition not found', 'error'); return; }
     Modal.open({
-      title: `Remove Edition ${e.number}?`,
+      title: `Remove ${Editions.label(e.number)}?`,
       body: `
         <p style="font-family: var(--ui); line-height: 1.5; margin-bottom: 1.1rem; font-size: 1rem; color: var(--ink-soft);">
           You're about to remove <strong style="color: var(--ink);">"${escapeHtml(e.title)}"</strong> from the archive. The entry on this site will be wiped — including the front-page screenshot if you uploaded one.
         </p>
         <div class="signin-tier-info" style="background: rgba(192, 57, 62, 0.08); border-left: 3px solid #c0392b;">
-          <strong>This cannot be undone.</strong> The Canva file itself isn't affected — only the archive entry on Fitrah Tribune.
+          <strong>This cannot be undone.</strong> Only the entry on this site is removed; the PDF file itself isn't deleted.
         </div>
       `,
       foot: `
@@ -1337,8 +1348,7 @@ const Editor = {
     Editor._editingEditionId = null;
     Editor._editionState = null;
     Modal.close();
-    Pages.archive.render();
-    Pages.home.render();
+    Router.go('archive');
     toast('Edition removed');
   },
 
@@ -3330,7 +3340,7 @@ Pages.article = {
               <div>By ${byline}</div>
               <div class="ar-date">${formatDate(a.createdAt)} · ${readMins} min read</div>
             </div>
-            ${a.edition ? `<span class="ar-print">In print · Edition ${a.edition}</span>` : ''}
+            ${a.edition ? `<span class="ar-print">In print · ${Editions.label(a.edition)}</span>` : ''}
           </div>
         </div>
         ${a.coverImage ? `<figure class="article-cover-fig">
@@ -3511,57 +3521,341 @@ Pages.tribunee = {
 };
 
 /* ── ARCHIVE ─────────────────────────────────────────────────────────── */
+/* ── EDITIONS (the printed papers) ──────────────────────────────────────
+   /archive is the shelf: the latest edition up top, the rest below.
+   /archive/<number> is one edition, read page by page on the site with
+   pdf.js. Editions are kept as printed; fixes go in the Corrections log. */
+const Editions = {
+  label: (n) => `Edition ${Credits.roman(Number(n) || 0)}`,
+  dateLong: (ts) => new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+  meta(e) {
+    return [this.dateLong(e.date), e.pages ? `${e.pages} page${e.pages === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+  },
+  href: (e) => `/archive/${e.number}`,
+  linkAttrs: (e) => `href="/archive/${e.number}" onclick="event.preventDefault(); Router.go('archive/${e.number}')"`,
+  async list() {
+    return (await Store.list('editions')).sort((a, b) => b.number - a.number);
+  },
+  // The front page: an uploaded cover, the shipped cover, or page 1 of the
+  // PDF (drawn by Editions.drawPdfCovers after the page renders).
+  cover(e, cls = '') {
+    const src = e.coverImage || e.cover;
+    if (src) return `<img class="${cls}" src="${escapeHtml(src)}" alt="${this.label(e.number)} front page" loading="lazy" />`;
+    if (e.pdf) return `<canvas class="${cls} ed-pdf-cover" data-pdf="${escapeHtml(e.pdf)}" aria-label="${this.label(e.number)} front page"></canvas>`;
+    return `<div class="${cls} ed-cover-blank"><span>Fitrah Tribune</span><b>${Credits.roman(Number(e.number) || 0)}</b></div>`;
+  },
+  async drawPdfCovers(root) {
+    if (!window.pdfjsLib) return;
+    for (const c of root.querySelectorAll('canvas.ed-pdf-cover')) {
+      try {
+        const doc = await pdfjsLib.getDocument(c.dataset.pdf).promise;
+        const page = await doc.getPage(1);
+        const vp = page.getViewport({ scale: 600 / page.getViewport({ scale: 1 }).width });
+        c.width = vp.width; c.height = vp.height;
+        await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+      } catch (err) { /* leave the frame empty */ }
+    }
+  },
+  async stories(n) {
+    return (await listVisibleArticles(a => Number(a.edition) === Number(n)))
+      .sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0));
+  },
+  pdfButton(e, cls) {
+    return e.pdf
+      ? `<a class="${cls}" href="${escapeHtml(e.pdf)}" download="Fitrah-Tribune-Edition-${e.number}.pdf">Download PDF</a>`
+      : (e.link ? `<a class="${cls}" href="${escapeHtml(e.link)}" target="_blank" rel="noopener">Open the edition</a>` : '');
+  },
+  adminButtons(e) {
+    return `
+      <div class="edit-overlay">
+        <button class="edit-icon-btn" title="Edit edition" onclick="event.stopPropagation(); Editor.editEdition('${e.id}')">✎</button>
+        <button class="edit-icon-btn delete" title="Remove edition" onclick="event.stopPropagation(); Editor.deleteEdition('${e.id}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+      </div>`;
+  }
+};
+
 Pages.archive = {
-  async render() {
-    const isEditing = Editor.active;
-    const isAdmin   = await Auth.isAdmin();
-    const canEdit   = isEditing && isAdmin;
-    const editions = (await Store.list('editions')).sort((a, b) => b.number - a.number);
-    const grid = $('#archive-grid-area');
+  async render(params) {
+    const n = parseInt(params && params.id, 10);
+    if (n) return this.renderEdition(n);
+    EditionReader.close();
+
+    const canEdit = Editor.active && await Auth.isAdmin();
+    const root = $('#archive-area');
+    const editions = await Editions.list();
+    const head = `
+      <div class="section-head">
+        <h2>Editions</h2>
+        <span class="sub">— every printed Fitrah Tribune, kept as it went to print</span>
+        ${canEdit ? `<div class="head-action"><button class="btn-add" onclick="Editor.newEdition()">+ Add Edition</button></div>` : ''}
+      </div>
+      <p class="ed-intro">Each edition stays exactly as we printed it. When we find a mistake later, we don’t quietly change the paper: the fix is listed in our <a href="/feedback" onclick="event.preventDefault(); Router.go('corrections')">Corrections log</a>.</p>`;
 
     if (editions.length === 0) {
-      grid.innerHTML = `
+      root.innerHTML = head + `
         <div class="empty-state">
           ${Icons.empty}
-          <h3>No editions archived yet</h3>
-          <p>${canEdit ? 'Click "+ Add Edition" up top to add a Canva or PDF link to the archive.' : 'The archive will fill as Fitrah Tribune publishes its first editions.'}</p>
-        </div>
-      `;
+          <h3>No editions yet</h3>
+          <p>${canEdit ? 'Click "+ Add Edition" up top to add a printed edition.' : 'Printed editions of Fitrah Tribune will appear here.'}</p>
+        </div>`;
       return;
     }
 
-    grid.innerHTML = `<div class="archive-grid">${editions.map(e => {
-      const ar = parseAspect(e.coverAspect, 1/1.4);
-      const arStyle = e.coverImage ? `style="aspect-ratio: ${ar};"` : '';
-      return `
-      <div class="archive-item">
-        <a class="archive-card" href="${escapeHtml(e.link || '#')}" target="_blank" rel="noopener" ${canEdit ? `oncontextmenu="event.preventDefault(); Editor.editEdition('${e.id}')"` : ''}>
-          <div class="archive-cover ${e.coverImage ? 'has-image' : ''}" ${arStyle}>
-            ${e.coverImage ? `
-              <img class="ac-img" src="${e.coverImage}" alt="Edition ${e.number} front page" />
-            ` : `
-              <div class="ac-name">Fitrah Tribune</div>
-              <div class="ac-num">${e.number}<span>Edition</span></div>
-              <div class="ac-tag">★ ${formatDateShort(e.date)} ★</div>
-            `}
+    const [latest, ...rest] = editions;
+    const stories = await Editions.stories(latest.number);
+    const SHOWN = 3;
+    root.innerHTML = head + `
+      <section class="ed-latest archive-item" aria-label="Latest edition">
+        <a class="ed-cover-frame" ${Editions.linkAttrs(latest)}>${Editions.cover(latest, 'ed-cover-img')}</a>
+        <div class="ed-latest-text">
+          <div class="ed-kicker">Latest edition</div>
+          <div class="ed-num">${Editions.label(latest.number)}</div>
+          <h3 class="ed-headline"><a ${Editions.linkAttrs(latest)}>${escapeHtml(latest.title)}</a></h3>
+          <div class="ed-meta">${Editions.meta(latest)}</div>
+          ${latest.desc ? `<p class="ed-deck">${escapeHtml(latest.desc)}</p>` : ''}
+          <div class="ed-actions">
+            <a class="btn-navy" ${Editions.linkAttrs(latest)}>Read the edition</a>
+            ${Editions.pdfButton(latest, 'btn-ghost')}
           </div>
-          <div class="archive-info">
-            <div class="ai-date">${formatDate(e.date)}</div>
-            <div class="ai-title">${escapeHtml(e.title)}</div>
-            ${e.desc ? `<div class="ai-desc">${escapeHtml(e.desc)}</div>` : ''}
-          </div>
-        </a>
-        ${canEdit ? `
-          <div class="edit-overlay">
-            <button class="edit-icon-btn" title="Edit edition" onclick="Editor.editEdition('${e.id}')">✎</button>
-            <button class="edit-icon-btn delete" title="Remove edition" onclick="Editor.deleteEdition('${e.id}')">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-            </button>
-          </div>
-        ` : ''}
+          ${stories.length ? `
+            <div class="ed-stories">
+              <div class="ed-label">From this edition, on the site</div>
+              <ul>${stories.slice(0, SHOWN).map(a => `<li><a href="/article/${escapeHtml(a.id)}" onclick="event.preventDefault(); Router.go('article/${a.id}')">${escapeHtml(a.title)}</a></li>`).join('')}</ul>
+              ${stories.length > SHOWN ? `<a class="ed-more" ${Editions.linkAttrs(latest)}>All ${stories.length} stories from ${Editions.label(latest.number)} →</a>` : ''}
+            </div>` : ''}
+        </div>
+        ${canEdit ? Editions.adminButtons(latest) : ''}
+      </section>
+      ${rest.length ? `
+        <div class="ed-shelf-head"><h2>All editions</h2><span class="sub">newest first</span></div>
+        <div class="ed-shelf">
+          ${rest.map(e => `
+            <div class="ed-card archive-item">
+              <a class="ed-card-link" ${Editions.linkAttrs(e)}>
+                <div class="ed-card-cover">${Editions.cover(e, 'ed-cover-img')}</div>
+                <div class="ed-num">${Editions.label(e.number)}</div>
+                <div class="ed-card-title">${escapeHtml(e.title)}</div>
+                <div class="ed-meta">${Editions.meta(e)}</div>
+              </a>
+              ${canEdit ? Editions.adminButtons(e) : ''}
+            </div>`).join('')}
+        </div>` : ''}`;
+    Editions.drawPdfCovers(root);
+  },
+
+  async renderEdition(n) {
+    const root = $('#archive-area');
+    const canEdit = Editor.active && await Auth.isAdmin();
+    const editions = await Editions.list();
+    const e = editions.find(x => Number(x.number) === n);
+    if (!e) {
+      EditionReader.close();
+      root.innerHTML = `
+        <a class="ed-back" href="/archive" onclick="event.preventDefault(); Router.go('archive')">← All editions</a>
+        <div class="empty-state"><h3>There is no ${Editions.label(n)} yet</h3><p>It may not have been printed yet.</p></div>`;
+      return;
+    }
+    const isLatest = editions[0] === e;
+    const newer = editions.filter(x => x.number > e.number).pop();
+    const older = editions.find(x => x.number < e.number);
+    const stories = await Editions.stories(n);
+    const corrections = (await Store.list('corrections'))
+      .filter(c => Number(c.edition) === n)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const contents = (Array.isArray(e.contents) ? e.contents : []).filter(Boolean);
+    const pages = e.pages || contents.length || 0;
+
+    root.innerHTML = `
+      <a class="ed-back" href="/archive" onclick="event.preventDefault(); Router.go('archive')">← All editions</a>
+      <div class="ed-page-head">
+        <div>
+          <div class="ed-num">${Editions.label(e.number)}</div>
+          <h2 class="ed-title">${escapeHtml(e.title)}</h2>
+          <div class="ed-meta">${Editions.meta(e)}</div>
+          ${isLatest ? '' : '<p class="ed-asprinted">Printed as it was at the time, typos included.</p>'}
+        </div>
+        <div class="ed-head-actions">
+          ${e.pdf && document.fullscreenEnabled ? `<button class="btn-ghost" onclick="EditionReader.fullscreen()">Full screen</button>` : ''}
+          ${Editions.pdfButton(e, 'btn-navy')}
+          ${canEdit ? `<button class="btn-ghost" onclick="Editor.editEdition('${e.id}')">Edit</button>` : ''}
+        </div>
       </div>
-    `;
-    }).join('')}</div>`;
+      <div class="ed-reader-grid${e.pdf ? '' : ' no-pdf'}">
+        ${e.pdf ? `
+          <nav class="ed-thumbs" aria-label="Pages">
+            ${Array.from({ length: pages }, (_, i) => `
+              <button type="button" class="ed-thumb" data-page="${i + 1}" aria-label="Page ${i + 1}" onclick="EditionReader.go(${i + 1})">
+                <canvas></canvas><span>${i + 1}</span>
+              </button>`).join('')}
+          </nav>
+          <div class="ed-reader" id="ed-reader">
+            <div class="ed-page-frame" id="ed-page-frame">
+              <canvas id="ed-canvas" aria-label="${Editions.label(e.number)}, page 1"></canvas>
+              <div class="ed-loading" id="ed-loading">Loading the edition…</div>
+            </div>
+            <div class="ed-pager">
+              <button type="button" class="btn-ghost" id="ed-prev" onclick="EditionReader.step(-1)">← Previous</button>
+              <span class="ed-pnum">Page <b id="ed-pnum">1</b> of <span id="ed-ptotal">${pages || '…'}</span></span>
+              <button type="button" class="btn-ghost" id="ed-next" onclick="EditionReader.step(1)">Next →</button>
+              <button type="button" class="ed-exit-full" onclick="EditionReader.fullscreen()">Exit full screen</button>
+            </div>
+          </div>` : `
+          <div class="ed-reader">
+            <div class="ed-page-frame">${Editions.cover(e, 'ed-cover-img')}</div>
+          </div>`}
+        <aside class="ed-side">
+          ${contents.length ? `
+            <section class="ed-box">
+              <h3>In this edition</h3>
+              <ol class="ed-contents">
+                ${contents.map((t, i) => `<li><span>${i + 1}</span>${e.pdf
+                  ? `<button type="button" data-page="${i + 1}" onclick="EditionReader.go(${i + 1})">${escapeHtml(t)}</button>`
+                  : escapeHtml(t)}</li>`).join('')}
+              </ol>
+            </section>` : ''}
+          <section class="ed-box">
+            <h3>Stories on the site</h3>
+            ${stories.length
+              ? `<ul class="ed-story-list">${stories.map(a => `<li><a href="/article/${escapeHtml(a.id)}" onclick="event.preventDefault(); Router.go('article/${a.id}')">${escapeHtml(a.title)}</a></li>`).join('')}</ul>`
+              : `<p>None of this edition’s stories are on the website yet.</p>`}
+          </section>
+          <section class="ed-box">
+            <h3>Corrections</h3>
+            ${corrections.length
+              ? `<ul class="ed-corr-list">${corrections.map(c => `<li><b>${escapeHtml(c.articleTitle || '')}</b><span>${escapeHtml(c.note || '')}</span></li>`).join('')}</ul>`
+              : `<p>No corrections logged for ${Editions.label(n)}.</p>`}
+            <a class="ed-more" href="/feedback" onclick="event.preventDefault(); Router.go('corrections')">See the Corrections log →</a>
+          </section>
+        </aside>
+      </div>
+      <div class="ed-prevnext">
+        ${older ? `<a ${Editions.linkAttrs(older)}>← ${Editions.label(older.number)} · ${escapeHtml(older.title)}</a>` : '<span></span>'}
+        ${newer ? `<a class="ed-newer" ${Editions.linkAttrs(newer)}>${Editions.label(newer.number)} · ${escapeHtml(newer.title)} →</a>` : ''}
+      </div>`;
+
+    if (e.pdf) EditionReader.open(e, 1);
+    else { EditionReader.close(); Editions.drawPdfCovers(root); }
+  }
+};
+
+/* ── EDITION READER ── one page at a time, drawn by pdf.js ──────────── */
+const EditionReader = {
+  doc: null,
+  edition: null,
+  page: 1,
+  token: 0,
+  task: null,
+  _wired: false,
+
+  close() {
+    this.token++;
+    this.doc = null;
+    this.edition = null;
+  },
+
+  async open(edition, start = 1) {
+    const token = ++this.token;
+    this.edition = edition;
+    this.doc = null;
+    this._wire();
+    const loading = $('#ed-loading');
+    if (!window.pdfjsLib) {
+      if (loading) loading.textContent = 'The page reader could not load. Use “Download PDF” instead.';
+      return;
+    }
+    try {
+      const doc = await pdfjsLib.getDocument(edition.pdf).promise;
+      if (token !== this.token) return;
+      this.doc = doc;
+    } catch (err) {
+      if (token === this.token && loading) loading.textContent = 'This edition could not be opened here. Use “Download PDF” instead.';
+      return;
+    }
+    const total = this.doc.numPages;
+    if ($('#ed-ptotal')) $('#ed-ptotal').textContent = total;
+    await this.go(start);
+    if (loading) loading.remove();
+    this._drawThumbs(token);
+  },
+
+  async go(n) {
+    const canvas = $('#ed-canvas');
+    if (!this.doc || !canvas) return;
+    const total = this.doc.numPages;
+    n = Math.min(Math.max(1, n), total);
+    this.page = n;
+    $('#ed-pnum').textContent = n;
+    canvas.setAttribute('aria-label', `${Editions.label(this.edition.number)}, page ${n}`);
+    $('#ed-prev').disabled = n <= 1;
+    $('#ed-next').disabled = n >= total;
+    $$('.ed-thumb, .ed-contents button').forEach(b => b.classList.toggle('active', Number(b.dataset.page) === n));
+    $(`.ed-thumb[data-page="${n}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+
+    const page = await this.doc.getPage(n);
+    if (this.page !== n) return;
+    const frame = $('#ed-page-frame');
+    const base = page.getViewport({ scale: 1 });
+    let cssW = frame.clientWidth;
+    if (document.fullscreenElement) cssW = Math.min(cssW, (window.innerHeight - 90) * base.width / base.height);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const vp = page.getViewport({ scale: (cssW / base.width) * dpr });
+    if (this.task) { try { this.task.cancel(); } catch (e) {} }
+    canvas.width = vp.width;
+    canvas.height = vp.height;
+    canvas.style.width = cssW + 'px';
+    this.task = page.render({ canvasContext: canvas.getContext('2d'), viewport: vp });
+    try { await this.task.promise; } catch (e) { /* cancelled by a newer page */ }
+  },
+
+  step(d) { this.go(this.page + d); },
+
+  async _drawThumbs(token) {
+    for (const b of $$('.ed-thumb')) {
+      if (token !== this.token || !this.doc) return;
+      const n = Number(b.dataset.page);
+      if (n > this.doc.numPages) { b.remove(); continue; }
+      const page = await this.doc.getPage(n);
+      const c = b.querySelector('canvas');
+      const vp = page.getViewport({ scale: 160 / page.getViewport({ scale: 1 }).width });
+      c.width = vp.width; c.height = vp.height;
+      try { await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise; } catch (e) {}
+    }
+  },
+
+  fullscreen() {
+    const el = $('#ed-reader');
+    if (!el) return;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (el.requestFullscreen) el.requestFullscreen();
+  },
+
+  // Arrow keys, swipes and resizing, wired once for the whole site.
+  _wire() {
+    if (this._wired) return;
+    this._wired = true;
+    const onReader = () => this.doc && $('#ed-canvas');
+    document.addEventListener('keydown', (e) => {
+      if (!onReader() || $('#modal-backdrop')?.classList.contains('open')) return;
+      if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); this.step(1); }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); this.step(-1); }
+    });
+    let x0 = null;
+    document.addEventListener('touchstart', (e) => {
+      x0 = e.target.closest && e.target.closest('#ed-page-frame') ? e.touches[0].clientX : null;
+    }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+      if (x0 === null || !onReader()) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      if (Math.abs(dx) > 50) this.step(dx < 0 ? 1 : -1);
+      x0 = null;
+    });
+    let t = null;
+    const redraw = () => { clearTimeout(t); t = setTimeout(() => onReader() && this.go(this.page), 150); };
+    window.addEventListener('resize', redraw);
+    document.addEventListener('fullscreenchange', redraw);
   }
 };
 
@@ -4240,7 +4534,7 @@ Pages.corrections = {
           ${relativeTime(c.createdAt)}
         </div>
         <div class="correction-body">
-          <div class="cb-edition">${c.edition ? `Edition ${c.edition}` : 'Online article'}</div>
+          <div class="cb-edition">${c.edition ? Editions.label(c.edition) : 'Online article'}</div>
           <h4>${escapeHtml(c.articleTitle)}</h4>
           <p>${escapeHtml(c.note)}</p>
         </div>
@@ -4348,7 +4642,7 @@ Pages.about = {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -4440,6 +4734,52 @@ const DEFAULT_NEWS_TABS = [
 ];
 // Used by the v6 migration: the categories that were External News then.
 const EXTERNAL_NEWS_TABS = ['Indonesia', 'World'];
+
+/* ─── PRINTED EDITIONS I–V ─────────────────────────────────────────────
+   The web copies live in public/editions/ (PDF + front-page JPG), shrunk
+   for the web. Pages that were never printed are left out: a blank
+   background page in I, and in III the draft Gaza page and a blank page.
+   Decks are the cover lines printed on each front page. */
+const EDITION_SEED = [
+  { number: 1, date: Date.UTC(2026, 3, 8), pages: 5,
+    title: 'Skybridge Finally Available for Public Use?',
+    desc: 'Rain-avoiding routes? New tiles? An upcoming café? FIWA welcomes students back after the holiday.',
+    contents: ['Front page', 'More construction progress', 'Internal FIWA News, part 1', 'Internal FIWA News, part 2', 'External News: Artemis II launch'] },
+  { number: 2, date: Date.UTC(2026, 3, 27), pages: 6,
+    title: 'FIWA Goes to Taman Safari for Excursion!',
+    desc: 'The FIWA excursion, a global oil crisis, EDU EXPO, and more.',
+    contents: ['Front page', 'FIWA goes to Taman Safari', 'Internal FIWA News: blackout & achievements', 'Internal FIWA News: weather', 'Internal FIWA News: construction plans', 'External News: oil crisis, football & motorsport'] },
+  { number: 3, date: Date.UTC(2026, 4, 13), pages: 8,
+    title: 'FIWA EDU EXPO 2026 Done & Completed!',
+    desc: 'EDU EXPO is done, SOFWA SMP leadership news, and the plans for Gedung H.',
+    contents: ['Front page', 'FIWA EDU EXPO, part 1', 'FIWA EDU EXPO, part 2', 'Internal FIWA News: Gedung H, basketball & achievements', 'Internal FIWA News: weather updates', 'Fitrah Tribune news', 'External News: meteor shower & football', 'External News: motorsport & a new virus'] },
+  { number: 4, date: Date.UTC(2026, 8, 6), pages: 10,
+    title: 'We’re Still Alive, and Finally Back!',
+    desc: 'FIWA’s first ever OSN gold medal, Indonesia’s Independence Day, Graduation 26/27, and more.',
+    contents: ['Front page', 'Merdeka Indonesia!', 'FIWA 2026/27 Graduation', 'Internal News: construction', 'Internal News: first OSN gold medal', 'Internal News: more achievements', 'Fitrah Tribune: what we do', 'External News: football & Industry 4.0', 'External News: Saudi education expo', 'Student Challenge'] },
+  { number: 5, date: Date.UTC(2026, 9, 21), pages: 15,
+    title: 'Missiles, Medals, Water Plants and Transformers?!',
+    desc: 'Houthi strikes, Nobel Prizes, the water treatment plant moved and improved, a new electric transformer, and the search for the next SOFWA SMA leader.',
+    contents: ['Front page', 'Internal News: Building H', 'Internal News: water treatment plant', 'Internal News: a new transformer', 'Internal News: weather', 'Internal News: new rooms & a lab', 'Student achievements: WICE & MUN', 'Fitrah Tribune: what we do', 'External News: Houthi attacks', 'External News: Nobel Prizes', 'External News: Nobel Prizes & a major weather event', 'External News: the Super El Niño', 'External News: ammonia & space', 'External News: motorsport', 'The Houthi story, continued'] }
+].map(e => ({ ...e, pdf: `/editions/edition-${e.number}.pdf`, cover: `/editions/edition-${e.number}.jpg` }));
+
+// Adds any of Editions I–V the browser doesn't have. An edition an admin
+// already archived keeps its own words; it only gains the PDF and pages.
+async function seedEditions() {
+  const have = await Store.list('editions');
+  for (const seed of EDITION_SEED) {
+    const old = have.find(e => Number(e.number) === seed.number);
+    if (!old) { await Store.save('editions', { ...seed, id: `ed-${seed.number}` }); continue; }
+    await Store.save('editions', {
+      ...old,
+      pdf: old.pdf || seed.pdf,
+      cover: old.cover || seed.cover,
+      pages: old.pages || seed.pages,
+      contents: Array.isArray(old.contents) && old.contents.length ? old.contents : seed.contents,
+      desc: old.desc || seed.desc
+    });
+  }
+}
 
 async function migrateLegacyData() {
   const stored = localStorage.getItem('fitrah:schemaVersion');
@@ -4687,6 +5027,10 @@ async function migrateLegacyData() {
       if (PRINT_CREDITS[t.name]) await Store.save('tribunees', withPrintCredits(t));
     }
   }
+
+  // ─── v11 → v12 migration (Editions, Oct 2026) ──────────────────────────
+  // The printed Editions I–V, readable on the site.
+  if (current < 12) await seedEditions();
 
   localStorage.setItem('fitrah:schemaVersion', String(SCHEMA_VERSION));
 }
