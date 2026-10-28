@@ -2432,7 +2432,11 @@ const RichEditor = {
           this._clearInline(editor);
           return;
         }
-        document.execCommand(btn.dataset.cmd, false, null);
+        if (/List$/.test(btn.dataset.cmd)) {
+          asOneStep(() => { document.execCommand(btn.dataset.cmd, false, null); this._liftLists(editor); });
+        } else {
+          document.execCommand(btn.dataset.cmd, false, null);
+        }
         updateState();
       });
     });
@@ -2524,6 +2528,7 @@ const RichEditor = {
         if (menu.hidden) draw();
         closeMenus(menu);
         menu.hidden = !menu.hidden;
+        RichEditor._keepOnScreen(menu);
       });
     };
     colourTool($t('.rte-colour[data-prop="color"]'), 'color', '#c08e3a', 'inherit', 'Automatic');
@@ -2537,6 +2542,7 @@ const RichEditor = {
     linkWrap.querySelector('.rte-link-open').addEventListener('click', () => {
       closeMenus(linkMenu);
       linkMenu.hidden = !linkMenu.hidden;
+      RichEditor._keepOnScreen(linkMenu);
       if (!linkMenu.hidden) {
         const a = _pinned && (_pinned.startContainer.nodeType === 1 ? _pinned.startContainer : _pinned.startContainer.parentElement).closest('a');
         linkInput.value = a ? a.getAttribute('href') : '';
@@ -2585,6 +2591,7 @@ const RichEditor = {
     more.querySelector('.rte-more-open').addEventListener('click', () => {
       closeMenus(morePop);
       morePop.hidden = !morePop.hidden;
+      RichEditor._keepOnScreen(morePop);
     });
     const fitToolbar = () => {
       while (morePop.firstChild) toolbar.insertBefore(morePop.firstChild, more);
@@ -2732,6 +2739,39 @@ const RichEditor = {
     `;
   },
 
+  // A menu opened near the right edge of a phone screen slides left to fit.
+  _keepOnScreen(pop) {
+    pop.style.transform = '';
+    if (pop.hidden) return;
+    const over = pop.getBoundingClientRect().right - (document.documentElement.clientWidth - 8);
+    if (over > 0) pop.style.transform = `translateX(${-Math.ceil(over)}px)`;
+  },
+
+  // Chrome makes a list inside the paragraph it started from
+  // (<p><ul>…</ul></p>), which isn't valid and breaks styles applied after.
+  // Lift such lists out so they stand on their own, keeping the caret.
+  _liftLists(editor) {
+    const sel = window.getSelection();
+    // Moving nodes collapses live ranges, so keep the end points instead.
+    const r0 = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
+    const pts = r0 && [r0.startContainer, r0.startOffset, r0.endContainer, r0.endOffset];
+    editor.querySelectorAll('p > ul, p > ol').forEach(list => {
+      const p = list.parentElement;
+      const after = document.createElement('p');
+      while (list.nextSibling) after.appendChild(list.nextSibling);
+      p.after(list);
+      if (after.textContent.trim() || after.querySelector('img')) list.after(after);
+      if (!p.textContent.trim() && !p.querySelector('img')) p.remove();
+    });
+    if (pts && editor.contains(pts[0]) && editor.contains(pts[2])) {
+      const r = document.createRange();
+      r.setStart(pts[0], pts[1]);
+      r.setEnd(pts[2], pts[3]);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+  },
+
   // Indent paragraphs by 2em steps (lists use the browser's own nesting).
   // Not execCommand('indent') on paragraphs: Chrome wraps them in a
   // blockquote, which would look like a Quote.
@@ -2798,6 +2838,22 @@ const RichEditor = {
   },
 
   _applyBlockStyle(editor, value) {
+    // A style on a list item takes it out of the list first (as in Docs);
+    // otherwise Chrome wraps the whole list in the heading.
+    const at = window.getSelection();
+    const list = at && at.rangeCount
+      ? [...editor.querySelectorAll('ul, ol')].find(l => at.getRangeAt(0).intersectsNode(l))
+      : null;
+    if (list) {
+      document.execCommand(list.tagName === 'OL' ? 'insertOrderedList' : 'insertUnorderedList', false, null);
+      // Chrome copies the list's look onto the text as inline styles
+      // (a fixed font size, "background-color: initial"); drop those.
+      editor.querySelectorAll('[style]').forEach(el => {
+        if (el.style.backgroundColor === 'initial') el.style.removeProperty('background-color');
+        if (el.style.fontSize && !el.style.fontSize.includes('--rte-base')) el.style.removeProperty('font-size');
+        if (!el.getAttribute('style')) el.removeAttribute('style');
+      });
+    }
     document.execCommand('formatBlock', false, value === 'dropcap' ? 'p' : value);
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return;

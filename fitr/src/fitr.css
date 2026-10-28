@@ -1131,8 +1131,11 @@ body.editing .user-name { color: var(--navy-deep); }
 .forum-main { min-width: 0; }
 .pb-main { flex: 1; min-width: 0; }
 .pb .rte-shell { border: none; background: transparent; }
-.pb .rte-toolbar { margin: 0 0 0.3rem; position: static; }
+/* The whole menu shows, wrapping onto a second line, instead of hiding
+   most of it under ⋮ in this narrow box. */
+.pb .rte-toolbar { margin: 0 0 0.3rem; position: static; flex-wrap: wrap; row-gap: 2px; border-radius: 16px; }
 .pb .rte-editor {
+  --rte-base: 1.25rem;
   position: relative;
   background: transparent;
   padding: 0.4rem 0;
