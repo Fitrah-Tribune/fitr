@@ -76,7 +76,7 @@ fitr/
 |---|---|---|
 | `/` | `home` | `Home.jsx` |
 | `/news` | `news` | `News.jsx` |
-| `/archive` | `archive` | `Archive.jsx` |
+| `/archive`, `/archive/:number` | `archive` | `Archive.jsx` (Editions: the shelf, and one edition's reader) |
 | `/forum`, `/forum/:postId` | `forum` | `Forum.jsx` |
 | `/feedback`, `/feedback/submit` | `corrections` | `Feedback.jsx` |
 | `/about`, `/about/standards`, `/about/tribunees` | `about` | `About.jsx` |

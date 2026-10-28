@@ -31,6 +31,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="news" element={<News />} />
           <Route path="archive" element={<Archive />} />
+          <Route path="archive/:id" element={<Archive />} />
           <Route path="forum" element={<Forum />} />
           <Route path="forum/:id" element={<Forum />} />
           <Route path="feedback" element={<Feedback />} />
