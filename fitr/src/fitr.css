@@ -1701,7 +1701,7 @@ body.editing .user-name { color: var(--navy-deep); }
   font-style: italic;
   font-size: 1.1rem;
   line-height: 1.55;
-  color: var(--ink-soft);
+  color: var(--ink);
   margin-bottom: 0.9rem;
 }
 

@@ -11,9 +11,9 @@ const html = `
     <div class="about-hero-text">
       <div class="eyebrow">About Us · Fitrah Tribune</div>
       <h2>Documenting FIWA <em>&amp; Beyond</em></h2>
-      <p class="lead">Fitrah Tribune (FITR) is FIWA’s Student Journalism Community. We document what happens in our lives in FIWA, and the world beyond it, all written by students, for the whole FIWA community.</p>
-      <p>We were born out of frustration with the rumor-mills that travel faster than verified facts in any school. Our promise is simple: we publish what we can verify, we correct what we get wrong, and we leave the record for everyone to see.</p>
-      <p>This website is where we publish first. Every few weeks we also print an edition of the paper, and every edition is kept in the Editions archive.</p>
+      <p class="lead">Fitrah Tribune (FITR) is FIWA’s Student Journalism Community. We document what happens in our lives in FIWA, and the world beyond it, all written by students, and for the whole FIWA community.</p>
+      <p>We were born out of the realization that rumors and unverified information make up most of the common knowledge of the school. Our promise is simple: we publish what we can verify, we correct what we get wrong, and we leave the record for everyone to see.</p>
+      <p>This website is where we publish first. Every few weeks we also print an edition of the newspaper, and every edition is kept in the Editions archive.</p>
     </div>
   </div>
 
