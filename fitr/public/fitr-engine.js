@@ -4381,12 +4381,14 @@ const ROSTER = [
 ].map((p, order) => ({ ...p, order }));
 
 /* Print credits, counted from bylines in Editions I to V (Oct 2026).
-   articles: bylined pieces, shared bylines counted for each writer;
-   quizzes and the unprinted Edition 5 Student Challenge are left out.
+   articles: one per story (a story split over sections or pages counts
+   once), shared bylines counted for each writer. Left out: quizzes, the
+   unprinted Edition 5 Student Challenge, and the "About us" pages that
+   only describe Fitrah Tribune (Ammar's call, Oct 2026).
    editions: credited in that edition or named in its team list.
    Photos aren't credited per photo in print, so admins add those. */
 const PRINT_CREDITS = {
-  'Ammar Mufiid Johansyah':         { articles: 40, editions: [1, 2, 3, 4, 5] },
+  'Ammar Mufiid Johansyah':         { articles: 37, editions: [1, 2, 3, 4, 5] },
   'Khalifah Agidra Filard':         { articles: 2,  editions: [2, 3, 4, 5] },
   'Muhammad Ananda Syamsuddin':     { articles: 0,  editions: [5] },
   'Fathan Assyauqi Hiliry':         { articles: 7,  editions: [2, 3, 4, 5] },
