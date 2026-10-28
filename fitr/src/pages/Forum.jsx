@@ -7,35 +7,28 @@ const html = `
 <section class="page active" id="page-forum">
   <div class="section-head">
     <h2>Forum</h2>
-    <span class="sub">— announcements and posts from the Tribune</span>
+    <span class="sub">announcements and posts from the Tribunees</span>
   </div>
   <div class="forum-layout">
     <div class="forum-main">
-      <div id="forum-compose-area"><!-- rendered based on auth --></div>
-      <div class="forum-sort">
-        <span class="sort-label">Sort</span>
-        <button class="sort-btn active" data-sort="newest" onclick="Pages.forum.setSort('newest')">Newest</button>
-        <button class="sort-btn" data-sort="oldest" onclick="Pages.forum.setSort('oldest')">Oldest</button>
-        <button class="sort-btn" data-sort="announcement" onclick="Pages.forum.setSort('announcement')">Announcements</button>
-        <button class="sort-btn" data-sort="general" onclick="Pages.forum.setSort('general')">General</button>
+      <div id="forum-compose-area"><!-- the post box, Tribunees only --></div>
+      <div class="forum-tabs" role="tablist" aria-label="Show">
+        <button class="forum-tab active" role="tab" aria-selected="true" data-tab="all" onclick="Pages.forum.setTab('all')">All</button>
+        <button class="forum-tab" role="tab" aria-selected="false" data-tab="announcement" onclick="Pages.forum.setTab('announcement')">Announcements</button>
+        <button class="forum-tab" role="tab" aria-selected="false" data-tab="general" onclick="Pages.forum.setTab('general')">General</button>
       </div>
       <div id="forum-post-list"><!-- rendered --></div>
     </div>
     <aside class="forum-sidebar">
-      <div class="fs-block">
-        <h4>Forum Rules</h4>
-        <div class="fs-rules">
-          <!-- PLACEHOLDER — Ammar / Aldebaraan to write the real rules. -->
-          <p>Rules to be written by the editorial team.</p>
-          <p>Announcements are posted by admins; general posts by any Tribunee.</p>
-          <p>Posts that breach the Tribune's standards may be removed by an admin.</p>
-        </div>
-      </div>
-      <div class="fs-block fs-tip">
-        <h4>Spot Misinformation?</h4>
-        <p>Help us keep the lighthouse lit. Flag a rumor or correction directly to the editorial team.</p>
-        <button onclick="Pages.corrections.openSubmit()">Report a Tip</button>
-      </div>
+      <section class="fs-box">
+        <h3>About the Forum</h3>
+        <p>The Tribunees’ own feed: announcements from the editors and short posts from the team. Only Tribunees post here, and there are no replies &amp; comments.</p>
+      </section>
+      <section class="fs-box">
+        <h3>Have something to say?</h3>
+        <p>Send the editors a note: a mistake, a news tip, or any other feedback.</p>
+        <button class="fs-note" onclick="Pages.corrections.openSubmit()">Send a note</button>
+      </section>
     </aside>
   </div>
 </section>

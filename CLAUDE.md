@@ -180,6 +180,7 @@ Tribunee and admin come from the `allowlist` collection
 - Only Tribunees can post. Guests and public users read only.
 - **Announcement** posts: admins only. **General** posts: any Tribunee.
 - Delete: admins delete anything; a Tribunee deletes only their own.
+- Pin: admins only, one announcement at a time.
 - No comments. Readers respond through Feedback.
 
 **Feedback & Corrections (private tickets)**
