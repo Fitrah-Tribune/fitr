@@ -1507,7 +1507,7 @@ const Editor = {
         <div class="tr-credits">
           <div class="tr-credits-head">Credits · admins only</div>
           <div class="field-row">
-            <div class="field"><label>Articles written</label><input type="number" min="0" step="1" id="tr-articles" value="${Number.isFinite(tStats.articles) ? tStats.articles : ''}" placeholder="Counted from this site" /></div>
+            <div class="field"><label>Articles in print</label><input type="number" min="0" step="1" id="tr-articles" value="${Number.isFinite(tStats.articles) ? tStats.articles : ''}" placeholder="Counted from this site" /></div>
             <div class="field"><label>Photos credited</label><input type="number" min="0" step="1" id="tr-photos" value="${Number.isFinite(tStats.photos) ? tStats.photos : ''}" placeholder="0" /></div>
           </div>
           <div class="field">
@@ -1515,7 +1515,7 @@ const Editor = {
             <div class="tr-editions">
               ${editionChoices.map(n => `<label><input type="checkbox" value="${n}" ${tEditions.includes(n) ? 'checked' : ''} /> Ed. ${Credits.roman(n)}</label>`).join('')}
             </div>
-            <div class="field-hint">Articles: leave empty to count this site's bylines. "Tribunee since" is the first edition ticked.</div>
+            <div class="field-hint">Articles in print: leave empty to count only this site's bylines; web-only articles are added on top. "Tribunee since" is the first edition ticked.</div>
           </div>
         </div>` : ''}
       `,
@@ -3405,8 +3405,9 @@ Pages.write = {
 
 /* ── TRIBUNEE CREDITS ──────────────────────────────────────────────────
    Articles on this site are matched to a Tribunee by the names in their
-   byline ("A & B" credits both). Print credits the site can't see (total
-   articles, photos, editions worked on) are typed in by admins. */
+   byline ("A & B" credits both). Print credits the site can't see
+   (articles in print, photos, editions worked on) are kept on the profile
+   and edited by admins; see PRINT_CREDITS for the starting values. */
 const Credits = {
   norm: (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim(),
   bylineNames: (a) => (a.author || '').split(/\s*(?:&|,|\band\b)\s*/).filter(Boolean),
@@ -3416,10 +3417,13 @@ const Credits = {
     return (await listVisibleArticles(a => this.wrote(t, a)))
       .sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0));
   },
-  // The admin-entered total wins; otherwise count what's on the site.
-  articleCount(t, siteCount) {
-    const n = t.stats && t.stats.articles;
-    return Number.isFinite(n) ? n : siteCount;
+  // Print articles (admin-entered) plus web-only articles on the site.
+  // A site article with an edition number is a copy of a printed one, so
+  // it is already in the print count.
+  articleCount(t, siteArticles) {
+    const printed = t.stats && t.stats.articles;
+    if (!Number.isFinite(printed)) return siteArticles.length;
+    return printed + siteArticles.filter(a => !a.edition).length;
   },
   roman(n) {
     const map = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
@@ -3450,7 +3454,7 @@ Pages.tribunee = {
 
     // Credits: site articles from bylines; print numbers typed in by admins.
     const articles = await Credits.articlesBy(t);
-    const articleTotal = Credits.articleCount(t, articles.length);
+    const articleTotal = Credits.articleCount(t, articles);
     const editions = Credits.editions(t);
     const photos = (t.stats && t.stats.photos) || 0;
     const editionRange = !editions.length ? ''
@@ -4296,7 +4300,7 @@ Pages.about = {
         tmp.innerHTML = t.bio;
         return (tmp.textContent || '').replace(/\s+/g, ' ').trim();
       })();
-      const articleTotal = Credits.articleCount(t, articles.filter(a => Credits.wrote(t, a)).length);
+      const articleTotal = Credits.articleCount(t, articles.filter(a => Credits.wrote(t, a)));
       const meta = [t.grade, articleTotal ? `${articleTotal} ${articleTotal === 1 ? 'article' : 'articles'}` : '']
         .filter(Boolean).map(escapeHtml).join(' · ');
       return `
@@ -4341,7 +4345,7 @@ Pages.about = {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -4376,6 +4380,37 @@ const ROSTER = [
   { name: 'Muhammad Shahza Kentzhad Sakrade', email: 'shahza.muhammad1@fiwa.sch.id', role: 'Photographer',             grade: 'G10', admin: false }
 ].map((p, order) => ({ ...p, order }));
 
+/* Print credits, counted from bylines in Editions I to V (Oct 2026).
+   articles: bylined pieces, shared bylines counted for each writer;
+   quizzes and the unprinted Edition 5 Student Challenge are left out.
+   editions: credited in that edition or named in its team list.
+   Photos aren't credited per photo in print, so admins add those. */
+const PRINT_CREDITS = {
+  'Ammar Mufiid Johansyah':         { articles: 40, editions: [1, 2, 3, 4, 5] },
+  'Khalifah Agidra Filard':         { articles: 2,  editions: [2, 3, 4, 5] },
+  'Muhammad Ananda Syamsuddin':     { articles: 0,  editions: [5] },
+  'Fathan Assyauqi Hiliry':         { articles: 7,  editions: [2, 3, 4, 5] },
+  'Yahya Abdullah Mahmudi':         { articles: 0,  editions: [5] },
+  'Aldebaran Gibran Altaf':         { articles: 2,  editions: [2, 3, 4, 5] },
+  'Muhammad Arza Zaydan Suralaga':  { articles: 2,  editions: [2, 3, 4, 5] },
+  'Akio Hideaka Takijoeddin':       { articles: 4,  editions: [2, 3, 4, 5] },
+  'Fathan Rasyid':                  { articles: 2,  editions: [5] },
+  'Fathi Rizqi Ramadhan':           { articles: 5,  editions: [2, 3, 4, 5] },
+  'Muhammad Ziya Ibrahim':          { articles: 2,  editions: [4, 5] },
+  'Mohamad Zahran':                 { articles: 1,  editions: [5] },
+  'Kafa Althaf Habibi':             { articles: 1,  editions: [5] },
+  'Tubagus Attariza Rayyan Athaya': { articles: 2,  editions: [5] },
+  'Muhammad Shahza Kentzhad Sakrade': { articles: 0, editions: [3, 4, 5] }
+};
+const withPrintCredits = (t) => {
+  const c = PRINT_CREDITS[t.name];
+  if (!c) return t;
+  const stats = t.stats || {};
+  if (c.articles && !Number.isFinite(stats.articles)) t.stats = { ...stats, articles: c.articles };
+  if (!Array.isArray(t.editions) || !t.editions.length) t.editions = c.editions.slice();
+  return t;
+};
+
 /* Every roster member gets a fixed id made from their name, so a profile
    link (/tribunee/ammar-mufiid-johansyah) opens the same page for anyone. */
 const tribuneeSlug = (name) => 'tri-' + name.toLowerCase().normalize('NFKD')
@@ -4385,7 +4420,7 @@ const tribuneeSlug = (name) => 'tri-' + name.toLowerCase().normalize('NFKD')
 const rosterTribunee = (p) => {
   const t = { id: tribuneeSlug(p.name), name: p.name, role: p.role, grade: p.grade, order: p.order };
   if (p.email) t.email = p.email;
-  return t;
+  return withPrintCredits(t);
 };
 const rosterAllowlist = () => ROSTER.filter(p => p.email).map(p => ({ email: p.email, admin: p.admin }));
 
@@ -4637,6 +4672,14 @@ async function migrateLegacyData() {
   if (current < 10) {
     for (const t of await Store.list('tribunees')) {
       if (t.name === 'Muhammad Baary Salman') await Store.remove('tribunees', t.id);
+    }
+  }
+
+  // ─── v10 → v11 migration (print credits, Oct 2026) ─────────────────────
+  // Fill in each Tribunee's print credits, leaving any an admin already set.
+  if (current < 11) {
+    for (const t of await Store.list('tribunees')) {
+      if (PRINT_CREDITS[t.name]) await Store.save('tribunees', withPrintCredits(t));
     }
   }
 
