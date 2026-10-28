@@ -1439,11 +1439,11 @@ const Editor = {
     };
 
     // Admins edit everything. A Tribunee editing their own profile changes
-    // only the photo: bios are written by the admins with them (Ammar, Oct
-    // 2026), so they stay short and fit the paper.
+    // their photo and writes their own bio (Ammar, Oct 2026); name, role,
+    // grade and print credits stay with the admins.
     const identityReadOnly = isEditing && !isAdmin ? 'readonly' : '';
     const identityHint = isEditing && !isAdmin
-      ? '<div class="field-hint" style="margin-bottom: 0.8rem; color: var(--ink-muted);">You can change your photo here. Your name, role, grade and bio are kept by the admins: tell them what you\'d like your bio to say.</div>'
+      ? '<div class="field-hint" style="margin-bottom: 0.8rem; color: var(--ink-muted);">You can change your photo and write your own bio here. Your name, role, grade and credits are kept by the admins.</div>'
       : '';
     const latestEdition = Math.max(0, ...(await Store.list('editions')).map(e => Number(e.number) || 0));
     const editionChoices = Array.from({ length: Math.max(6, latestEdition + 1) }, (_, i) => i + 1);
@@ -1498,12 +1498,12 @@ const Editor = {
             <div class="field-hint">Click the portrait to upload a photo. If left empty, a placeholder with initials is used.</div>
           </div>
         </div>
-        ${isAdmin ? `
         <div class="field">
           <label>Bio</label>
           <div id="tr-bio-editor"></div>
-          <div class="field-hint">Written by the admins with the Tribunee. The first two lines show on the About page.</div>
+          <div class="field-hint">The first paragraph shows on the About page; the whole bio shows on the profile.</div>
         </div>
+        ${isAdmin ? `
         <div class="tr-credits">
           <div class="tr-credits-head">Credits · admins only</div>
           <div class="field-row">
@@ -1615,16 +1615,15 @@ const Editor = {
 
     const t = { ...existing };
 
-    // Admins can change identity fields. Non-admins can only update photo
-    // and bio — identity values are taken from the existing record so a
-    // tampered-with read-only field cannot be persisted.
+    // Anyone allowed past canEditTribunee writes the bio and photo. Identity
+    // and credits are admin-only: a non-admin save keeps the stored values,
+    // so a tampered-with read-only field cannot be persisted.
+    if (state.bioEditor) t.bio = state.bioEditor.getHTML();
     if (isAdmin) {
       t.name  = $('#tr-name').value.trim();
       t.email = ($('#tr-email').value || '').trim().toLowerCase();
       t.role  = $('#tr-role').value.trim();
       t.grade = $('#tr-grade').value.trim();
-      // Bio and credits are admin-only too; a non-admin save keeps them as they were.
-      if (state.bioEditor) t.bio = state.bioEditor.getHTML();
       const count = (sel) => {
         const v = ($(sel)?.value || '').trim();
         const n = parseInt(v, 10);
