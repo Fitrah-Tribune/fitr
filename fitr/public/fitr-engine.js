@@ -3492,7 +3492,7 @@ Pages.tribunee = {
           ${t.role ? `<div class="tp-role">${escapeHtml(t.role)}</div>` : ''}
           <div class="tp-grade">${meta}</div>
           ${stats ? `<div class="tp-stats">${stats}</div>` : ''}
-          ${t.bio ? `<div class="tp-bio">${renderArticleBody(t.bio)}</div>` : ''}
+          ${t.bio ? `<div class="tp-bio"><div class="bio-label">Bio:</div>${renderArticleBody(t.bio)}</div>` : ''}
           ${canEdit ? `
             <div class="tp-edit-bar">
               <button class="btn-ghost" onclick="Editor.editTribuneeById('${t.id}')">Edit profile</button>
@@ -4293,12 +4293,16 @@ Pages.about = {
       // Per-card edit permission: admin can edit anyone; non-admin tribunees can edit only their own profile.
       const isSelf = !!(t.email && t.email.toLowerCase() === currentEmail);
       const canEditCard = isEditing && (isAdmin || isSelf);
-      // The bio's opening text, clamped to two lines by CSS.
+      // The bio's first paragraph only, clamped to two lines by CSS.
       const bioText = (() => {
         if (!t.bio) return '';
         const tmp = document.createElement('div');
         tmp.innerHTML = t.bio;
-        return (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+        for (const b of tmp.querySelectorAll('p, blockquote, h2, h3, h4, li')) {
+          const txt = (b.textContent || '').replace(/\s+/g, ' ').trim();
+          if (txt) return txt;
+        }
+        return (tmp.textContent || '').trim().split(/\n\s*\n/)[0].replace(/\s+/g, ' ');
       })();
       const articleTotal = Credits.articleCount(t, articles.filter(a => Credits.wrote(t, a)));
       const meta = [t.grade, articleTotal ? `${articleTotal} ${articleTotal === 1 ? 'article' : 'articles'}` : '']
@@ -4314,7 +4318,7 @@ Pages.about = {
               ${meta ? `<div class="tribunee-grade">${meta}</div>` : ''}
             </div>
           </div>
-          ${bioText ? `<p class="tribunee-bio">${escapeHtml(bioText)}</p>` : ''}
+          ${bioText ? `<div class="tribunee-bio-wrap"><span class="bio-label">Bio:</span><p class="tribunee-bio">${escapeHtml(bioText)}</p></div>` : ''}
         </article>
       `;
     }).join('')}</div>`;
