@@ -2220,6 +2220,7 @@ footer.tribune-footer {
   line-height: 1.5;
 }
 .signin-tier-info strong { color: var(--navy); }
+.signin-lead { font-family: var(--article); font-size: 1.05rem; line-height: 1.55; color: var(--ink-soft); margin: 0; }
 
 /* Article reader modal */
 .article-reader {
