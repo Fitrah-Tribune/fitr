@@ -4894,7 +4894,7 @@ Pages.about = {
       ['#1c3658', '#e8cf94'], ['#2d4f7a', '#c08e3a'], ['#1c3658', '#d8a956'],
       ['#0f2138', '#e8cf94'], ['#2d4f7a', '#c08e3a']
     ];
-    grid.innerHTML = `<div class="tribunees-grid">${tribunees.map((t, i) => {
+    const card = (t, i) => {
       const [c1, c2] = colors[i % colors.length];
       const portraitInner = t.photo
         ? `<img src="${t.photo}" alt="${escapeHtml(t.name)}" style="width:100%;height:100%;object-fit:cover;display:block;" />`
@@ -4932,8 +4932,39 @@ Pages.about = {
           ${bioText ? `<div class="tribunee-bio-wrap"><span class="bio-label">Bio:</span><p class="tribunee-bio">${escapeHtml(bioText)}</p></div>` : ''}
         </article>
       `;
-    }).join('')}</div>`;
+    };
+    // Grouped by division (SOP section 2). Someone with several roles sits
+    // under the division of the first role that names one.
+    let n = 0;
+    grid.innerHTML = groupByDivision(tribunees).map(g => `
+      <div class="division-group">
+        <div class="division-head"><h3>${escapeHtml(g.name)}</h3><span>${g.people.length} ${g.people.length === 1 ? 'Tribunee' : 'Tribunees'}</span></div>
+        <div class="tribunees-grid">${g.people.map(t => card(t, n++)).join('')}</div>
+      </div>
+    `).join('');
   }
+};
+
+/* FITR's four divisions (SOP section 2). Divisions only group people; a
+   Tribunee's division comes from their role, so editing the role moves them. */
+const DIVISIONS = [
+  { name: 'Editorial',  roles: ['editor-in-chief', 'editor', 'english check'] },
+  { name: 'Writing',    roles: ['journalist', 'writer'] },
+  { name: 'Production', roles: ['layout', 'it & coding', 'photographer'] },
+  { name: 'Operations', roles: ['administrator', 'coordinator'] }
+];
+const divisionOf = (role) => {
+  for (const part of String(role || '').toLowerCase().split('·').map(r => r.trim())) {
+    const d = DIVISIONS.find(d => d.roles.some(r => part.includes(r)));
+    if (d) return d.name;
+  }
+  return null;
+};
+const groupByDivision = (people) => {
+  const groups = DIVISIONS.map(d => ({ name: d.name, people: [] }));
+  const other = { name: 'Other Tribunees', people: [] };
+  for (const t of people) (groups.find(g => g.name === divisionOf(t.role)) || other).people.push(t);
+  return [...groups, other].filter(g => g.people.length);
 };
 
 /* =====================================================================
