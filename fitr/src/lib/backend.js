@@ -11,4 +11,5 @@ const client = url && key
   ? createClient(url, key, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: true } })
   : null
 
+console.info(client ? '[FITR] Using Supabase' : '[FITR] Demo mode: no Supabase keys in this build')
 window.__fitrBackend?.(client)
