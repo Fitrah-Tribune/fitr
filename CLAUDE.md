@@ -12,6 +12,7 @@ Read this whole file before changing anything.
 | Path | What it is |
 |---|---|
 | `fitr/` | **The live website.** React + Vite. All work happens here. |
+| `supabase/` | Database schema, permission rules, starting content and setup steps. |
 | `fitr-template.html` | The old single-file version. **Frozen backup. Never edit it.** |
 | `LICENSE`, `README.md` | MIT for code; README states content/brand terms. |
 
@@ -216,29 +217,42 @@ public user, a non-admin Tribunee, and an admin.
 
 ---
 
-## Storage and the coming backend
+## Storage and the backend (Supabase)
 
-- `STORAGE_DRIVER` in the engine is `'localStorage'` (demo). A
-  `firebaseDriver` stub marks where Firebase goes; it must keep the same
-  function signatures as the localStorage driver.
+- `Store` in the engine has two drivers with the same methods (`list`,
+  `get`, `save`, `remove`, `signIn`, `signOut`, `getCurrentUser`):
+  `supabaseDriver` (real) when the build has `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_ANON_KEY`, else `localStorageDriver` (demo, any password
+  works). `src/lib/backend.js` hands the client to the engine through
+  `window.FITR_BACKEND`. Setup steps: `supabase/README.md`. (Supabase chosen
+  over Firebase by Alde, Oct 2026.)
 - Collections: `articles`, `editions`, `corrections`, `threads` (forum posts),
-  `tribunees`, `allowlist`, `cases` (feedback notes), `casemsgs` (their messages), `drafts` (the Writer's
-  desk's unpublished work, one per writer per article). (`comments` is
-  legacy and wiped.)
-- Schema changes: bump `SCHEMA_VERSION` and add a guarded step in
-  `migrateLegacyData()`. Each step must run only once (`if (current < N)`).
+  `tribunees`, `allowlist`, `cases` (feedback notes), `casemsgs` (their
+  messages), `drafts` (the Writer's desk's unpublished work, one per writer
+  per article), `featured` (front-page picks), `newsTabs` (categories).
+  (`comments` is legacy and wiped.) On Supabase they all live in one table,
+  `fitr_records`, reached only through `fitr_list/get/save/remove`.
+- **The permission rules above are enforced in `supabase/schema.sql`.**
+  Those functions are what make the privacy promises true; the checks in
+  the engine are only for the buttons. Change a rule in both places, and
+  re-run the rule tests.
+- Emails are kept in the `owner` column and sent only to people allowed to
+  see them. A feedback sender's name isn't stored unless they chose to show
+  it.
+- Photos and PDFs picked in the editors are uploaded to the `media` bucket;
+  records keep only the link. No base64 in the database.
+- Demo-only schema changes: bump `SCHEMA_VERSION` and add a guarded step in
+  `migrateLegacyData()` (`if (current < N)`). On Supabase, migrations and
+  seeding don't run in the browser; change data with SQL in `supabase/`.
 
-**Security, before any public launch:**
-- **Sign-in is fake right now** — any password works. Anyone who reads this
-  public repo can sign in as an admin. The site must not go public until real
-  auth (Firebase) is in.
-- All permission checks are client-side and therefore advisory until the same
-  rules exist as **Firestore security rules**. Those rules are what make the
-  privacy promises above actually true.
-- The Firebase **web config** is safe to commit. A **service account key**
-  must never be committed.
-- The `allowlist` currently holds students' real school emails in a public
-  repo. Move it out of the code when Firebase lands.
+**Security:**
+- Turn the Email provider off in Supabase Auth (Google only), or anyone
+  could register a `@fiwa.sch.id` address they don't own.
+- The Supabase URL and publishable/anon key are safe to commit. The secret
+  or service_role key must never be committed, nor `people.sql`
+  (the allowlist and emails; it lives in the project files).
+- The engine's demo roster (`ROSTER`) still holds students' school emails.
+  Remove them once the site runs on Supabase.
 
 ---
 
