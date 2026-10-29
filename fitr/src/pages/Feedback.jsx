@@ -38,8 +38,9 @@ const html = `
           <dt><span class="note-st fixed">Corrected</span></dt><dd>We fixed the story and logged it below.</dd>
           <dt><span class="note-st checked">Checked, no change needed</span></dt><dd>We looked into it; the story stands.</dd>
           <dt><span class="note-st passed">Thanks, passed to a writer</span></dt><dd>For tips: a Tribunee will follow it up.</dd>
+          <dt><span class="note-st answered">Answered</span></dt><dd>For questions: the editors have replied.</dd>
         </dl>
-        <p class="fc-legend-note">While a note is Received or In progress, the editors can reply and you can add to it. The last three close it; only an admin can reopen it.</p>
+        <p class="fc-legend-note">While a note is Received or In progress, the editors can reply and you can add to it. The last four close it; only an admin can reopen it.</p>
       </div>
     </aside>
   </div>
@@ -54,7 +55,7 @@ const html = `
     <span class="sub">— every correction we have made</span>
   </div>
   <div class="corrections-intro">
-    <strong>Transparency is non-negotiable.</strong> When we update an article on this site, the article itself is silently corrected — a clean read for the next visitor. But the fact that a correction was made is logged here, in public, for as long as Fitrah Tribune exists. The archive editions, however, remain untouched — preserved as originally printed.
+    <strong>Transparency is one of our four pillars.</strong> Our Editorial Standards promise that every correction is logged in public and that printed editions stay exactly as they were printed. When we fix a mistake in an article on this site, the article is updated so the next reader gets it right, and the correction is recorded here for as long as Fitrah Tribune exists.
   </div>
   <div id="corrections-list"><!-- rendered --></div>
 </section>

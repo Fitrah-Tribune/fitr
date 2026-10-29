@@ -67,7 +67,7 @@ export default function Layout() {
             <ul>
               <li><Link to="/forum">Forum</Link></li>
               <li><Link to="/feedback">Feedback &amp; Corrections</Link></li>
-              <li><Link to="/feedback/submit">Report a Tip</Link></li>
+              <li><Link to="/feedback/submit">Send a note</Link></li>
             </ul>
           </div>
           <div className="footer-col">
