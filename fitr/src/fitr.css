@@ -1617,6 +1617,7 @@ a.fp-name:hover { color: var(--navy); text-decoration: underline; }
 .note-st.fixed   { background: #dfead8; color: #2f5a2a; }
 .note-st.checked { background: #dde4ee; color: var(--navy); }
 .note-st.passed  { background: #e6dcef; color: #4b3566; }
+.note-st.answered { background: #f3e3c3; color: #6b4a12; }
 
 /* Your notes */
 .note-row {

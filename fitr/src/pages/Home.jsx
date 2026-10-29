@@ -48,7 +48,7 @@ const html = `
   <div class="home-tipoff">
     <div>
       <h3>Have something to say?</h3>
-      <p>Send the editors a note: a mistake, a news tip, or any other feedback.</p>
+      <p>Send the editors a note: a mistake, a news tip, a question, or any other feedback.</p>
     </div>
     <button onclick="Pages.corrections.openSubmit()">Send a note</button>
   </div>

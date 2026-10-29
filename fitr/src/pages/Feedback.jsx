@@ -38,8 +38,9 @@ const html = `
           <dt><span class="note-st fixed">Corrected</span></dt><dd>We fixed the story and logged it below.</dd>
           <dt><span class="note-st checked">Checked, no change needed</span></dt><dd>We looked into it; the story stands.</dd>
           <dt><span class="note-st passed">Thanks, passed to a writer</span></dt><dd>For tips: a Tribunee will follow it up.</dd>
+          <dt><span class="note-st answered">Answered</span></dt><dd>For questions: the editors have replied.</dd>
         </dl>
-        <p class="fc-legend-note">While a note is Received or In progress, the editors can reply and you can add to it. The last three close it; only an admin can reopen it.</p>
+        <p class="fc-legend-note">While a note is Received or In progress, the editors can reply and you can add to it. The last four close it; only an admin can reopen it.</p>
       </div>
     </aside>
   </div>

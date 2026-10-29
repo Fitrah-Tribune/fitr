@@ -4367,8 +4367,9 @@ Pages.forum = {
 
 const NOTE_KINDS = {
   mistake: 'A mistake in a story',
-  tip:     'A news tip',
-  other:   'Other feedback'
+  tip:      'A news tip',
+  question: 'A question',
+  other:    'Other feedback'
 };
 
 /* Every note has a status. The final ones close it: a closed note is
@@ -4378,7 +4379,8 @@ const NOTE_STATUSES = {
   progress:  { label: 'In progress',                cls: 'prog',    final: false, help: 'The editors are checking it.' },
   corrected: { label: 'Corrected',                  cls: 'fixed',   final: true,  help: 'We fixed the story and logged it below.' },
   checked:   { label: 'Checked, no change needed',  cls: 'checked', final: true,  help: 'We looked into it; the story stands.' },
-  passed:    { label: 'Thanks, passed to a writer', cls: 'passed',  final: true,  help: 'For tips: a Tribunee will follow it up.' }
+  passed:    { label: 'Thanks, passed to a writer', cls: 'passed',  final: true,  help: 'For tips: a Tribunee will follow it up.' },
+  answered:  { label: 'Answered',                   cls: 'answered', final: true, help: 'For questions: the editors have replied.' }
 };
 
 const Cases = {
@@ -4471,6 +4473,7 @@ Pages.corrections = {
     const placeholder = {
       mistake: 'Tell us what we got wrong and how you know. Links or the page number help us check faster.',
       tip:     'What’s happening, where, and when? Tell us how you know.',
+      question: 'What would you like to ask the editors?',
       other:   'What would you like the editors to know?'
     }[this.state.kind];
     el.innerHTML = `
@@ -4624,7 +4627,7 @@ Pages.corrections = {
       <div class="inbox-bar">
         <div class="inbox-tabs">${tabs.map(([k, label, n]) =>
           `<button class="${st.inbox === k ? 'active' : ''}" onclick="Pages.corrections.inboxTab('${k}')">${label}${n !== null ? ` <span>${n}</span>` : ''}</button>`).join('')}</div>
-        <div class="inbox-kinds">${[['all', 'All kinds'], ['mistake', 'Mistakes'], ['tip', 'Tips'], ['other', 'Other']].map(([k, label]) =>
+        <div class="inbox-kinds">${[['all', 'All kinds'], ['mistake', 'Mistakes'], ['tip', 'Tips'], ['question', 'Questions'], ['other', 'Other']].map(([k, label]) =>
           `<button class="${st.inboxKind === k ? 'active' : ''}" onclick="Pages.corrections.inboxKind('${k}')">${label}</button>`).join('')}</div>
       </div>`;
 
