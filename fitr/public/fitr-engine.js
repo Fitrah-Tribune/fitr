@@ -8,39 +8,20 @@
    This is the only place in the entire codebase that talks to a backend.
    Every page, every modal, every form goes through `Store` below.
 
-   ─────────────────────────────────────────────────────────────────────
-   TO SWITCH FROM localStorage (DEMO) TO FIREBASE (PRODUCTION):
-   ─────────────────────────────────────────────────────────────────────
-     1. Add the Firebase SDK to <head> of this file:
-        <script src="https://www.gstatic.com/firebasejs/10.x/firebase-app-compat.js"></sc​ript>
-        <script src="https://www.gstatic.com/firebasejs/10.x/firebase-auth-compat.js"></sc​ript>
-        <script src="https://www.gstatic.com/firebasejs/10.x/firebase-firestore-compat.js"></sc​ript>
+   Two drivers share the same methods (list, get, save, remove, signIn,
+   signOut, getCurrentUser):
 
-     2. Fill in FIREBASE_CONFIG below with your project credentials
-        (Firebase console → Project settings → Your apps → Config).
+     supabaseDriver      the real backend. Used when the site is built with
+                         VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY set
+                         (src/lib/backend.js hands the client over through
+                         window.FITR_BACKEND).
+     localStorageDriver  the demo: everything lives in this browser and
+                         any password works. Used when those aren't set,
+                         e.g. `npm run dev` on a laptop.
 
-     3. Change ONE line:
-            const STORAGE_DRIVER = 'localStorage';
-        to:
-            const STORAGE_DRIVER = 'firebase';
-
-     4. Implement the methods inside `firebaseDriver` below — they all
-        match the localStorage driver's signatures, so you only fill in
-        the bodies. Stubs are provided.
-
-     5. Done. No other code in the app changes.
+   The permission rules are enforced by the database (supabase/schema.sql),
+   not just here. See supabase/README.md for the setup.
    ===================================================================== */
-
-const STORAGE_DRIVER = 'localStorage'; // 'localStorage' | 'firebase'
-
-const FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
-};
 
 /* ── localStorage driver (demo) ─────────────────────────────────────── */
 const localStorageDriver = {
@@ -96,76 +77,142 @@ const localStorageDriver = {
   }
 };
 
-/* ── Firebase driver (production — IMPLEMENT WHEN READY) ─────────────── */
-const firebaseDriver = {
-  _initialized: false,
-  _init() {
-    if (this._initialized) return;
-    /* TODO:
-       firebase.initializeApp(FIREBASE_CONFIG);
-       this.db = firebase.firestore();
-       this.auth = firebase.auth();
-       this._initialized = true;
-    */
+/* ── Supabase driver (production) ───────────────────────────────────── */
+/* Records go through four database functions (fitr_list, fitr_get,
+   fitr_save, fitr_remove) that check every permission rule; see
+   supabase/schema.sql. Sign-in is Google, through Supabase Auth. */
+const supabaseDriver = {
+  client: null,
+  _cache: new Map(),          // coll → { at, promise } (lists, kept briefly)
+  CACHE_MS: 30000,
+  _uploads: new Map(),        // data: URL → its uploaded link, this session
+
+  async _rpc(fn, args) {
+    const { data, error } = await this.client.rpc(fn, args);
+    if (error) throw new Error(error.message);
+    return data;
   },
+  _fresh(coll) {
+    const hit = this._cache.get(coll);
+    return hit && Date.now() - hit.at < this.CACHE_MS ? hit : null;
+  },
+  _forget(coll) { this._cache.delete(coll); },
 
   async list(coll, filterFn) {
-    this._init();
-    /* TODO: const snap = await this.db.collection(coll).get();
-       const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-       return filterFn ? items.filter(filterFn) : items;
-    */
-    return [];
+    let hit = this._fresh(coll);
+    if (!hit) {
+      hit = { at: Date.now(), promise: this._rpc('fitr_list', { coll }).then(r => r || []) };
+      hit.promise.catch(() => this._forget(coll));
+      this._cache.set(coll, hit);
+    }
+    // Copies, so a page changing a record doesn't change the cached list.
+    const items = (await hit.promise).map(i => structuredClone(i));
+    return filterFn ? items.filter(filterFn) : items;
   },
   async get(coll, id) {
-    this._init();
-    /* TODO: const doc = await this.db.collection(coll).doc(id).get();
-       return doc.exists ? { id: doc.id, ...doc.data() } : null;
-    */
-    return null;
+    const hit = this._fresh(coll);
+    if (hit) return (await this.list(coll)).find(i => i.id === id) || null;
+    return (await this._rpc('fitr_get', { coll, id })) || null;
   },
   async save(coll, item) {
-    this._init();
-    /* TODO: if (item.id) {
-         await this.db.collection(coll).doc(item.id).set(item, { merge: true });
-       } else {
-         const ref = await this.db.collection(coll).add({ ...item, createdAt: Date.now() });
-         item.id = ref.id;
-       }
-       return item;
-    */
-    return item;
+    const body = await this._uploadInline(coll, item);
+    const saved = await this._rpc('fitr_save', { coll, item: body });
+    this._forget(coll);
+    if (coll === 'cases') this._forget('casemsgs');
+    Object.assign(item, saved);   // callers read item.id after saving, like the demo
+    return saved;
   },
   async remove(coll, id) {
-    this._init();
-    /* TODO: await this.db.collection(coll).doc(id).delete(); */
+    await this._rpc('fitr_remove', { coll, id });
+    this._forget(coll);
   },
 
-  async signIn(email, password) {
-    this._init();
-    /* TODO: const cred = await this.auth.signInWithEmailAndPassword(email, password);
-       const tier = email.toLowerCase().endsWith('@fiwa.sch.id') ? 'fiwa' : 'public';
-       const user = { email: cred.user.email, tier, name: cred.user.displayName || email.split('@')[0] };
-       return user;
-    */
+  /* Photos and PDFs picked in the editors arrive as data: URLs. Upload each
+     one to the "media" bucket and keep only its link in the record. The
+     file is named by its content, so the same photo is stored once. */
+  async _uploadInline(coll, item) {
+    const re = /data:(image\/(?:png|jpe?g|gif|webp)|application\/pdf);base64,[A-Za-z0-9+/=]+/g;
+    const found = new Set();
+    const walk = (v) => {
+      if (typeof v === 'string') { for (const m of v.matchAll(re)) found.add(m[0]); }
+      else if (Array.isArray(v)) v.forEach(walk);
+      else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+    };
+    walk(item);
+    if (!found.size) return item;
+    for (const url of found) {
+      if (!this._uploads.has(url)) this._uploads.set(url, this._upload(coll, url));
+      try { await this._uploads.get(url); } catch (e) { this._uploads.delete(url); throw e; }
+    }
+    const links = new Map();
+    for (const url of found) links.set(url, await this._uploads.get(url));
+    const swap = (v) => {
+      if (typeof v === 'string') return v.replace(re, m => links.get(m) || m);
+      if (Array.isArray(v)) return v.map(swap);
+      if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, swap(x)]));
+      return v;
+    };
+    return swap(item);
+  },
+  async _upload(coll, dataUrl) {
+    const [, type, b64] = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
+      .map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+    const ext = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'application/pdf': 'pdf' }[type] || type.split('/')[1];
+    const path = `${coll}/${hash}.${ext}`;
+    const bucket = this.client.storage.from('media');
+    const { error } = await bucket.upload(path, new Blob([bytes], { type }), { contentType: type, upsert: false });
+    // Already uploaded (same content) is fine: the link is the same.
+    if (error && !/exists|duplicate/i.test(error.message)) throw new Error('Upload failed: ' + error.message);
+    return bucket.getPublicUrl(path).data.publicUrl;
+  },
+
+  /* Google sign-in leaves the site and comes back signed in, so this
+     never resolves; the page reloads instead. */
+  async signIn() {
+    const { error } = await this.client.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } }
+    });
+    if (error) throw new Error(error.message);
+    return new Promise(() => {});
   },
   async signOut() {
-    this._init();
-    /* TODO: await this.auth.signOut(); */
+    await this.client.auth.signOut();
+    this._cache.clear();
   },
   async getCurrentUser() {
-    this._init();
-    /* TODO: const u = this.auth.currentUser;
-       if (!u) return null;
-       const tier = u.email.toLowerCase().endsWith('@fiwa.sch.id') ? 'fiwa' : 'public';
-       return { email: u.email, tier, name: u.displayName || u.email.split('@')[0] };
-    */
-    return null;
+    const { data } = await this.client.auth.getSession();
+    const u = data.session?.user;
+    if (!u || !u.email) return null;
+    const email = u.email.toLowerCase();
+    const tier = email.endsWith('@fiwa.sch.id') ? 'fiwa' : 'public';
+    const meta = u.user_metadata || {};
+    const name = meta.full_name || meta.name || email.split('@')[0];
+    return { email, tier, name };
   }
 };
 
 /* ── The single Store the rest of the app uses ───────────────────────── */
-const Store = STORAGE_DRIVER === 'firebase' ? firebaseDriver : localStorageDriver;
+/* Which driver is known only once src/lib/backend.js has run, so every
+   method waits for it. Store.remote says which one won (after FITR.ready). */
+const pickDriver = (window.FITR_BACKEND || Promise.resolve(null)).then(client => {
+  if (!client) return localStorageDriver;
+  supabaseDriver.client = client;
+  return supabaseDriver;
+});
+const Store = {
+  remote: false,
+  async list(coll, filterFn) { return (await pickDriver).list(coll, filterFn); },
+  async get(coll, id)        { return (await pickDriver).get(coll, id); },
+  async save(coll, item)     { return (await pickDriver).save(coll, item); },
+  async remove(coll, id)     { return (await pickDriver).remove(coll, id); },
+  async signIn(email, pw)    { return (await pickDriver).signIn(email, pw); },
+  async signOut()            { return (await pickDriver).signOut(); },
+  async getCurrentUser()     { return (await pickDriver).getCurrentUser(); },
+  async isRemote()           { return (this.remote = (await pickDriver) === supabaseDriver); }
+};
 
 /* =====================================================================
    AUTH HELPER — wraps Store with tier/permission logic
@@ -471,6 +518,7 @@ async function renderUserArea() {
 
 const SignIn = {
   open() {
+    if (Store.remote) return this.openGoogle();
     Modal.open({
       title: 'Sign in to Fitrah Tribune',
       body: `
@@ -496,6 +544,25 @@ const SignIn = {
       `
     });
     setTimeout(() => $('#signin-email')?.focus(), 100);
+  },
+
+  // The real site: one button, Google does the rest.
+  openGoogle() {
+    Modal.open({
+      title: 'Sign in to Fitrah Tribune',
+      body: `
+        <p class="signin-lead">Use your Google account. Anyone can sign in to send the editors a note; Tribunees sign in with their <strong>@fiwa.sch.id</strong> account.</p>
+      `,
+      foot: `
+        <button class="btn-ghost" onclick="Modal.close()">Cancel</button>
+        <button class="btn-navy" onclick="SignIn.google()">Continue with Google</button>
+      `
+    });
+  },
+
+  async google() {
+    try { await Auth.signIn(); }
+    catch (e) { toast(e.message, 'error'); }
   },
 
   async submit() {
@@ -5591,8 +5658,12 @@ async function seedDemoPlaceholders() {
    ===================================================================== */
 
 const ready = (async () => {
-  await migrateLegacyData();
-  await seedIfEmpty();
+  // The demo builds its data in this browser. The real database is set up
+  // once from supabase/ and never seeded by visitors.
+  if (!(await Store.isRemote())) {
+    await migrateLegacyData();
+    await seedIfEmpty();
+  }
   await Auth.refresh();
 
   // React unmounts pages it isn't showing. Any render() for a page that is
