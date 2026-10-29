@@ -636,17 +636,12 @@ body.editing .user-name { color: var(--navy-deep); }
 .weather-now {
   display: flex; align-items: center; gap: 1rem;
 }
-.weather-icon {
-  width: 54px; height: 54px;
-  background: radial-gradient(circle at 30% 30%, var(--gold-bright), var(--gold));
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: 0 0 24px rgba(216, 169, 86, 0.4);
-}
-.weather-icon.is-cloud { background: radial-gradient(circle at 30% 30%, #d9d4c8, #a39d90); box-shadow: none; }
-.weather-icon.is-rain,
-.weather-icon.is-storm { background: radial-gradient(circle at 30% 30%, var(--navy-soft), var(--navy-deep)); box-shadow: none; }
-.weather-icon.is-night { background: radial-gradient(circle at 30% 30%, #e8e4d8, #b9b3a3); box-shadow: 0 0 18px rgba(185, 179, 163, 0.35); }
+.weather-icon { width: 64px; height: 64px; flex-shrink: 0; }
+.weather-icon svg { width: 100%; height: 100%; display: block; }
+.edit-icon-btn { color: var(--navy); }
+.edit-icon-btn svg { width: 14px; height: 14px; }
+.tribunee-card .edit-overlay { z-index: 2; }
+.pill-edit svg { width: 12px; height: 12px; vertical-align: -1px; }
 .weather-temp {
   font-family: var(--ui);
   font-weight: 300;

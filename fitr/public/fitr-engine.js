@@ -388,15 +388,22 @@ const Router = {
    ===================================================================== */
 
 const Icons = {
-  home:    `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>`,
-  news:    `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="7" y1="9" x2="13" y2="9"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="17" x2="17" y2="17"/></svg>`,
-  archive: `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="5"/><path d="M5 9v11h14V9"/><line x1="10" y1="13" x2="14" y2="13"/></svg>`,
-  forum:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
-  pencil:  `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
-  about:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L8 8v6l4 8 4-8V8l-4-6z"/><circle cx="12" cy="10" r="1.5" fill="currentColor"/></svg>`,
-  view_list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><rect x="3" y="5" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="11" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="17" width="2.5" height="2.5" fill="currentColor" stroke="none"/></svg>`,
-  view_grid: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="6.5" height="6.5"/><rect x="13.5" y="4" width="6.5" height="6.5"/><rect x="4" y="13.5" width="6.5" height="6.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5"/></svg>`,
-  empty:   `<svg class="es-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M32 8L24 24v18l8 16 8-16V24L32 8z"/><circle cx="32" cy="28" r="3" fill="currentColor"/><circle cx="14" cy="20" r="1" fill="currentColor"/><circle cx="50" cy="22" r="1" fill="currentColor"/><circle cx="48" cy="40" r="1" fill="currentColor"/></svg>`
+  home:    `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>`,
+  news:    `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="7" y1="9" x2="13" y2="9"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="17" x2="17" y2="17"/></svg>`,
+  archive: `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5"/><path d="M5 9v11h14V9"/><line x1="10" y1="13" x2="14" y2="13"/></svg>`,
+  forum:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
+  pencil:  `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  about:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L8 8v6l4 8 4-8V8l-4-6z"/><circle cx="12" cy="10" r="1.5" fill="currentColor"/></svg>`,
+  view_list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><rect x="3" y="5" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="11" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="17" width="2.5" height="2.5" fill="currentColor" stroke="none"/></svg>`,
+  view_grid: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5"/><rect x="13.5" y="4" width="6.5" height="6.5"/><rect x="4" y="13.5" width="6.5" height="6.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5"/></svg>`,
+  // Small action icons, drawn like the tab icons (24 grid, 2px round strokes).
+  edit:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>`,
+  trash:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/><path d="M10 11v6M14 11v6"/></svg>`,
+  photo:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`,
+  more:    `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>`,
+  pin:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 3h6l-1 7 4 3H6l4-3z"/></svg>`,
+  link:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
+  empty:   `<svg class="es-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M32 8L24 24v18l8 16 8-16V24L32 8z"/><circle cx="32" cy="28" r="3" fill="currentColor"/><circle cx="14" cy="20" r="1" fill="currentColor"/><circle cx="50" cy="22" r="1" fill="currentColor"/><circle cx="48" cy="40" r="1" fill="currentColor"/></svg>`
 };
 
 /* =====================================================================
@@ -3243,6 +3250,84 @@ Pages.home._postExcerpt = (p) => {
 /* Live weather for the home page, from Open-Meteo (free, no key).
    Kept for 30 minutes per visit so moving around the site doesn't refetch.
    If it can't be reached, the box says so instead of guessing. */
+/* Weather icons: one per BMKG condition, drawn on a 48×48 grid in the
+   Tribune's colours (gold sun, navy outlines, cream clouds). */
+const WeatherIcons = (() => {
+  const C = { gold: '#c08e3a', goldSoft: '#e8cf94', navy: '#1c3658', navyDeep: '#0f2138', navySoft: '#2d4f7a',
+              cream: '#fbf6ea', mist: '#d8cbb0', grey: '#a39d90', moon: '#e8e4d8' };
+  const sw = 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  // A cloud whose flat base starts at x and sits at height y, w wide.
+  // Drawn as overlapping puffs: a thick outline pass, then the fill on top,
+  // so only the outer edge shows.
+  const cloud = (x, y, w, fill = C.cream, stroke = C.navy) => {
+    const s = w / 30;
+    const shape = (attrs) => `<circle cx="6.5" cy="-6" r="6" ${attrs}/><circle cx="15" cy="-11" r="8.5" ${attrs}/><circle cx="24" cy="-6.5" r="6.5" ${attrs}/><rect x="6.5" y="-7" width="17.5" height="7" ${attrs}/>`;
+    return `<g transform="translate(${x} ${y}) scale(${s.toFixed(3)})">${shape(`fill="${stroke}" stroke="${stroke}" stroke-width="${(4 / s).toFixed(2)}"`)}${shape(`fill="${fill}"`)}</g>`;
+  };
+  const sun = (cx, cy, r, rays = true) => {
+    let out = '';
+    if (rays) for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4, r1 = r + 3, r2 = r + 6.5;
+      out += `<line x1="${(cx + r1 * Math.cos(a)).toFixed(2)}" y1="${(cy + r1 * Math.sin(a)).toFixed(2)}" x2="${(cx + r2 * Math.cos(a)).toFixed(2)}" y2="${(cy + r2 * Math.sin(a)).toFixed(2)}" stroke="${C.gold}" ${sw}/>`;
+    }
+    return out + `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${C.goldSoft}" stroke="${C.gold}" ${sw}/>`;
+  };
+  // A crescent: a disc with a bite taken out towards the upper right.
+  const moon = (cx, cy, r) => {
+    const b = r * 0.78;
+    return `<path d="M${cx + r * 0.35} ${cy - r * 0.94} A${r} ${r} 0 1 0 ${cx + r * 0.94} ${cy + r * 0.35} A${b} ${b} 0 0 1 ${cx + r * 0.35} ${cy - r * 0.94} Z" fill="${C.moon}" stroke="${C.navySoft}" ${sw}/>`;
+  };
+  const drops = (pts, color = C.navySoft, len = 5) => pts.map(([x, y]) =>
+    `<line x1="${x}" y1="${y}" x2="${x - 2}" y2="${y + len}" stroke="${color}" ${sw}/>`).join('');
+  const bolt = (x, y) => `<path d="M${x} ${y} l-4 8 h4 l-3 7 l8 -10 h-4 l3 -5 z" fill="${C.gold}" stroke="${C.gold}" stroke-width="1.5" stroke-linejoin="round"/>`;
+  const lines = (rows, color) => rows.map(([x1, x2, y]) =>
+    `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${color}" ${sw}/>`).join('');
+  const svg = (body, label) => `<svg viewBox="0 0 48 48" role="img" aria-label="${label}">${body}</svg>`;
+
+  const ICONS = {
+    clear:             { label: 'Clear',                body: sun(24, 24, 8.5) },
+    'clear-night':     { label: 'Clear night',          body: moon(24, 24, 12) },
+    'mostly-clear':    { label: 'Mostly clear',         body: sun(19, 19, 8) + cloud(21, 40, 22) },
+    'mostly-clear-night': { label: 'Mostly clear night', body: moon(19, 19, 11) + cloud(21, 40, 22) },
+    'partly-cloudy':   { label: 'Partly cloudy',        body: sun(16, 15, 7) + cloud(13, 41, 29) },
+    'partly-cloudy-night': { label: 'Partly cloudy night', body: moon(16, 15, 10) + cloud(13, 41, 29) },
+    cloudy:            { label: 'Cloudy',               body: cloud(17, 29, 26, C.mist) + cloud(4, 41, 30) },
+    overcast:          { label: 'Overcast',             body: cloud(17, 29, 26, C.grey, C.navyDeep) + cloud(4, 41, 30, C.mist, C.navyDeep) },
+    haze:              { label: 'Haze',                 body: sun(24, 18, 7, false) + lines([[8, 40, 31], [12, 36, 36.5], [16, 32, 42]], C.grey) },
+    smoke:             { label: 'Smoke',                body: `<path d="M14 40c-4-4 4-6 0-11s4-8 1-13M24 40c-4-4 4-6 0-11s4-8 1-13M34 40c-4-4 4-6 0-11s4-8 1-13" fill="none" stroke="${C.grey}" ${sw}/>` },
+    fog:               { label: 'Fog',                  body: cloud(8.5, 29, 31, C.mist) + lines([[8, 40, 34], [12, 36, 39.5], [10, 30, 45]], C.grey) },
+    'light-rain':      { label: 'Light rain',           body: cloud(8.5, 31, 31) + drops([[20, 36], [29, 36]]) },
+    rain:              { label: 'Rain',                 body: cloud(8.5, 31, 31) + drops([[16, 36], [24.5, 36], [33, 36]]) },
+    'heavy-rain':      { label: 'Heavy rain',           body: cloud(8.5, 30, 31, C.mist, C.navyDeep) + drops([[14, 35], [21, 35], [28, 35], [35, 35], [17.5, 42], [31.5, 42]], C.navy, 4) },
+    shower:            { label: 'Showers',              body: sun(16, 15, 6) + cloud(13, 33, 29) + drops([[23, 38], [32, 38]]) },
+    'shower-night':    { label: 'Showers at night',     body: moon(16, 14, 9) + cloud(13, 33, 29) + drops([[23, 38], [32, 38]]) },
+    thunderstorm:      { label: 'Thunderstorm',         body: cloud(8.5, 30, 31, C.grey, C.navyDeep) + bolt(26, 32) + drops([[16, 35], [36, 35]], C.navy) }
+  };
+
+  // BMKG weather code → icon name. Codes from BMKG's public forecast API.
+  const forCode = (code, night) => {
+    const n = night ? '-night' : '';
+    switch (Number(code)) {
+      case 0: return 'clear' + n;
+      case 1: return 'mostly-clear' + n;
+      case 2: return 'partly-cloudy' + n;
+      case 3: return 'cloudy';
+      case 4: return 'overcast';
+      case 5: return 'haze';
+      case 10: return 'smoke';
+      case 45: return 'fog';
+      case 60: return 'light-rain';
+      case 61: return 'rain';
+      case 63: return 'heavy-rain';
+      case 80: return 'shower' + n;
+      case 95: case 97: return 'thunderstorm';
+      default: return 'cloudy';
+    }
+  };
+  const html = (name) => { const i = ICONS[name] || ICONS.cloudy; return svg(i.body, i.label); };
+  return { ICONS, forCode, html };
+})();
+
 const Weather = {
   // BMKG's public forecast for Karihkil, Ciseeng (village code 32.01.33.2006).
   // BMKG asks to be credited as the source wherever its data is shown.
@@ -3250,13 +3335,6 @@ const Weather = {
   // avoids browser cross-site limits; BMKG directly is the fallback.
   SOURCES: ['/api/weather', 'https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.01.33.2006'],
   KEEP_MS: 30 * 60 * 1000,
-  // BMKG weather codes, grouped by the icon they get.
-  kind(code) {
-    if (code <= 2) return 'sun';
-    if (code <= 45) return 'cloud';
-    if (code >= 95) return 'storm';
-    return 'rain';
-  },
   // BMKG gives 3-hourly steps; take the one nearest to now.
   nearest(json) {
     const steps = ((json.data && json.data[0] && json.data[0].cuaca) || []).flat();
@@ -3292,16 +3370,14 @@ const Weather = {
     if (!box) return;
     try {
       const w = await this.current();
-      const kind = this.kind(Number(w.weather));
       const time = String(w.local_datetime || '').slice(11, 16);
       const hour = Number(time.slice(0, 2));
-      const night = kind === 'sun' && (hour >= 18 || hour < 6);
-      box.querySelector('.weather-icon').className = `weather-icon is-${night ? 'night' : kind}`;
+      box.querySelector('.weather-icon').innerHTML = WeatherIcons.html(WeatherIcons.forCode(w.weather, hour >= 18 || hour < 6));
       box.querySelector('.weather-temp').innerHTML = `${Math.round(Number(w.t))}<span class="unit">°C</span>`;
       box.querySelector('.weather-cond').textContent = w.weather_desc_en || w.weather_desc || '';
       box.querySelector('.weather-loc').textContent = time ? `Karihkil, Ciseeng · BMKG, ${time}` : 'Karihkil, Ciseeng · BMKG';
     } catch {
-      box.querySelector('.weather-icon').className = 'weather-icon is-cloud';
+      box.querySelector('.weather-icon').innerHTML = WeatherIcons.html('cloudy');
       box.querySelector('.weather-temp').textContent = '–';
       box.querySelector('.weather-cond').textContent = 'Weather unavailable right now';
     }
@@ -3337,7 +3413,7 @@ Pages.news = {
       ${tabs.map(t => `
         <button class="filter-pill ${this.state.activeTab === t.id ? 'active' : ''}" onclick="Pages.news.setTab('${t.id}')">
           ${escapeHtml(t.label)}
-          <span class="pill-edit" onclick="event.stopPropagation(); Editor.manageTabs()">✎</span>
+          <span class="pill-edit" onclick="event.stopPropagation(); Editor.manageTabs()">${Icons.edit}</span>
         </button>
       `).join('')}
       ${isEditing ? `<button class="filter-pill" style="border-style: dashed; color: var(--gold);" onclick="Editor.manageTabs()">+ Manage categories</button>` : ''}
@@ -3757,9 +3833,9 @@ const Editions = {
   adminButtons(e) {
     return `
       <div class="edit-overlay">
-        <button class="edit-icon-btn" title="Edit edition" onclick="event.stopPropagation(); Editor.editEdition('${e.id}')">✎</button>
+        <button class="edit-icon-btn" title="Edit edition" onclick="event.stopPropagation(); Editor.editEdition('${e.id}')">${Icons.edit}</button>
         <button class="edit-icon-btn delete" title="Remove edition" onclick="event.stopPropagation(); Editor.deleteEdition('${e.id}')">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          ${Icons.trash}
         </button>
       </div>`;
   }
@@ -4094,7 +4170,7 @@ Pages.forum = {
           <div id="pb-photo"></div>
           <div class="pb-foot">
             <button type="button" class="pb-photo-btn" title="Add a photo" aria-label="Add a photo" onclick="Pages.forum.pickPhoto()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              ${Icons.photo}
             </button>
             <div class="pb-cats" role="group" aria-label="Post type">
               <button type="button" class="pb-cat ${cat === 'general' ? 'selected' : ''}" data-cat="general"
@@ -4179,7 +4255,7 @@ Pages.forum = {
       const menu = (canPin || canDel) ? `
         <div class="fp-menu">
           <button type="button" class="fp-more" aria-label="More" aria-haspopup="true" onclick="Pages.forum.toggleMenu(event, '${p.id}')">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+            ${Icons.more}
           </button>
           <div class="fp-pop" id="fp-pop-${p.id}" hidden>
             ${canPin ? `<button type="button" onclick="Pages.forum.pinPost('${p.id}')">${p.pinned ? 'Unpin' : 'Pin to the top'}</button>` : ''}
@@ -4188,7 +4264,7 @@ Pages.forum = {
         </div>` : '';
       return `
         <article class="fp${isAnn ? ' announcement' : ''}${p === pinned ? ' pinned' : ''}" id="post-${p.id}">
-          ${p === pinned ? `<div class="fp-pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 3h6l-1 7 4 3H6l4-3z"/></svg> Pinned by the editors</div>` : ''}
+          ${p === pinned ? `<div class="fp-pin">${Icons.pin} Pinned by the editors</div>` : ''}
           <div class="fp-row">
             ${this._avatar(who)}
             <div class="fp-main">
@@ -4203,7 +4279,7 @@ Pages.forum = {
               ${p.photo ? `<img class="fp-photo" src="${p.photo}" alt="" />` : ''}
               <div class="fp-actions">
                 <button type="button" onclick="Pages.forum.copyLink('${p.id}')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                  ${Icons.link}
                   Copy link
                 </button>
               </div>
@@ -4886,9 +4962,9 @@ Pages.corrections = {
         </div>
         ${canEdit ? `
           <div class="correction-admin-actions">
-            <button class="edit-icon-btn" title="Edit correction" onclick="Editor.editCorrection('${c.id}')">✎</button>
+            <button class="edit-icon-btn" title="Edit correction" onclick="Editor.editCorrection('${c.id}')">${Icons.edit}</button>
             <button class="edit-icon-btn delete" title="Remove correction" onclick="Editor.deleteCorrection('${c.id}')">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+              ${Icons.trash}
             </button>
           </div>
         ` : ''}
@@ -4943,7 +5019,7 @@ Pages.about = {
         .filter(Boolean).map(escapeHtml).join(' · ');
       return `
         <article class="tribunee-card" onclick="Router.go('tribunee/${t.id}')">
-          ${canEditCard ? `<div class="edit-overlay"><button class="edit-icon-btn" onclick="event.stopPropagation(); Editor.editTribuneeById('${t.id}')">✎</button></div>` : ''}
+          ${canEditCard ? `<div class="edit-overlay"><button class="edit-icon-btn" onclick="event.stopPropagation(); Editor.editTribuneeById('${t.id}')">${Icons.edit}</button></div>` : ''}
           <div class="tribunee-head">
             <div class="tribunee-portrait" style="${portraitStyle}">${portraitInner}</div>
             <div class="tribunee-id">
