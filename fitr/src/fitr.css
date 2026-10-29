@@ -18,7 +18,7 @@
   --gold:         #c08e3a;
   --gold-bright:  #d8a956;
   --gold-soft:    #e8cf94;
-  --gold-deep:    #8a6420;   /* gold for text on paper: --gold is too faint to read there */
+  --gold-deep:    var(--gold);   /* labels on paper use the original gold (Ammar, 29 Oct) */
   --rule:         #c7baa0;
   --rule-soft:    #d8cbb0;
   --shadow-warm:  rgba(60, 40, 10, 0.08);
