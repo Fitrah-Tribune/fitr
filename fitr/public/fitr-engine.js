@@ -2432,7 +2432,11 @@ const RichEditor = {
           this._clearInline(editor);
           return;
         }
-        document.execCommand(btn.dataset.cmd, false, null);
+        if (/List$/.test(btn.dataset.cmd)) {
+          asOneStep(() => { document.execCommand(btn.dataset.cmd, false, null); this._liftLists(editor); });
+        } else {
+          document.execCommand(btn.dataset.cmd, false, null);
+        }
         updateState();
       });
     });
@@ -2524,6 +2528,7 @@ const RichEditor = {
         if (menu.hidden) draw();
         closeMenus(menu);
         menu.hidden = !menu.hidden;
+        RichEditor._keepOnScreen(menu);
       });
     };
     colourTool($t('.rte-colour[data-prop="color"]'), 'color', '#c08e3a', 'inherit', 'Automatic');
@@ -2537,6 +2542,7 @@ const RichEditor = {
     linkWrap.querySelector('.rte-link-open').addEventListener('click', () => {
       closeMenus(linkMenu);
       linkMenu.hidden = !linkMenu.hidden;
+      RichEditor._keepOnScreen(linkMenu);
       if (!linkMenu.hidden) {
         const a = _pinned && (_pinned.startContainer.nodeType === 1 ? _pinned.startContainer : _pinned.startContainer.parentElement).closest('a');
         linkInput.value = a ? a.getAttribute('href') : '';
@@ -2585,6 +2591,7 @@ const RichEditor = {
     more.querySelector('.rte-more-open').addEventListener('click', () => {
       closeMenus(morePop);
       morePop.hidden = !morePop.hidden;
+      RichEditor._keepOnScreen(morePop);
     });
     const fitToolbar = () => {
       while (morePop.firstChild) toolbar.insertBefore(morePop.firstChild, more);
@@ -2732,6 +2739,39 @@ const RichEditor = {
     `;
   },
 
+  // A menu opened near the right edge of a phone screen slides left to fit.
+  _keepOnScreen(pop) {
+    pop.style.transform = '';
+    if (pop.hidden) return;
+    const over = pop.getBoundingClientRect().right - (document.documentElement.clientWidth - 8);
+    if (over > 0) pop.style.transform = `translateX(${-Math.ceil(over)}px)`;
+  },
+
+  // Chrome makes a list inside the paragraph it started from
+  // (<p><ul>…</ul></p>), which isn't valid and breaks styles applied after.
+  // Lift such lists out so they stand on their own, keeping the caret.
+  _liftLists(editor) {
+    const sel = window.getSelection();
+    // Moving nodes collapses live ranges, so keep the end points instead.
+    const r0 = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
+    const pts = r0 && [r0.startContainer, r0.startOffset, r0.endContainer, r0.endOffset];
+    editor.querySelectorAll('p > ul, p > ol').forEach(list => {
+      const p = list.parentElement;
+      const after = document.createElement('p');
+      while (list.nextSibling) after.appendChild(list.nextSibling);
+      p.after(list);
+      if (after.textContent.trim() || after.querySelector('img')) list.after(after);
+      if (!p.textContent.trim() && !p.querySelector('img')) p.remove();
+    });
+    if (pts && editor.contains(pts[0]) && editor.contains(pts[2])) {
+      const r = document.createRange();
+      r.setStart(pts[0], pts[1]);
+      r.setEnd(pts[2], pts[3]);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+  },
+
   // Indent paragraphs by 2em steps (lists use the browser's own nesting).
   // Not execCommand('indent') on paragraphs: Chrome wraps them in a
   // blockquote, which would look like a Quote.
@@ -2798,6 +2838,22 @@ const RichEditor = {
   },
 
   _applyBlockStyle(editor, value) {
+    // A style on a list item takes it out of the list first (as in Docs);
+    // otherwise Chrome wraps the whole list in the heading.
+    const at = window.getSelection();
+    const list = at && at.rangeCount
+      ? [...editor.querySelectorAll('ul, ol')].find(l => at.getRangeAt(0).intersectsNode(l))
+      : null;
+    if (list) {
+      document.execCommand(list.tagName === 'OL' ? 'insertOrderedList' : 'insertUnorderedList', false, null);
+      // Chrome copies the list's look onto the text as inline styles
+      // (a fixed font size, "background-color: initial"); drop those.
+      editor.querySelectorAll('[style]').forEach(el => {
+        if (el.style.backgroundColor === 'initial') el.style.removeProperty('background-color');
+        if (el.style.fontSize && !el.style.fontSize.includes('--rte-base')) el.style.removeProperty('font-size');
+        if (!el.getAttribute('style')) el.removeAttribute('style');
+      });
+    }
     document.execCommand('formatBlock', false, value === 'dropcap' ? 'p' : value);
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return;
@@ -3108,7 +3164,7 @@ Pages.home = {
           <div onclick="Router.go('forum/${p.id}')" style="display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; padding: 0.7rem 0; border-bottom: 1px dashed var(--rule); cursor: pointer; align-items: center;">
             <div class="thread-avatar" style="width: 36px; height: 36px; font-size: 0.85rem;">${initials(p.author)}</div>
             <div>
-              <div style="font-family: var(--ui); font-weight: 500; font-size: 0.95rem; line-height: 1.2;">${escapeHtml(p.title)}</div>
+              <div style="font-family: var(--article); font-size: 1rem; line-height: 1.3;">${escapeHtml(Pages.home._postExcerpt(p))}</div>
               <div style="font-size: 0.76rem; color: var(--ink-muted); margin-top: 0.2rem;">By <span style="color: var(--navy);">${escapeHtml(p.author)}</span> · ${relativeTime(p.createdAt)}</div>
             </div>
             <span class="post-cat ${isAnn ? 'announcement' : ''}">${isAnn ? 'Announcement' : 'General'}</span>
@@ -3117,6 +3173,17 @@ Pages.home = {
       }).join('');
     }
   }
+};
+
+/* A forum post for the home preview: its title (older posts) or the
+   start of its text. */
+Pages.home._postExcerpt = (p) => {
+  if (p.title) return p.title;
+  const d = document.createElement('div');
+  d.innerHTML = p.body || '';
+  const t = d.textContent.replace(/\s+/g, ' ').trim();
+  if (!t) return p.photo ? 'Shared a photo' : '';
+  return t.length > 90 ? t.slice(0, 88).trimEnd() + '…' : t;
 };
 
 /* ── NEWS ────────────────────────────────────────────────────────────── */
@@ -3861,73 +3928,110 @@ const EditionReader = {
 
 /* ── FORUM ────────────────────────────────────────────────────────────── */
 Pages.forum = {
-  /* The Forum is a single mixed feed of Tribune posts.
+  /* The Forum is one feed of short Tribune posts, newest first.
      Two categories:
        · announcement — admin-only. The Tribune's institutional voice.
        · general      — any Tribunee. Everything else.
-     No comments. Readers respond via the (forthcoming) private ticket flow.
-     Moderation is post-with-admin-delete, not an approval queue. */
-  state: { sort: 'newest', composeCategory: 'general' },
+     A post is up to 500 characters of formatted text (the Writer's desk
+     menu, minus images) plus one optional photo. No titles, replies or
+     likes: readers respond through Feedback & Corrections. An admin can
+     pin one announcement. Admins delete any post; a Tribunee their own. */
+  LIMIT: 500,
+  state: { tab: 'all', composeCategory: 'general', photo: '' },
+  _rte: null,
 
   async render() {
+    await this._renderComposer();
+    await this._renderFeed();
+  },
+
+  /* Plain text of a post body, for counting and previews. */
+  plain(html) {
+    const d = document.createElement('div');
+    d.innerHTML = html || '';
+    return d.textContent.replace(/\s+/g, ' ').trim();
+  },
+
+  /* ── Composer: Tribunees only. Guests and readers see just the feed. */
+  async _renderComposer() {
+    const area = $('#forum-compose-area');
+    if (this._rte) { this._rte.destroy(); this._rte = null; }
+    const isTribunee = await Auth.isTribunee();
+    if (!isTribunee) { area.innerHTML = ''; return; }
+    const isAdmin = await Auth.isAdmin();
+    // Non-admin Tribunees can't select Announcement; force them onto general.
+    if (!isAdmin && this.state.composeCategory === 'announcement') this.state.composeCategory = 'general';
+    this.state.photo = '';
+
+    const me = await this._person(Auth.current().email, Auth.current().name);
+    const cat = this.state.composeCategory;
+    area.innerHTML = `
+      <section class="pb" aria-label="New post">
+        ${this._avatar(me)}
+        <div class="pb-main">
+          <div id="pb-editor"></div>
+          <div id="pb-photo"></div>
+          <div class="pb-foot">
+            <button type="button" class="pb-photo-btn" title="Add a photo" aria-label="Add a photo" onclick="Pages.forum.pickPhoto()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            </button>
+            <div class="pb-cats" role="group" aria-label="Post type">
+              <button type="button" class="pb-cat ${cat === 'general' ? 'selected' : ''}" data-cat="general"
+                      onclick="Pages.forum.setComposeCategory('general')">General</button>
+              <button type="button" class="pb-cat ${cat === 'announcement' ? 'selected' : ''}" data-cat="announcement"
+                      ${isAdmin ? '' : 'disabled title="Admins only"'}
+                      onclick="Pages.forum.setComposeCategory('announcement')">Announcement</button>
+            </div>
+            <span class="pb-count" id="pb-count">0 / ${this.LIMIT}</span>
+            <button type="button" class="pb-post" onclick="Pages.forum.postToFeed()">Post</button>
+          </div>
+        </div>
+      </section>
+    `;
+    this._rte = RichEditor.mount($('#pb-editor'), {
+      placeholder: 'What’s happening at FIWA?',
+      allowImages: false
+    });
+    const ed = this._rte.editor;
+    const update = () => {
+      const n = this.plain(ed.innerHTML).length;
+      ed.classList.toggle('is-empty', n === 0);
+      const c = $('#pb-count');
+      if (c) { c.textContent = `${n} / ${this.LIMIT}`; c.classList.toggle('over', n > this.LIMIT); }
+    };
+    ed.addEventListener('input', update);
+    update();
+  },
+
+  /* ── Feed ─────────────────────────────────────────────────────────── */
+  async _renderFeed() {
     const isAdmin    = await Auth.isAdmin();
     const isTribunee = await Auth.isTribunee();
     const myEmail    = (Auth.current().email || '').toLowerCase();
+    const tab        = this.state.tab;
 
-    /* ── Composer: Tribunees only ─────────────────────────────────── */
-    const composeArea = $('#forum-compose-area');
-    if (!isTribunee) {
-      composeArea.innerHTML = `
-        <div class="forum-compose locked">
-          <div class="compose-locked-msg">
-            ${Auth.isGuest()
-              ? `The forum is where the Tribune posts announcements and notices. <a onclick="SignIn.open()">Sign in</a> to follow along.`
-              : `The forum is where the Tribune posts announcements and notices. Only Tribunees can post here — but you can always <a onclick="Pages.forum.reportTip()">send us a correction</a>.`}
-          </div>
-        </div>
-      `;
-    } else {
-      // Non-admin tribunees can't select Announcement; force them onto general.
-      if (!isAdmin && this.state.composeCategory === 'announcement') this.state.composeCategory = 'general';
-      composeArea.innerHTML = `
-        <div class="forum-compose">
-          <div class="compose-head">
-            <h3>New Post</h3>
-            <span style="font-family: var(--ui); font-size: 0.7rem; color: var(--ink-muted); letter-spacing: 0.14em;">Posting as ${escapeHtml(Auth.current().name)}</span>
-          </div>
-          <input type="text" class="compose-title" id="post-title" placeholder="Title — what is this about?" />
-          <textarea class="compose-body" id="post-body" placeholder="Write your post…"></textarea>
-          <div class="compose-foot">
-            <div class="compose-cats">
-              <button class="cat-chip ${this.state.composeCategory === 'announcement' ? 'selected' : ''}"
-                      ${isAdmin ? '' : 'disabled title="Admins only"'}
-                      onclick="Pages.forum.setComposeCategory('announcement')">Announcement</button>
-              <button class="cat-chip ${this.state.composeCategory === 'general' ? 'selected' : ''}"
-                      onclick="Pages.forum.setComposeCategory('general')">General</button>
-            </div>
-            <button class="btn-navy" onclick="Pages.forum.postToFeed()">Publish post</button>
-          </div>
-        </div>
-      `;
-    }
+    $$('.forum-tab').forEach(b => {
+      const on = b.dataset.tab === tab;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
 
-    /* ── Feed ─────────────────────────────────────────────────────── */
     let posts = await Store.list('threads');
-
-    if (this.state.sort === 'announcement')  posts = posts.filter(p => p.category === 'announcement');
-    else if (this.state.sort === 'general')  posts = posts.filter(p => p.category !== 'announcement');
-
-    if (this.state.sort === 'oldest') posts.sort((a, b) => a.createdAt - b.createdAt);
-    else                              posts.sort((a, b) => b.createdAt - a.createdAt);
+    if (tab === 'announcement') posts = posts.filter(p => p.category === 'announcement');
+    else if (tab === 'general') posts = posts.filter(p => p.category !== 'announcement');
+    // Newest first; the pinned announcement sits on top (not on General).
+    posts.sort((a, b) => b.createdAt - a.createdAt);
+    const pinned = posts.find(p => p.pinned && p.category === 'announcement');
+    if (pinned) posts = [pinned, ...posts.filter(p => p !== pinned)];
 
     const list = $('#forum-post-list');
     if (posts.length === 0) {
-      const emptyCopy = this.state.sort === 'announcement'
+      const emptyCopy = tab === 'announcement'
         ? 'No announcements have been posted yet.'
-        : this.state.sort === 'general'
+        : tab === 'general'
           ? 'No general posts yet.'
           : (isTribunee
-              ? 'Nothing here yet. Publish the first post — announcements carry the Tribune\'s voice, general posts carry yours.'
+              ? 'Nothing here yet. Write the first post.'
               : 'Nothing here yet. When the Tribune posts an announcement or notice, it appears here.');
       list.innerHTML = `
         <div class="empty-state">
@@ -3939,33 +4043,75 @@ Pages.forum = {
       return;
     }
 
+    const people = await Store.list('tribunees');
     list.innerHTML = posts.map(p => {
       const isAnn   = p.category === 'announcement';
       const isOwner = (p.authorEmail || '').toLowerCase() === myEmail;
       const canDel  = isAdmin || (isTribunee && isOwner);
-      return `
-        <div class="feed-post${isAnn ? ' announcement' : ''}" id="post-${p.id}">
-          <div class="thread-avatar">${initials(p.author)}</div>
-          <div class="post-body">
-            <div class="post-meta">
-              <span>By <span class="author">${escapeHtml(p.author)}</span></span>
-              <span>·</span>
-              <span>${relativeTime(p.createdAt)}</span>
-              <span class="post-cat ${isAnn ? 'announcement' : ''}">${isAnn ? 'Announcement' : 'General'}</span>
-              ${canDel ? `<button onclick="Pages.forum.deletePost('${p.id}')" class="thread-delete-btn">× Delete</button>` : ''}
-            </div>
-            <h4>${escapeHtml(p.title)}</h4>
-            <p>${escapeHtml(p.body)}</p>
+      const canPin  = isAdmin && isAnn;
+      const who     = this._personFrom(people, p.authorEmail, p.author);
+      const name    = who.t
+        ? `<a class="fp-name" onclick="Router.go('tribunee/${who.t.id}')">${escapeHtml(who.name)}</a>`
+        : `<span class="fp-name">${escapeHtml(who.name)}</span>`;
+      // Posts from before the redesign had a title and plain text.
+      const legacyTitle = p.title ? `<p><strong>${escapeHtml(p.title)}</strong></p>` : '';
+      const menu = (canPin || canDel) ? `
+        <div class="fp-menu">
+          <button type="button" class="fp-more" aria-label="More" aria-haspopup="true" onclick="Pages.forum.toggleMenu(event, '${p.id}')">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </button>
+          <div class="fp-pop" id="fp-pop-${p.id}" hidden>
+            ${canPin ? `<button type="button" onclick="Pages.forum.pinPost('${p.id}')">${p.pinned ? 'Unpin' : 'Pin to the top'}</button>` : ''}
+            ${canDel ? `<button type="button" class="danger" onclick="Pages.forum.deletePost('${p.id}')">Delete</button>` : ''}
           </div>
-        </div>
+        </div>` : '';
+      return `
+        <article class="fp${isAnn ? ' announcement' : ''}${p === pinned ? ' pinned' : ''}" id="post-${p.id}">
+          ${p === pinned ? `<div class="fp-pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 3h6l-1 7 4 3H6l4-3z"/></svg> Pinned by the editors</div>` : ''}
+          <div class="fp-row">
+            ${this._avatar(who)}
+            <div class="fp-main">
+              <div class="fp-meta">
+                ${name}
+                ${who.role ? `<span class="fp-role">${escapeHtml(who.role)}</span>` : ''}
+                <span class="fp-time">· ${relativeTime(p.createdAt)}</span>
+                ${isAnn ? '<span class="fp-badge">Announcement</span>' : ''}
+                ${menu}
+              </div>
+              <div class="fp-text">${legacyTitle}${renderArticleBody(p.body)}</div>
+              ${p.photo ? `<img class="fp-photo" src="${p.photo}" alt="" />` : ''}
+              <div class="fp-actions">
+                <button type="button" onclick="Pages.forum.copyLink('${p.id}')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                  Copy link
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
       `;
     }).join('');
   },
 
-  setSort(sort) {
-    this.state.sort = sort;
-    $$('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === sort));
-    this.render();
+  /* The roster entry behind a post, matched by email, then by name. */
+  _personFrom(people, email, name) {
+    const e = (email || '').toLowerCase();
+    const t = (e && people.find(x => (x.email || '').toLowerCase() === e))
+      || people.find(x => (x.name || '').toLowerCase() === (name || '').toLowerCase());
+    return { t, name: (t && t.name) || name || 'Tribunee', role: t ? t.role : '', photo: t ? t.photo : '' };
+  },
+  async _person(email, name) {
+    return this._personFrom(await Store.list('tribunees'), email, name);
+  },
+  _avatar(who) {
+    return who.photo
+      ? `<span class="fp-avatar"><img src="${who.photo}" alt="" /></span>`
+      : `<span class="fp-avatar" aria-hidden="true">${escapeHtml(initials(who.name))}</span>`;
+  },
+
+  setTab(tab) {
+    this.state.tab = tab;
+    this._renderFeed();
   },
 
   async setComposeCategory(cat) {
@@ -3975,7 +4121,37 @@ Pages.forum = {
       return;
     }
     this.state.composeCategory = cat;
-    this.render();
+    $$('.pb-cat').forEach(b => b.classList.toggle('selected', b.dataset.cat === cat));
+  },
+
+  pickPhoto() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        this.state.photo = await compressImage(file, 1200, 0.82);
+        this._showPhoto();
+      } catch (err) {
+        toast('Couldn’t add that photo: ' + err.message, 'error');
+      }
+    };
+    input.click();
+  },
+  _showPhoto() {
+    const box = $('#pb-photo');
+    if (!box) return;
+    box.innerHTML = this.state.photo ? `
+      <div class="pb-photo">
+        <img src="${this.state.photo}" alt="" />
+        <button type="button" aria-label="Remove photo" title="Remove photo" onclick="Pages.forum.removePhoto()">×</button>
+      </div>` : '';
+  },
+  removePhoto() {
+    this.state.photo = '';
+    this._showPhoto();
   },
 
   async postToFeed() {
@@ -3985,18 +4161,50 @@ Pages.forum = {
       toast('Only admins can post announcements', 'error');
       return;
     }
-    const title = $('#post-title').value.trim();
-    const body  = $('#post-body').value.trim();
-    if (!title || !body) { toast('Title and body are required', 'error'); return; }
+    if (!this._rte) return;
+    const body = this._rte.getHTML();
+    const text = this.plain(body);
+    if (!text && !this.state.photo) { toast('Write something first', 'error'); return; }
+    if (text.length > this.LIMIT) { toast(`Posts are up to ${this.LIMIT} characters`, 'error'); return; }
     await Store.save('threads', {
-      title, body,
+      body: text ? body : '',
+      photo: this.state.photo || '',
       category: cat,
       author: Auth.current().name,
       authorEmail: Auth.current().email
     });
-    this.render();
+    this.state.tab = 'all';
+    this.state.composeCategory = 'general';
+    await this.render();
     Pages.home.render();
-    toast(cat === 'announcement' ? 'Announcement published' : 'Post published', 'success');
+    toast(cat === 'announcement' ? 'Announcement posted' : 'Posted', 'success');
+  },
+
+  toggleMenu(e, id) {
+    e.stopPropagation();
+    const pop = $('#fp-pop-' + CSS.escape(id));
+    const open = pop && pop.hidden;
+    $$('.fp-pop').forEach(p => { p.hidden = true; });
+    if (pop && open) {
+      pop.hidden = false;
+      const close = (ev) => { if (!pop.contains(ev.target)) { pop.hidden = true; document.removeEventListener('click', close); } };
+      document.addEventListener('click', close);
+    }
+  },
+
+  /* One pinned announcement at a time. Admins only. */
+  async pinPost(id) {
+    if (!(await Auth.isAdmin())) { toast('Only admins can pin posts', 'error'); return; }
+    const post = await Store.get('threads', id);
+    if (!post) return;
+    if (post.category !== 'announcement') { toast('Only announcements can be pinned', 'error'); return; }
+    const pin = !post.pinned;
+    for (const p of await Store.list('threads')) {
+      if (p.pinned && p.id !== id) await Store.save('threads', { ...p, pinned: false });
+    }
+    await Store.save('threads', { ...post, pinned: pin });
+    await this._renderFeed();
+    toast(pin ? 'Pinned to the top' : 'Unpinned');
   },
 
   async deletePost(id) {
@@ -4008,9 +4216,19 @@ Pages.forum = {
     if (!isAdmin && !(isTribunee && isOwner)) { toast('You can only delete your own posts', 'error'); return; }
     if (!confirm('Delete this post? This cannot be undone.')) return;
     await Store.remove('threads', id);
-    this.render();
+    await this._renderFeed();
     Pages.home.render();
     toast('Post deleted');
+  },
+
+  async copyLink(id) {
+    const url = location.origin + '/forum/' + id;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Link copied');
+    } catch {
+      toast(url);
+    }
   },
 
   /* Kept as an alias — older call sites may still reference it. */
