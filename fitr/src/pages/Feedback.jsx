@@ -54,7 +54,7 @@ const html = `
     <span class="sub">— every correction we have made</span>
   </div>
   <div class="corrections-intro">
-    <strong>Transparency is non-negotiable.</strong> When we update an article on this site, the article itself is silently corrected — a clean read for the next visitor. But the fact that a correction was made is logged here, in public, for as long as Fitrah Tribune exists. The archive editions, however, remain untouched — preserved as originally printed.
+    <strong>Transparency is one of our four pillars.</strong> Our Editorial Standards promise that every correction is logged in public and that printed editions stay exactly as they were printed. When we fix a mistake in an article on this site, the article is updated so the next reader gets it right, and the correction is recorded here for as long as Fitrah Tribune exists.
   </div>
   <div id="corrections-list"><!-- rendered --></div>
 </section>
