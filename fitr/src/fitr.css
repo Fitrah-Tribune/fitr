@@ -664,14 +664,14 @@ body.editing .user-name { color: var(--navy-deep); }
 }
 .weather-loc { font-size: 0.82rem; color: var(--ink-muted); }
 .weather-note {
-  font-family: var(--ui);
+  font-family: var(--article);
   font-style: italic;
-  font-size: 0.85rem;
-  color: var(--ink-muted);
+  font-size: 1rem;
+  color: var(--ink-soft);
   margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px dashed var(--rule);
 }
+.weather-note p { margin: 0; }
+.weather-note p + p { margin-top: 1em; }
 
 /* ============ NEWS PAGE ============ */
 /* Internal / External News: the two permanent sections, above categories */

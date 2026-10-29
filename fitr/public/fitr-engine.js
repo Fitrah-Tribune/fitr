@@ -3244,42 +3244,62 @@ Pages.home._postExcerpt = (p) => {
    Kept for 30 minutes per visit so moving around the site doesn't refetch.
    If it can't be reached, the box says so instead of guessing. */
 const Weather = {
-  URL: 'https://api.open-meteo.com/v1/forecast?latitude=-6.4568&longitude=106.6827&current=temperature_2m,weather_code,is_day&timezone=Asia%2FJakarta',
+  // BMKG's public forecast for Karihkil, Ciseeng (village code 32.01.33.2006).
+  // BMKG asks to be credited as the source wherever its data is shown.
+  // /api/weather is the site's own copy (functions/api/weather.js), which
+  // avoids browser cross-site limits; BMKG directly is the fallback.
+  SOURCES: ['/api/weather', 'https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.01.33.2006'],
   KEEP_MS: 30 * 60 * 1000,
-  // WMO weather codes, grouped the way a reader would say them.
-  describe(code) {
-    if (code === 0) return ['Clear', 'sun'];
-    if (code <= 2) return ['Partly cloudy', 'sun'];
-    if (code === 3) return ['Cloudy', 'cloud'];
-    if (code <= 48) return ['Foggy', 'cloud'];
-    if (code <= 57) return ['Drizzle', 'rain'];
-    if (code <= 67) return ['Rain', 'rain'];
-    if (code <= 86) return ['Showers', 'rain'];
-    return ['Thunderstorms', 'storm'];
+  // BMKG weather codes, grouped by the icon they get.
+  kind(code) {
+    if (code <= 2) return 'sun';
+    if (code <= 45) return 'cloud';
+    if (code >= 95) return 'storm';
+    return 'rain';
+  },
+  // BMKG gives 3-hourly steps; take the one nearest to now.
+  nearest(json) {
+    const steps = ((json.data && json.data[0] && json.data[0].cuaca) || []).flat();
+    const when = s => s.utc_datetime
+      ? Date.parse(s.utc_datetime.replace(' ', 'T') + 'Z')
+      : Date.parse(String(s.local_datetime).replace(' ', 'T') + '+07:00');
+    let best = null;
+    for (const s of steps) {
+      const d = Math.abs(when(s) - Date.now());
+      if (!best || d < best.d) best = { s, d };
+    }
+    return best && best.s;
   },
   async current() {
     try {
-      const kept = JSON.parse(sessionStorage.getItem('fitrah:weather') || 'null');
+      const kept = JSON.parse(sessionStorage.getItem('fitrah:weather-bmkg') || 'null');
       if (kept && Date.now() - kept.at < this.KEEP_MS) return kept.data;
     } catch { /* storage unavailable: just fetch */ }
-    const res = await fetch(this.URL);
-    if (!res.ok) throw new Error('weather ' + res.status);
-    const data = (await res.json()).current;
-    try { sessionStorage.setItem('fitrah:weather', JSON.stringify({ at: Date.now(), data })); } catch { /* ignore */ }
-    return data;
+    for (const url of this.SOURCES) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const step = this.nearest(await res.json());
+        if (!step) continue;
+        try { sessionStorage.setItem('fitrah:weather-bmkg', JSON.stringify({ at: Date.now(), data: step })); } catch { /* ignore */ }
+        return step;
+      } catch { /* try the next source */ }
+    }
+    throw new Error('weather unavailable');
   },
   async render() {
     const box = $('#home-weather');
     if (!box) return;
     try {
       const w = await this.current();
-      const [label, kind] = this.describe(Number(w.weather_code));
-      const night = kind === 'sun' && !w.is_day;
+      const kind = this.kind(Number(w.weather));
+      const time = String(w.local_datetime || '').slice(11, 16);
+      const hour = Number(time.slice(0, 2));
+      const night = kind === 'sun' && (hour >= 18 || hour < 6);
       box.querySelector('.weather-icon').className = `weather-icon is-${night ? 'night' : kind}`;
-      box.querySelector('.weather-temp').innerHTML = `${Math.round(w.temperature_2m)}<span class="unit">°C</span>`;
-      box.querySelector('.weather-cond').textContent = night && label === 'Clear' ? 'Clear night' : label;
-      const time = (w.time || '').split('T')[1];
-      box.querySelector('.weather-loc').textContent = time ? `Ciseeng, Bogor · as of ${time}` : 'Ciseeng, Bogor';
+      box.querySelector('.weather-temp').innerHTML = `${Math.round(Number(w.t))}<span class="unit">°C</span>`;
+      box.querySelector('.weather-cond').textContent = w.weather_desc_en || w.weather_desc || '';
+      box.querySelector('.weather-loc').textContent = time ? `Karihkil, Ciseeng · BMKG, ${time}` : 'Karihkil, Ciseeng · BMKG';
     } catch {
       box.querySelector('.weather-icon').className = 'weather-icon is-cloud';
       box.querySelector('.weather-temp').textContent = '–';

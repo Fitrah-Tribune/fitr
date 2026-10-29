@@ -38,10 +38,14 @@ const html = `
         <div>
           <div class="weather-temp">–</div>
           <div class="weather-cond">Checking the sky…</div>
-          <div class="weather-loc">Ciseeng, Bogor</div>
+          <div class="weather-loc">Karihkil, Ciseeng</div>
         </div>
       </div>
-      <div class="weather-note">"What is news without weather?" — A house tradition since Edition I.</div>
+      <div class="weather-note">
+        <p>No major news body is ever complete without news related to the weather!</p>
+        <p>Data is taken from BMKG (Badan Meteorologi, Klimatologi, dan Geofisika), for the Karihkil area.</p>
+        <p>Note that the data may not reflect the situation actually in FIWA.</p>
+      </div>
     </div>
   </div>
 
