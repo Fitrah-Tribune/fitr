@@ -412,9 +412,24 @@ const NAV_TABS = [
   { id: 'about',       label: 'About',       icon: 'about' }
 ];
 
+/* The browser tab's title. Article, profile and edition pages name what
+   they show, which is also what appears when a link is shared. */
+const SITE_TITLE = 'Fitrah Tribune — Documenting FIWA And Beyond';
+const PAGE_TITLES = {
+  news: 'News', archive: 'Editions', forum: 'Forum', corrections: 'Feedback & Corrections',
+  about: 'About', write: 'Writer’s desk', article: 'Article', tribunee: 'The Tribunees'
+};
+function setTitle(name) {
+  document.title = name ? `${name} · Fitrah Tribune` : SITE_TITLE;
+}
+
+// Pages without their own tab light up the tab they belong to.
+const TAB_FOR_PAGE = { article: 'news', tribunee: 'about' };
+
 async function renderTabs() {
+  const current = TAB_FOR_PAGE[Router.current] || Router.current;
   $('#tabs-list').innerHTML = NAV_TABS.map(t => `
-    <button class="tab-btn ${Router.current === t.id ? 'active' : ''}" data-page="${t.id}" onclick="Router.go('${t.id}')">
+    <button class="tab-btn ${current === t.id ? 'active' : ''}" data-page="${t.id}" onclick="Router.go('${t.id}')">
       ${Icons[t.icon]}<span>${t.label}</span>
     </button>
   `).join('');
@@ -1759,6 +1774,7 @@ const Editor = {
 
   /* Featured (home) ──────────────────── */
   async featureArticle() {
+    if (!(await Auth.isTribunee())) { toast('Only Tribunees can change the front page', 'error'); return; }
     const articles = await listVisibleArticles();
     if (!articles.length) { toast('No articles to feature yet', 'error'); return; }
     const featured = await Store.list('featured');
@@ -1789,6 +1805,7 @@ const Editor = {
   },
 
   async saveFeatured() {
+    if (!(await Auth.isTribunee())) { toast('Only Tribunees can change the front page', 'error'); return; }
     const checked = $$('#modal-body input[data-article-id]:checked').map(c => c.dataset.articleId);
     if (checked.length > 3) {
       toast('Pick up to 3 articles', 'error');
@@ -2195,11 +2212,48 @@ async function importFromPDF(file) {
   };
 }
 
+/* ── Cleaning rich text ────────────────────────────────────────────────
+   Articles, bios and forum posts are saved as HTML and shown to every
+   reader, so anything that could run code (scripts, onclick=…, javascript:
+   links, iframes) is removed first. Parsing happens in a separate inert
+   document, so nothing in it runs or loads while it is being read. */
+const RICH_TAGS = new Set(['P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'DEL', 'SPAN', 'DIV',
+  'H2', 'H3', 'H4', 'BLOCKQUOTE', 'UL', 'OL', 'LI', 'A', 'IMG', 'FONT', 'SUB', 'SUP', 'FIGURE', 'FIGCAPTION', 'HR']);
+const RICH_DROP = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT', 'BUTTON', 'TEXTAREA',
+  'SELECT', 'LINK', 'META', 'BASE', 'SVG', 'MATH', 'TEMPLATE', 'NOSCRIPT', 'FRAME', 'FRAMESET', 'AUDIO', 'VIDEO']);
+const RICH_ATTRS = new Set(['style', 'class', 'href', 'src', 'alt', 'title', 'target', 'rel', 'data-style', 'color', 'face', 'size', 'width', 'height']);
+function inertBody(html) {
+  return new DOMParser().parseFromString(String(html || ''), 'text/html').body;
+}
+function htmlText(html) {
+  return (inertBody(html).textContent || '').replace(/\s+/g, ' ').trim();
+}
+function cleanRichHTML(html) {
+  const body = inertBody(html);
+  const walk = (node) => {
+    for (const el of [...node.children]) {
+      if (RICH_DROP.has(el.tagName)) { el.remove(); continue; }
+      walk(el);
+      if (!RICH_TAGS.has(el.tagName)) { el.replaceWith(...el.childNodes); continue; }
+      for (const { name, value } of [...el.attributes]) {
+        const v = value.trim().toLowerCase();
+        const ok = RICH_ATTRS.has(name)
+          && !(name === 'href' && !/^(https?:|mailto:|\/|#)/.test(v))
+          && !(name === 'src' && !/^(https:|\/|data:image\/(png|jpe?g|gif|webp);)/.test(v))
+          && !(name === 'style' && /url\(|expression|javascript:/.test(v));
+        if (!ok) el.removeAttribute(name);
+      }
+      if (el.tagName === 'A' && el.getAttribute('target') === '_blank') el.setAttribute('rel', 'noopener');
+    }
+  };
+  walk(body);
+  return body.innerHTML;
+}
+
 /* Render article body — handle both HTML (rich) and legacy plain text */
 function renderArticleBody(body) {
   if (!body) return '';
-  // If contains tags, render as-is (trusted: only tribunees can write)
-  if (/<\w+/.test(body)) return body;
+  if (/<\w+/.test(body)) return cleanRichHTML(body);
   // Otherwise treat as plain text with paragraph breaks
   return body.split(/\n\n+/).map(p =>
     `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`
@@ -2245,7 +2299,7 @@ const RichEditor = {
     if (initial && initial.trim()) {
       // Inject as HTML if it has tags, else as plain-text-with-paragraph-breaks
       if (/<\w+/.test(initial)) {
-        editor.innerHTML = initial;
+        editor.innerHTML = cleanRichHTML(initial);
       } else {
         editor.innerHTML = initial.split(/\n\n+/)
           .map(p => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`).join('');
@@ -3152,6 +3206,8 @@ Pages.home = {
       `).join('')}</div>`;
     }
 
+    Weather.render();
+
     // Forum preview — latest posts from the feed
     const posts = (await Store.list('threads')).sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
     const fp = $('#home-forum-preview');
@@ -3179,11 +3235,57 @@ Pages.home = {
    start of its text. */
 Pages.home._postExcerpt = (p) => {
   if (p.title) return p.title;
-  const d = document.createElement('div');
-  d.innerHTML = p.body || '';
-  const t = d.textContent.replace(/\s+/g, ' ').trim();
+  const t = htmlText(p.body);
   if (!t) return p.photo ? 'Shared a photo' : '';
   return t.length > 90 ? t.slice(0, 88).trimEnd() + '…' : t;
+};
+
+/* Live weather for the home page, from Open-Meteo (free, no key).
+   Kept for 30 minutes per visit so moving around the site doesn't refetch.
+   If it can't be reached, the box says so instead of guessing. */
+const Weather = {
+  URL: 'https://api.open-meteo.com/v1/forecast?latitude=-6.4568&longitude=106.6827&current=temperature_2m,weather_code,is_day&timezone=Asia%2FJakarta',
+  KEEP_MS: 30 * 60 * 1000,
+  // WMO weather codes, grouped the way a reader would say them.
+  describe(code) {
+    if (code === 0) return ['Clear', 'sun'];
+    if (code <= 2) return ['Partly cloudy', 'sun'];
+    if (code === 3) return ['Cloudy', 'cloud'];
+    if (code <= 48) return ['Foggy', 'cloud'];
+    if (code <= 57) return ['Drizzle', 'rain'];
+    if (code <= 67) return ['Rain', 'rain'];
+    if (code <= 86) return ['Showers', 'rain'];
+    return ['Thunderstorms', 'storm'];
+  },
+  async current() {
+    try {
+      const kept = JSON.parse(sessionStorage.getItem('fitrah:weather') || 'null');
+      if (kept && Date.now() - kept.at < this.KEEP_MS) return kept.data;
+    } catch { /* storage unavailable: just fetch */ }
+    const res = await fetch(this.URL);
+    if (!res.ok) throw new Error('weather ' + res.status);
+    const data = (await res.json()).current;
+    try { sessionStorage.setItem('fitrah:weather', JSON.stringify({ at: Date.now(), data })); } catch { /* ignore */ }
+    return data;
+  },
+  async render() {
+    const box = $('#home-weather');
+    if (!box) return;
+    try {
+      const w = await this.current();
+      const [label, kind] = this.describe(Number(w.weather_code));
+      const night = kind === 'sun' && !w.is_day;
+      box.querySelector('.weather-icon').className = `weather-icon is-${night ? 'night' : kind}`;
+      box.querySelector('.weather-temp').innerHTML = `${Math.round(w.temperature_2m)}<span class="unit">°C</span>`;
+      box.querySelector('.weather-cond').textContent = night && label === 'Clear' ? 'Clear night' : label;
+      const time = (w.time || '').split('T')[1];
+      box.querySelector('.weather-loc').textContent = time ? `Ciseeng, Bogor · as of ${time}` : 'Ciseeng, Bogor';
+    } catch {
+      box.querySelector('.weather-icon').className = 'weather-icon is-cloud';
+      box.querySelector('.weather-temp').textContent = '–';
+      box.querySelector('.weather-cond').textContent = 'Weather unavailable right now';
+    }
+  }
 };
 
 /* ── NEWS ────────────────────────────────────────────────────────────── */
@@ -3233,8 +3335,7 @@ Pages.news = {
     if (this.state.search) {
       // Search the words people read, not the HTML around them.
       const q = this.state.search.toLowerCase();
-      const d = document.createElement('div');
-      const bodyText = (html) => { d.innerHTML = html || ''; return d.textContent.toLowerCase(); };
+      const bodyText = (html) => htmlText(html).toLowerCase();
       articles = articles.filter(a =>
         a.title.toLowerCase().includes(q) ||
         (a.deck || '').toLowerCase().includes(q) ||
@@ -3286,8 +3387,7 @@ Pages.news = {
       `;
     } else if (view === 'list') {
       // Newest first, grouped by the day they were published.
-      const plain = document.createElement('div');
-      const mins = (a) => { plain.innerHTML = renderArticleBody(a.body); return Math.max(1, Math.round(plain.textContent.split(/\s+/).filter(Boolean).length / 200)); };
+      const mins = (a) => Math.max(1, Math.round(htmlText(renderArticleBody(a.body)).split(' ').filter(Boolean).length / 200));
       const days = [];
       articles.forEach(a => {
         const d = formatDate(a.createdAt);
@@ -3359,6 +3459,7 @@ Pages.article = {
       return;
     }
     const a = await Store.get('articles', id);
+    if (a) setTitle(a.title);
     if (!a) {
       root.innerHTML = `<div class="empty-state">${Icons.empty}<h3>Article not found</h3><p>It may have been removed or never existed.</p></div>`;
       return;
@@ -3385,7 +3486,7 @@ Pages.article = {
       ? `<a class="author" onclick="Router.go('tribunee/${w.t.id}')">${escapeHtml(w.name)}</a>`
       : `<span class="author">${escapeHtml(w.name)}</span>`;
     const byline = writers.map(nameLink).join(' &amp; ');
-    const plain = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent.replace(/\s+/g, ' ').trim(); };
+    const plain = htmlText;
     const words = plain(renderArticleBody(a.body)).split(' ').filter(Boolean).length;
     const readMins = Math.max(1, Math.round(words / 200));
 
@@ -3520,6 +3621,7 @@ Pages.tribunee = {
       return;
     }
     const t = await Store.get('tribunees', id);
+    if (t) setTitle(t.name);
     if (!t) {
       root.innerHTML = `<div class="empty-state">${Icons.empty}<h3>Tribunee not found</h3><p>They may have moved on from the team.</p></div>`;
       return;
@@ -3717,6 +3819,7 @@ Pages.archive = {
     const canEdit = Editor.active && await Auth.isAdmin();
     const editions = await Editions.list();
     const e = editions.find(x => Number(x.number) === n);
+    if (e) setTitle(Editions.label(n));
     if (!e) {
       EditionReader.close();
       root.innerHTML = `
@@ -3947,9 +4050,7 @@ Pages.forum = {
 
   /* Plain text of a post body, for counting and previews. */
   plain(html) {
-    const d = document.createElement('div');
-    d.innerHTML = html || '';
-    return d.textContent.replace(/\s+/g, ' ').trim();
+    return htmlText(html);
   },
 
   /* ── Composer: Tribunees only. Guests and readers see just the feed. */
@@ -4740,7 +4841,7 @@ Pages.corrections = {
         <div class="empty-state">
           ${Icons.empty}
           <h3>No corrections logged yet</h3>
-          <p>When tribunees update an article, the change is recorded here in public — kept transparent for as long as Fitrah Tribune exists.</p>
+          <p>When Tribunees update an article, the change is recorded here in public — kept transparent for as long as Fitrah Tribune exists.</p>
         </div>
       `;
       return;
@@ -4807,8 +4908,7 @@ Pages.about = {
       // The bio's first paragraph only, clamped to two lines by CSS.
       const bioText = (() => {
         if (!t.bio) return '';
-        const tmp = document.createElement('div');
-        tmp.innerHTML = t.bio;
+        const tmp = inertBody(t.bio);
         for (const b of tmp.querySelectorAll('p, blockquote, h2, h3, h4, li')) {
           const txt = (b.textContent || '').replace(/\s+/g, ' ').trim();
           if (txt) return txt;
@@ -5373,6 +5473,7 @@ const ready = (async () => {
     if (typeof original !== 'function') return;
     Pages[key].render = async function (...args) {
       if (!document.getElementById('page-' + key)) return;
+      setTitle(PAGE_TITLES[key]);
       try { return await original.apply(this, args); }
       catch (e) { if (document.getElementById('page-' + key)) throw e; }
     };
@@ -5402,6 +5503,6 @@ async function mountChrome() {
 
 /* The only door between the engine and React. */
 window.FITR = {
-  ready, mountChrome, renderTabs, renderUserArea,
+  ready, mountChrome, renderTabs, renderUserArea, setTitle,
   Router, Pages, Auth, Store, Editor, Modal, SignIn, toast
 };

@@ -33,12 +33,12 @@ const html = `
         <h3>Weather · Ciseeng</h3>
         <span style="font-family: var(--ui); font-size: 0.7rem; color: var(--ink-muted); letter-spacing: 0.16em;">TODAY</span>
       </div>
-      <div class="weather-now">
+      <div class="weather-now" id="home-weather">
         <div class="weather-icon"></div>
         <div>
-          <div class="weather-temp">29<span class="unit">°C</span></div>
-          <div class="weather-cond">Partly Cloudy</div>
-          <div class="weather-loc">Bogor, West Java</div>
+          <div class="weather-temp">–</div>
+          <div class="weather-cond">Checking the sky…</div>
+          <div class="weather-loc">Ciseeng, Bogor</div>
         </div>
       </div>
       <div class="weather-note">"What is news without weather?" — A house tradition since Edition I.</div>
@@ -47,10 +47,10 @@ const html = `
 
   <div class="home-tipoff">
     <div>
-      <h3>Spot Misinformation?</h3>
-      <p>Help us keep the lighthouse lit. Flag a rumor or an error directly to the editorial team — privately, and on the record only if it becomes a correction.</p>
+      <h3>Have something to say?</h3>
+      <p>Send the editors a note: a mistake, a news tip, or any other feedback.</p>
     </div>
-    <button onclick="Pages.corrections.openSubmit()">Report a Tip</button>
+    <button onclick="Pages.corrections.openSubmit()">Send a note</button>
   </div>
 </section>
 `

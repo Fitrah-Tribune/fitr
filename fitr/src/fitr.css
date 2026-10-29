@@ -372,6 +372,12 @@ body.editing .user-name { color: var(--navy-deep); }
   font-weight: 300;
 }
 .section-head .head-action { margin-left: auto; }
+/* Phones: the grey subtitle goes under the heading instead of squeezing
+   beside it. */
+@media (max-width: 720px) {
+  .section-head { flex-wrap: wrap; gap: 0.2rem 1rem; }
+  .section-head .sub { flex-basis: 100%; }
+}
 
 /* ============ EMPTY STATES ============ */
 .empty-state {
@@ -637,6 +643,10 @@ body.editing .user-name { color: var(--navy-deep); }
   flex-shrink: 0;
   box-shadow: 0 0 24px rgba(216, 169, 86, 0.4);
 }
+.weather-icon.is-cloud { background: radial-gradient(circle at 30% 30%, #d9d4c8, #a39d90); box-shadow: none; }
+.weather-icon.is-rain,
+.weather-icon.is-storm { background: radial-gradient(circle at 30% 30%, var(--navy-soft), var(--navy-deep)); box-shadow: none; }
+.weather-icon.is-night { background: radial-gradient(circle at 30% 30%, #e8e4d8, #b9b3a3); box-shadow: 0 0 18px rgba(185, 179, 163, 0.35); }
 .weather-temp {
   font-family: var(--ui);
   font-weight: 300;
@@ -2091,6 +2101,8 @@ footer.tribune-footer {
 }
 .footer-col a:hover { color: var(--gold-bright); }
 .footer-bottom {
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
   max-width: 1280px;
   margin: 0 auto;
   display: flex;
