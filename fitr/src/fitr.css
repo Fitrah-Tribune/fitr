@@ -3462,3 +3462,7 @@ footer.tribune-footer { margin-top: 0.5rem; }
   .desk-body .rte-toolbar { margin: 0; position: static; }
 }
 .desk-panel .pdf-import-row { flex-wrap: wrap; }
+
+/* Forum: shown to guests and non-FIWA accounts under the announcements. */
+.forum-fiwa-note { font-family: var(--article); font-style: italic; font-size: 1.05rem; color: var(--ink-soft); margin: 1.25rem 0 0; padding: 0.9rem 1rem; border-left: 3px solid var(--gold); background: var(--paper-deep); }
+.forum-fiwa-note strong { font-style: normal; color: var(--navy); }

@@ -770,8 +770,8 @@ const Editor = {
               <div class="field">
                 <label>Visibility</label>
                 <select id="art-visibility">
-                  <option value="public" ${a.visibility !== 'fiwa' ? 'selected' : ''}>Public</option>
-                  <option value="fiwa" ${a.visibility === 'fiwa' ? 'selected' : ''}>FIWA only</option>
+                  <option value="public" ${a.visibility === 'public' || (isEditing && a.visibility !== 'fiwa') ? 'selected' : ''}>Public</option>
+                  <option value="fiwa" ${a.visibility === 'fiwa' || (!isEditing && a.visibility !== 'public') ? 'selected' : ''}>FIWA only</option>
                 </select>
               </div>
               <div class="field">
@@ -3283,7 +3283,8 @@ Pages.home = {
     Weather.render();
 
     // Forum preview — latest posts from the feed
-    const posts = (await Store.list('threads')).sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
+    const posts = (await Store.list('threads')).filter(p => Auth.isFiwa() || p.category === 'announcement')
+      .sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
     const fp = $('#home-forum-preview');
     if (posts.length === 0) {
       fp.innerHTML = `<p style="font-family: var(--article); font-style: italic; font-size: 1.05rem; color: var(--ink-soft); padding: 1rem 0;">Nothing posted yet. Announcements and notices from the Tribune will appear here.</p>`;
@@ -4280,7 +4281,9 @@ Pages.forum = {
       b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
 
-    let posts = await Store.list('threads');
+    // FIWA-first (mudir's advice, Oct 2026): announcements are public;
+    // the rest of the feed is for FIWA accounts. The database enforces it.
+    let posts = (await Store.list('threads')).filter(p => Auth.isFiwa() || p.category === 'announcement');
     if (tab === 'announcement') posts = posts.filter(p => p.category === 'announcement');
     else if (tab === 'general') posts = posts.filter(p => p.category !== 'announcement');
     // Newest first; the pinned announcement sits on top (not on General).
@@ -4289,7 +4292,10 @@ Pages.forum = {
     if (pinned) posts = [pinned, ...posts.filter(p => p !== pinned)];
 
     const list = $('#forum-post-list');
+    const fiwaNote = Auth.isFiwa() || tab === 'announcement' ? '' : `
+      <p class="forum-fiwa-note">The rest of the feed is for the FIWA community. Sign in with your <strong>@fiwa.sch.id</strong> account to see it.</p>`;
     if (posts.length === 0) {
+      if (fiwaNote && tab === 'general') { list.innerHTML = fiwaNote; return; }
       const emptyCopy = tab === 'announcement'
         ? 'No announcements have been posted yet.'
         : tab === 'general'
@@ -4297,7 +4303,7 @@ Pages.forum = {
           : (isTribunee
               ? 'Nothing here yet. Write the first post.'
               : 'Nothing here yet. When the Tribune posts an announcement or notice, it appears here.');
-      list.innerHTML = `
+      list.innerHTML = fiwaNote + `
         <div class="empty-state">
           ${Icons.empty}
           <h3>The feed is empty</h3>
@@ -4354,7 +4360,7 @@ Pages.forum = {
           </div>
         </article>
       `;
-    }).join('');
+    }).join('') + fiwaNote;
   },
 
   /* The roster entry behind a post, matched by email, then by name. */

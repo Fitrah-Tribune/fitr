@@ -121,6 +121,10 @@ begin
   case r.coll
     when 'articles' then
       if coalesce(r.data ->> 'visibility', 'public') = 'fiwa' and not public.fitr_is_fiwa() then return null; end if;
+    when 'threads' then
+      -- FIWA-first: announcements are public, the rest of the feed is for
+      -- FIWA accounts (the mudir's advice, Oct 2026).
+      if coalesce(r.data ->> 'category', 'general') <> 'announcement' and not public.fitr_is_fiwa() then return null; end if;
     when 'drafts' then
       if not mine then return null; end if;
     when 'allowlist' then
