@@ -441,7 +441,7 @@ function Leaderboard({ board, admin, onRemove }) {
             : (
               <table className="lb-table">
                 <thead>
-                  <tr><th>#</th><th>Name</th><th>WPM</th><th>Accuracy</th><th>Date</th>{admin && <th />}</tr>
+                  <tr><th>#</th><th>Name</th><th>WPM</th><th>Accuracy</th><th className="lb-date">Date</th>{admin && <th />}</tr>
                 </thead>
                 <tbody>
                   {rows.map((r, i) => row(r, i + 1))}
