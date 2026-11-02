@@ -85,7 +85,7 @@ fitr/
 | `/tribunee/:id` | `tribunee` | `Tribunee.jsx` |
 | `/write`, `/write/:id` | `write` | `Write.jsx` (the Writer's desk; Tribunees only) |
 | `/more` | `more` | `More.jsx` (extras, one card each; real React) |
-| `/more/typing` | `more` | `TypingTest.jsx` (the Student Challenge typing test; real React) |
+| `/more/typing` | `more` | `TypingTest.jsx` (the Student Challenge: Monkeytype in a frame, plus the leaderboard; real React) |
 
 Note the one mismatch: URL `/feedback` → engine key `corrections`.
 
@@ -93,6 +93,13 @@ Note the one mismatch: URL `/feedback` → engine key `corrections`.
 use `src/lib/useReactPage.js` instead of `useLegacyPage`, and the engine
 has no `Pages.more` code (the hook registers a small stand-in so signing
 in or out redraws them).
+
+The typing test itself is Monkeytype's offline build,
+`public/typing/monkeytype.html` (GPL-3.0; `LICENSE-monkeytype.txt` beside
+it must stay). The Tribune added two things to it, both marked: a
+Content-Security-Policy that stops it contacting outside services
+(analytics, error reports, Monkeytype's servers), and a script that posts
+each result to the page. Keep both if the file is ever replaced.
 
 ### Internal / External News
 
@@ -216,7 +223,8 @@ Tribunee and admin come from the `allowlist` collection
 - One score per person: their best 30-second result. The name shown comes
   from the roster or the Google account, never from the browser.
 - Impossible scores (over 250 WPM) are refused. Only admins remove scores.
-- Test settings are per device and never change how a test is scored.
+- Only Monkeytype's "time 30, English" results count; other modes are
+  shown but not saved.
 
 **Corrections log:** public and permanent. Admins can edit/delete entries, in
 editing mode only.
