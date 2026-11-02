@@ -84,8 +84,15 @@ fitr/
 | `/article/:id` | `article` | `Article.jsx` |
 | `/tribunee/:id` | `tribunee` | `Tribunee.jsx` |
 | `/write`, `/write/:id` | `write` | `Write.jsx` (the Writer's desk; Tribunees only) |
+| `/more` | `more` | `More.jsx` (extras, one card each; real React) |
+| `/more/typing` | `more` | `TypingTest.jsx` (the Student Challenge typing test; real React) |
 
 Note the one mismatch: URL `/feedback` → engine key `corrections`.
+
+`More.jsx` and `TypingTest.jsx` were written in React from the start: they
+use `src/lib/useReactPage.js` instead of `useLegacyPage`, and the engine
+has no `Pages.more` code (the hook registers a small stand-in so signing
+in or out redraws them).
 
 ### Internal / External News
 
@@ -204,6 +211,13 @@ Tribunee and admin come from the `allowlist` collection
 - "Log a public correction" from a note copies **nothing** from the note.
   The admin writes the public note from scratch. Keep it that way.
 
+**Student Challenge (typing test)**
+- Only FIWA accounts can take the test or see the leaderboard.
+- One score per person: their best 30-second result. The name shown comes
+  from the roster or the Google account, never from the browser.
+- Impossible scores (over 250 WPM) are refused. Only admins remove scores.
+- Test settings are per device and never change how a test is scored.
+
 **Corrections log:** public and permanent. Admins can edit/delete entries, in
 editing mode only.
 
@@ -229,7 +243,8 @@ public user, a non-admin Tribunee, and an admin.
 - Collections: `articles`, `editions`, `corrections`, `threads` (forum posts),
   `tribunees`, `allowlist`, `cases` (feedback notes), `casemsgs` (their
   messages), `drafts` (the Writer's desk's unpublished work, one per writer
-  per article), `featured` (front-page picks), `newsTabs` (categories).
+  per article), `featured` (front-page picks), `newsTabs` (categories),
+  `typing` (Student Challenge scores, one per person).
   (`comments` is legacy and wiped.) On Supabase they all live in one table,
   `fitr_records`, reached only through `fitr_list/get/save/remove`.
 - **The permission rules above are enforced in `supabase/schema.sql`.**

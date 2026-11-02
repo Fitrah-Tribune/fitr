@@ -388,7 +388,8 @@ const ROUTE_PATHS = {
   about:       '/about',
   article:     '/article',
   tribunee:    '/tribunee',
-  write:       '/write'
+  write:       '/write',
+  more:        '/more'
 };
 
 const Router = {
@@ -441,6 +442,7 @@ const Icons = {
   forum:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
   pencil:  `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   about:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>`,
+  extras:  `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><path d="M16.75 13.5v6.5M13.5 16.75H20"/></svg>`,
   view_list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><rect x="3" y="5" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="11" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="17" width="2.5" height="2.5" fill="currentColor" stroke="none"/></svg>`,
   view_grid: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5"/><rect x="13.5" y="4" width="6.5" height="6.5"/><rect x="4" y="13.5" width="6.5" height="6.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5"/></svg>`,
   // Small action icons, drawn like the tab icons (24 grid, 2px round strokes).
@@ -463,7 +465,8 @@ const NAV_TABS = [
   { id: 'archive',     label: 'Editions',    icon: 'archive' },
   { id: 'forum',       label: 'Forum',       icon: 'forum' },
   { id: 'corrections', label: 'Feedback & Corrections', icon: 'pencil' },
-  { id: 'about',       label: 'About',       icon: 'about' }
+  { id: 'about',       label: 'About',       icon: 'about' },
+  { id: 'more',        label: 'More',        icon: 'extras' }
 ];
 
 /* The browser tab's title. Article, profile and edition pages name what
@@ -471,7 +474,7 @@ const NAV_TABS = [
 const SITE_TITLE = 'Fitrah Tribune — Documenting FIWA And Beyond';
 const PAGE_TITLES = {
   news: 'News', archive: 'Editions', forum: 'Forum', corrections: 'Feedback & Corrections',
-  about: 'About', write: 'Writer’s desk', article: 'Article', tribunee: 'The Tribunees'
+  about: 'About', more: 'More', write: 'Writer’s desk', article: 'Article', tribunee: 'The Tribunees'
 };
 function setTitle(name) {
   document.title = name ? `${name} · Fitrah Tribune` : SITE_TITLE;
