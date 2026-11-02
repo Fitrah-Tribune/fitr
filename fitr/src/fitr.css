@@ -3623,7 +3623,7 @@ footer.tribune-footer { margin-top: 0.5rem; }
 /* Leaderboard */
 .typing-board {
   background: var(--paper-lift); border: 1px solid var(--rule);
-  padding: 1.5rem; margin-bottom: 3rem;
+  padding: 1.5rem; margin-bottom: 3rem; overflow-x: auto;
 }
 .typing-board .strip-head h3 { font-family: var(--headline); font-weight: 700; font-size: 1.1rem; }
 .lb-count { font-family: var(--ui); font-size: 0.72rem; color: var(--ink-muted); }
@@ -3662,4 +3662,7 @@ footer.tribune-footer { margin-top: 0.5rem; }
   .kb-key.space { width: 10rem; }
   .lb-date { display: none; }
   .tr-num { font-size: 3.2rem; }
+  .typing-board { padding: 1.1rem 0.9rem; }
+  .lb-table td, .lb-table th { padding-left: 0.3rem; padding-right: 0.3rem; }
+  .lb-rank { width: 1.8rem; }
 }
