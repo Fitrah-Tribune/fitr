@@ -2,10 +2,13 @@ Monkeytype (typing/monkeytype.html) is free software by the Monkeytype
 contributors, released under the GNU General Public License version 3.
 Source code: https://github.com/monkeytypegame/monkeytype
 
-The copy on this site is an offline build with two additions by the Fitrah
-Tribune, both marked in the file: a Content-Security-Policy that stops it
-contacting outside services, and a short script that passes each test's
-result to the page around it. The rest of the Fitrah Tribune website is
+The copy on this site is an offline build with additions by the Fitrah
+Tribune, marked in the file's <head>: a Content-Security-Policy that stops
+it contacting outside services, fitr-skin.js (fixes the test settings,
+sets the Tribune's colours and passes each test's result to the page
+around it) and fitr-skin.css (the Tribune's colours and fonts, and hides
+parts the Tribune doesn't use). Those two files are released under the
+same licence. The rest of the Fitrah Tribune website is
 separate work under its own licence (see LICENSE in the repository).
 
 ========================================================================

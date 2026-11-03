@@ -96,10 +96,21 @@ in or out redraws them).
 
 The typing test itself is Monkeytype's offline build,
 `public/typing/monkeytype.html` (GPL-3.0; `LICENSE-monkeytype.txt` beside
-it must stay). The Tribune added two things to it, both marked: a
-Content-Security-Policy that stops it contacting outside services
-(analytics, error reports, Monkeytype's servers), and a script that posts
-each result to the page. Keep both if the file is ever replaced.
+it must stay). The Tribune's changes, all marked in its `<head>`:
+- a Content-Security-Policy that stops it contacting outside services
+  (analytics, error reports, Monkeytype's servers); only Google Fonts is
+  allowed, for the Tribune's fonts;
+- `fitr-skin.js`: before Monkeytype starts, fixes the test to time 30,
+  English and sets the Tribune colours as Monkeytype's custom theme (so the
+  result chart matches too); posts each result to the page;
+- `fitr-skin.css`: the Tribune colours and fonts, and hides what the
+  Student Challenge doesn't use: the logo, account/alerts/about links, the
+  mode bar, Monkeytype's footer links, the result's sign-in tip, the theme
+  group, and settings that change the test or the look (language, funbox,
+  layoutfluid, polyglot, repeat quotes, British English, lazy mode, font).
+  Everything else in Settings stays, and so does Monkeytype's Leaderboards
+  link (to be reworked later).
+Keep all three if the file is ever replaced.
 
 ### Internal / External News
 
