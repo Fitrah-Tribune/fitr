@@ -33,7 +33,8 @@ body, button, input, select, textarea, kbd { font-family: var(--font) !important
 }
 #result .stats .group .top { letter-spacing: 0.08em; }
 
-/* Header: only the test, the leaderboard and settings. */
+/* Header: only the test, the leaderboard (which opens the Tribune's board,
+   see fitr-skin.js) and settings. */
 header [data-ui-element="logo"],
 nav [data-nav-item="about"],
 nav [data-nav-item="alerts"],

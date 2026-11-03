@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import useReactPage from '../lib/useReactPage'
 import { TEST_SECONDS, PAGE_SIZE, counts, listScores, findMine, submitScore, removeScore } from '../lib/typing'
 
-// Route: /more/typing
-// The Student Challenge: Monkeytype in a frame, and the FIWA leaderboard.
-// Only FIWA accounts can take it or see the board (also enforced in
+// Route: /more/typing (the test) and /more/typing?view=leaderboard
+// The Student Challenge: Monkeytype in a frame, and the FIWA leaderboard,
+// which opens from Monkeytype's own leaderboard (crown) button. Only FIWA
+// accounts can take it or see the board (also enforced in
 // supabase/schema.sql).
 export default function TypingTest() {
   const { ready, version } = useReactPage('more', 'The Tribune Typing Test')
@@ -15,6 +16,10 @@ export default function TypingTest() {
   const [board, setBoard] = useState({ loading: true, list: [] })
   const [admin, setAdmin] = useState(false)
   const [save, setSave] = useState(null)       // what happened to the last result
+  const [params, setParams] = useSearchParams()
+  const showBoard = params.get('view') === 'leaderboard'
+  const openBoard = useCallback(() => setParams({ view: 'leaderboard' }), [setParams])
+  const closeBoard = () => setParams({})
 
   const loadBoard = useCallback(async () => {
     try {
@@ -62,13 +67,21 @@ export default function TypingTest() {
 
       {!ready ? null : !fiwa ? <Locked /> : (
         <>
-          <MonkeyFrame onResult={onResult} />
-          <SaveNote save={save} />
-          <Leaderboard board={board} admin={admin} onRemove={async (r) => {
-            if (!window.confirm(`Remove ${r.name || 'this'}'s score from the leaderboard?`)) return
-            try { await removeScore(r.id); await loadBoard() }
-            catch (e) { window.FITR.toast(e.message, 'error') }
-          }} />
+          {/* The frame stays loaded while the board is open, so a test isn't lost. */}
+          <div hidden={showBoard}>
+            <MonkeyFrame onResult={onResult} onOpenBoard={openBoard} />
+            <SaveNote save={save} onOpenBoard={openBoard} />
+          </div>
+          {showBoard && (
+            <>
+              <button className="btn-ghost typing-return" onClick={closeBoard}>← Back to the test</button>
+              <Leaderboard board={board} admin={admin} onRemove={async (r) => {
+                if (!window.confirm(`Remove ${r.name || 'this'}'s score from the leaderboard?`)) return
+                try { await removeScore(r.id); await loadBoard() }
+                catch (e) { window.FITR.toast(e.message, 'error') }
+              }} />
+            </>
+          )}
         </>
       )}
     </section>
@@ -97,13 +110,15 @@ function Locked() {
 /* ── The test: Monkeytype, in a frame ──
    public/typing/monkeytype.html is Monkeytype's offline build (GPL-3.0),
    with a policy that stops it contacting outside services and a small
-   script that posts each result here. */
-function MonkeyFrame({ onResult }) {
+   script (fitr-skin.js) that posts each result here, and asks for the
+   Tribune leaderboard when its leaderboard button is pressed. */
+function MonkeyFrame({ onResult, onOpenBoard }) {
   const frame = useRef(null)
   useEffect(() => {
     const onMessage = (e) => {
       if (e.origin !== location.origin || e.source !== frame.current?.contentWindow) return
       const d = e.data
+      if (d && d.type === 'fitr-open-leaderboard') { onOpenBoard(); return }
       if (!d || d.type !== 'fitr-typing-result') return
       const num = (v) => parseFloat(String(v || '').replace(/[^0-9.]/g, ''))
       onResult({
@@ -115,7 +130,7 @@ function MonkeyFrame({ onResult }) {
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [onResult])
+  }, [onResult, onOpenBoard])
   return (
     <div className="typing-frame">
       <iframe ref={frame} src="/typing/monkeytype.html" title="Typing test" allow="clipboard-write" />
@@ -128,14 +143,15 @@ function MonkeyFrame({ onResult }) {
   )
 }
 
-function SaveNote({ save }) {
-  if (!save) return <p className="tr-save">Results from <strong>time 30</strong> tests in plain <strong>English</strong> go on the leaderboard.</p>
+function SaveNote({ save, onOpenBoard }) {
+  const board = <button className="more-link-btn" onClick={onOpenBoard}>See the leaderboard</button>
+  if (!save) return <p className="tr-save">Each result goes on the FIWA leaderboard if it’s your best. {board}</p>
   const text = save.state === 'saving' ? 'Saving to the leaderboard…'
     : save.state === 'skipped' ? `That was a “${save.testType}” test, so it doesn’t count. Switch to time 30, English for the leaderboard.`
       : save.state === 'error' ? `Couldn’t save this score: ${save.message}`
         : save.best ? `${save.wpm} wpm: a new personal best! You’re #${save.rank} on the leaderboard.`
           : `${save.wpm} wpm. Your best is still ${save.kept.wpm} wpm (#${save.rank} on the leaderboard).`
-  return <p className="tr-save">{text}</p>
+  return <p className="tr-save">{text} {save.state === 'done' && board}</p>
 }
 
 /* ── Leaderboard ── */

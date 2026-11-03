@@ -5,7 +5,10 @@
  *    Tribune's colours. Everything else
  *    the reader set (caret, sounds, tape mode, …) is kept.
  * 2. When a test ends: tell the Tribune page around this frame the result.
- * 3. Hide the "Account settings have moved" box on the settings page
+ * 3. Monkeytype's leaderboard (crown) button opens the Tribune's FIWA
+ *    leaderboard on the page around this frame, not Monkeytype's own
+ *    (which is empty offline).
+ * 4. Hide the "Account settings have moved" box on the settings page
  *    (there are no Monkeytype accounts here). It has no name of its own
  *    to hide it by in CSS, so it is found by its words.
  */
@@ -53,6 +56,18 @@
           /^\s*Account settings have moved/.test(el.textContent || '')) el.classList.add('fitr-hide');
     }
   }
+  function openBoard() { window.parent.postMessage({ type: 'fitr-open-leaderboard' }, location.origin); }
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest && e.target.closest('[data-nav-item="leaderboards"], a[href$="/leaderboards"]');
+    if (!t) return;
+    e.preventDefault(); e.stopImmediatePropagation(); openBoard();
+  }, true);
+  // Reached another way (the command line, a key): go back to the test.
+  function offBoard() {
+    if (/leaderboards/.test(location.pathname + location.hash)) { history.back(); openBoard(); }
+  }
+  window.addEventListener('hashchange', offBoard);
+  window.addEventListener('popstate', offBoard);
   function start() {
     new MutationObserver(function () { setTimeout(check, 300); tidy(); })
       .observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'], childList: true });

@@ -3464,13 +3464,6 @@ footer.tribune-footer { margin-top: 0.5rem; }
 .desk-panel .pdf-import-row { flex-wrap: wrap; }
 
 /* ============ MORE TAB & THE TYPING TEST ============ */
-.more-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.6rem;
-  margin-bottom: 3rem;
-}
-.more-card { display: flex; flex-direction: column; text-decoration: none; color: inherit; }
 .more-card-art { display: flex; align-items: center; justify-content: center; }
 .more-keys { width: 62%; height: auto; }
 .more-keys rect { fill: none; stroke: var(--gold-soft); stroke-width: 1.6; }
@@ -3479,11 +3472,65 @@ footer.tribune-footer { margin-top: 0.5rem; }
   font-family: var(--ui); font-size: 15px; font-weight: 600;
   fill: var(--paper-lift); text-anchor: middle;
 }
-.more-card-tag {
-  font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--gold); font-weight: 600;
+
+/* The More page: the challenge leads, small extras in the side column. */
+.more-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: start; margin-bottom: 3rem; }
+.more-lead { border-top: 3px solid var(--ink); padding-top: 1.2rem; }
+.more-lead-art { aspect-ratio: 21/8; }
+.more-lead-art .more-keys { width: auto; height: 80%; }
+.more-kicker {
+  font-family: var(--ui); font-size: 0.72rem; letter-spacing: 0.18em;
+  text-transform: uppercase; color: #8a6420; font-weight: 600;
+}
+.more-lead-title { font-family: var(--headline); font-weight: 700; font-size: 2.4rem; line-height: 1.15; margin: 0.4rem 0 0.6rem; }
+.more-lead-title a { color: inherit; text-decoration: none; }
+.more-lead-title a:hover { color: var(--navy); }
+.more-lead-deck {
+  font-family: var(--article); font-style: italic; font-size: 1.25rem;
+  color: #5c5446; margin: 0 0 1.2rem; max-width: 40em;
+}
+.more-lead-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.6rem; }
+.more-lead-row .btn-navy { text-decoration: none; }
+.more-lead-meta, .more-top-note { font-family: var(--ui); font-size: 0.8rem; color: var(--ink-muted); }
+.more-top { border-top: 1px solid var(--ink); }
+.more-top-head {
+  display: flex; justify-content: space-between; align-items: baseline; padding: 0.6rem 0;
+  font-family: var(--ui); font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-muted);
+}
+.more-top-head a { color: var(--navy); text-decoration: none; letter-spacing: 0.08em; font-weight: 600; }
+.more-top-note { font-family: var(--article); font-size: 1rem; margin: 0.4rem 0; }
+.more-link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--navy); text-decoration: underline; cursor: pointer; }
+.more-top-row {
+  display: grid; grid-template-columns: 2.2rem 1fr auto; align-items: baseline;
+  padding: 0.55rem 0; border-top: 1px solid var(--rule);
+}
+.more-top-row.me { background: rgba(192, 142, 58, 0.12); }
+.more-top-row .r { font-family: var(--headline); font-weight: 700; color: var(--gold); font-size: 1.2rem; padding-left: 0.2rem; }
+.more-top-row .n { font-family: var(--ui); }
+.more-top-row .w { font-family: var(--headline); font-weight: 700; font-size: 1.15rem; padding-right: 0.2rem; }
+.more-top-row small { font-family: var(--ui); font-weight: 400; font-size: 0.7rem; color: var(--ink-muted); }
+.more-rail { display: flex; flex-direction: column; gap: 1.5rem; }
+.more-box { border-top: 3px solid var(--ink); padding-top: 0.2rem; }
+.more-wx-now { display: flex; gap: 1rem; align-items: center; padding: 0.8rem 0; }
+.more-wx-now b { display: block; font-family: var(--headline); font-size: 2rem; }
+.more-wx-now span { display: block; font-family: var(--ui); font-size: 0.85rem; }
+.more-wx-now small { font-family: var(--ui); font-size: 0.7rem; color: var(--ink-muted); }
+.more-wx-icon { display: block; width: 64px; height: 64px; flex: none; }
+.more-wx-icon.sm { width: 30px; height: 30px; }
+.more-wx-icon svg { display: block; width: 100%; height: 100%; }
+.more-wx-hours {
+  display: grid; grid-template-columns: repeat(4, 1fr); text-align: center;
+  border-top: 1px solid var(--rule); padding-top: 0.7rem; font-family: var(--ui); font-size: 0.8rem;
+}
+.more-wx-hours > div { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+.more-wx-hours small { color: var(--ink-muted); font-size: 0.68rem; }
+@media (max-width: 760px) {
+  .more-layout { grid-template-columns: 1fr; }
+  .more-lead-title { font-size: 1.7rem; }
+  .more-lead-deck { font-size: 1.1rem; }
 }
 
+.typing-return { margin-bottom: 1rem; }
 .typing-back {
   display: inline-block; margin-bottom: 1rem;
   font-family: var(--ui); font-size: 0.78rem; letter-spacing: 0.08em;

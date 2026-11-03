@@ -3405,15 +3405,15 @@ const Weather = {
   // avoids browser cross-site limits; BMKG directly is the fallback.
   SOURCES: ['/api/weather', 'https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.01.33.2006'],
   KEEP_MS: 30 * 60 * 1000,
+  steps: json => ((json.data && json.data[0] && json.data[0].cuaca) || []).flat(),
+  when: s => s.utc_datetime
+    ? Date.parse(s.utc_datetime.replace(' ', 'T') + 'Z')
+    : Date.parse(String(s.local_datetime).replace(' ', 'T') + '+07:00'),
   // BMKG gives 3-hourly steps; take the one nearest to now.
   nearest(json) {
-    const steps = ((json.data && json.data[0] && json.data[0].cuaca) || []).flat();
-    const when = s => s.utc_datetime
-      ? Date.parse(s.utc_datetime.replace(' ', 'T') + 'Z')
-      : Date.parse(String(s.local_datetime).replace(' ', 'T') + '+07:00');
     let best = null;
-    for (const s of steps) {
-      const d = Math.abs(when(s) - Date.now());
+    for (const s of this.steps(json)) {
+      const d = Math.abs(this.when(s) - Date.now());
       if (!best || d < best.d) best = { s, d };
     }
     return best && best.s;
@@ -3434,6 +3434,31 @@ const Weather = {
       } catch { /* try the next source */ }
     }
     throw new Error('weather unavailable');
+  },
+  // The next few 3-hourly steps from now (the More page's forecast row).
+  async upcoming(count = 4) {
+    let steps = null;
+    try {
+      const kept = JSON.parse(sessionStorage.getItem('fitrah:weather-bmkg-steps') || 'null');
+      if (kept && Date.now() - kept.at < this.KEEP_MS) steps = kept.data;
+    } catch { /* storage unavailable: just fetch */ }
+    for (const url of steps ? [] : this.SOURCES) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const list = this.steps(await res.json()).map(s => ({
+          utc_datetime: s.utc_datetime, local_datetime: s.local_datetime, t: s.t,
+          weather: s.weather, weather_desc_en: s.weather_desc_en, weather_desc: s.weather_desc
+        }));
+        if (!list.length) continue;
+        steps = list;
+        try { sessionStorage.setItem('fitrah:weather-bmkg-steps', JSON.stringify({ at: Date.now(), data: steps })); } catch { /* ignore */ }
+        break;
+      } catch { /* try the next source */ }
+    }
+    if (!steps) throw new Error('weather unavailable');
+    const from = Date.now() - 90 * 60 * 1000;
+    return steps.filter(s => this.when(s) >= from).sort((a, b) => this.when(a) - this.when(b)).slice(0, count);
   },
   async render() {
     const box = $('#home-weather');
@@ -5708,5 +5733,5 @@ async function mountChrome() {
 /* The only door between the engine and React. */
 window.FITR = {
   ready, mountChrome, renderTabs, renderUserArea, setTitle,
-  Router, Pages, Auth, Store, Editor, Modal, SignIn, toast
+  Router, Pages, Auth, Store, Editor, Modal, SignIn, toast, Weather, WeatherIcons
 };

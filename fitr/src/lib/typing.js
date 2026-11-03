@@ -10,7 +10,8 @@
 
 export const TEST_SECONDS = 30
 export const MAX_WPM = 250          // anything faster is refused
-export const PAGE_SIZE = 100        // leaderboard rows shown per "Show more"
+export const PAGE_SIZE = 50         // leaderboard rows shown at first, and per "Show more"
+export const PREVIEW_SIZE = 5       // the More page's "Leading so far"
 
 /* Which Monkeytype results count: 30 seconds of plain English (its default). */
 export const counts = (testType) => String(testType || '').replace(/\s+/g, '') === `time${TEST_SECONDS}english`
