@@ -112,6 +112,15 @@ it must stay). The Tribune's changes, all marked in its `<head>`:
   Everything else in Settings stays.
 Keep all three if the file is ever replaced.
 
+### Weather
+
+The home page's weather box and the More page's side column use BMKG data
+through the site's own Cloudflare functions: `functions/api/weather.js`
+(the forecast for Karihkil, Ciseeng) and `functions/api/weather-alerts.js`
+(BMKG's live warnings, or nowcasts, that cover FIWA). A warning shows as a
+banner coloured by its CAP severity: Extreme red, Severe orange, Moderate
+yellow, Minor grey. BMKG must be credited wherever its data is shown.
+
 ### Internal / External News
 
 Every article belongs to one of two **permanent sections**: Internal News

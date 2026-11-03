@@ -94,8 +94,8 @@ function WeatherBox() {
   useEffect(() => {
     let live = true
     const { Weather } = window.FITR
-    Promise.all([Weather.current(), Weather.upcoming(5)])
-      .then(([now, next]) => { if (live) setW({ state: 'ok', now, next }) })
+    Promise.all([Weather.current(), Weather.upcoming(5), Weather.alerts()])
+      .then(([now, next, alerts]) => { if (live) setW({ state: 'ok', now, next, alerts }) })
       .catch(() => { if (live) setW({ state: 'error' }) })
     return () => { live = false }
   }, [])
@@ -112,6 +112,7 @@ function WeatherBox() {
         : w.state === 'error' ? <p className="more-top-note">Weather unavailable right now.</p>
           : (
             <>
+              {w.alerts.slice(0, 2).map(a => <WeatherAlert key={a.id || a.event} a={a} />)}
               <div className="more-wx-now">
                 <span className="more-wx-icon" dangerouslySetInnerHTML={icon(w.now)} />
                 <div>
@@ -133,6 +134,25 @@ function WeatherBox() {
               )}
             </>
           )}
+    </div>
+  )
+}
+
+/* A BMKG warning that covers FIWA: red, orange or yellow by its severity. */
+function WeatherAlert({ a }) {
+  const { Weather } = window.FITR
+  const lv = Weather.level(a)
+  const until = Weather.until(a)
+  const web = /^https:\/\/[^/]*bmkg\.go\.id\//.test(a.web || '') ? a.web : 'https://www.bmkg.go.id/peringatan-dini'
+  return (
+    <div className={'wx-alert ' + lv.cls} role="alert">
+      <div className="wx-alert-head">
+        <span className="wx-alert-level">{lv.label}</span>
+        {until && <span className="wx-alert-until">until {until} WIB</span>}
+      </div>
+      <div className="wx-alert-title">{a.event || a.headline || 'Weather warning'}</div>
+      {a.headline && a.event && a.headline !== a.event && <div className="wx-alert-text">{a.headline}</div>}
+      <a className="wx-alert-link" href={web} target="_blank" rel="noreferrer">Details from BMKG</a>
     </div>
   )
 }

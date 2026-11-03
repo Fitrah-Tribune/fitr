@@ -3460,7 +3460,53 @@ const Weather = {
     const from = Date.now() - 90 * 60 * 1000;
     return steps.filter(s => this.when(s) >= from).sort((a, b) => this.when(a) - this.when(b)).slice(0, count);
   },
+  // BMKG's live warnings (nowcasts) that cover FIWA, from the site's own
+  // /api/weather-alerts (functions/api/weather-alerts.js). Empty when there
+  // are none, or when BMKG can't be reached.
+  async alerts() {
+    try {
+      const kept = JSON.parse(sessionStorage.getItem('fitrah:weather-alerts') || 'null');
+      if (kept && Date.now() - kept.at < 5 * 60 * 1000) return kept.data;
+    } catch { /* storage unavailable: just fetch */ }
+    try {
+      const res = await fetch('/api/weather-alerts');
+      if (!res.ok) return [];
+      const data = ((await res.json()).alerts || []).filter(a => !a.expires || Date.parse(a.expires) > Date.now());
+      try { sessionStorage.setItem('fitrah:weather-alerts', JSON.stringify({ at: Date.now(), data })); } catch { /* ignore */ }
+      return data;
+    } catch { return []; }
+  },
+  // CAP severity → the warning's colour and name on the site.
+  LEVELS: {
+    Extreme:  { cls: 'red',    label: 'Red warning' },
+    Severe:   { cls: 'orange', label: 'Orange warning' },
+    Moderate: { cls: 'yellow', label: 'Yellow warning' },
+    Minor:    { cls: 'grey',   label: 'Weather advisory' }
+  },
+  level(a) { return this.LEVELS[a.severity] || this.LEVELS.Minor; },
+  until(a) {
+    const t = Date.parse(a.expires);
+    if (!Number.isFinite(t)) return '';
+    return new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
+  },
+  alertHtml(a) {
+    const lv = this.level(a), until = this.until(a);
+    const safeUrl = /^https:\/\/[^/]*bmkg\.go\.id\//.test(a.web || '') ? a.web : 'https://www.bmkg.go.id/peringatan-dini';
+    return `<div class="wx-alert ${lv.cls}" role="alert">
+      <div class="wx-alert-head"><span class="wx-alert-level">${lv.label}</span>${until ? `<span class="wx-alert-until">until ${until} WIB</span>` : ''}</div>
+      <div class="wx-alert-title">${escapeHtml(a.event || a.headline || 'Weather warning')}</div>
+      ${a.headline && a.event && a.headline !== a.event ? `<div class="wx-alert-text">${escapeHtml(a.headline)}</div>` : ''}
+      <a class="wx-alert-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener">Details from BMKG</a>
+    </div>`;
+  },
+  async renderAlerts() {
+    const box = $('#home-weather-alerts');
+    if (!box) return;
+    const list = await this.alerts();
+    box.innerHTML = list.slice(0, 2).map(a => this.alertHtml(a)).join('');
+  },
   async render() {
+    this.renderAlerts();
     const box = $('#home-weather');
     if (!box) return;
     try {
