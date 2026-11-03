@@ -3499,6 +3499,12 @@ footer.tribune-footer { margin-top: 0.5rem; }
   margin-bottom: 0.8rem;
 }
 .typing-frame iframe { display: block; width: 100%; height: min(720px, 80vh); border: 0; }
+.typing-credit {
+  margin: 0; padding: 6px 10px;
+  border-top: 1px solid var(--ink);
+  font-family: var(--ui); font-size: 11px; color: var(--ink-muted);
+}
+.typing-credit a { text-decoration: underline; }
 .tr-save {
   margin: 0 0 2.4rem;
   font-family: var(--article); font-style: italic; font-size: 1.05rem; color: var(--ink-soft);

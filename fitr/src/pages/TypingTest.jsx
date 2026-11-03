@@ -119,6 +119,11 @@ function MonkeyFrame({ onResult }) {
   return (
     <div className="typing-frame">
       <iframe ref={frame} src="/typing/monkeytype.html" title="Typing test" allow="clipboard-write" />
+      <p className="typing-credit">
+        Typing test by <a href="https://github.com/monkeytypegame/monkeytype" target="_blank" rel="noreferrer">Monkeytype</a>,
+        free software under the <a href="/typing/LICENSE-monkeytype.txt" target="_blank" rel="noreferrer">GNU GPL v3</a>,
+        restyled by the Tribune (<a href="https://github.com/Fitrah-Tribune/fitr/tree/development/fitr/public/typing" target="_blank" rel="noreferrer">our changes</a>).
+      </p>
     </div>
   )
 }
