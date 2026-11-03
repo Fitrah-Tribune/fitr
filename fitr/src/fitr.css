@@ -3495,7 +3495,7 @@ footer.tribune-footer { margin-top: 0.5rem; }
 /* The test: Monkeytype in a frame (its own dark look, as it ships) */
 .typing-frame {
   border: 1px solid var(--ink);
-  background: #323437;
+  background: var(--paper);
   margin-bottom: 0.8rem;
 }
 .typing-frame iframe { display: block; width: 100%; height: min(720px, 80vh); border: 0; }
