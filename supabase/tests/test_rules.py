@@ -58,7 +58,7 @@ check('direct table write blocked', not q(ADMIN,"insert into public.fitr_records
 
 # Profiles
 me = tk['tri-khal']
-ok,_ = save(KHAL,'tribunees',{**me,'bio':'<p>Hi</p>','photo':'https://x/p.jpg','photoAspect':0.8,'photoFit':'crop'})
+ok,_ = save(KHAL,'tribunees',{**me,'bio':'<p>Hi</p>','photo':'https://x/p.jpg','photoAspect':0.8,'photoFit':'crop','showPhoto':True})
 check('Tribunee edits own bio and photo', ok, _)
 ok,_ = save(KHAL,'tribunees',{**me,'bio':'<p>Hi</p>','role':'Editor-in-Chief'})
 check('Tribunee cannot change own role', not ok, _)

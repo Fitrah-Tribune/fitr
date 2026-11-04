@@ -261,6 +261,16 @@ the print credits (articles, photos, editions worked on). A Tribunee edits
 only their own photo and writes their own bio; if a bio needs changing, the
 admins sort it out in person (decided by Ammar, Oct 2026).
 
+**Tribunee photos are opt-in** (decided by Ammar, Nov 2026, following the
+Tribune's guideline on images: keep it modest, no self-display). Without a
+photo a Tribunee is shown by their initials. Adding a photo is the opt-in
+(`showPhoto: true`); removing it opts out. Every photo is the same plain,
+small headshot: a square crop shown as a small circle, the same size for
+everyone, with no big solo portraits, posed or edited shots. Use
+`tribuneePhoto(t)` in the engine wherever a person is drawn; it returns
+nothing unless they opted in. No drawn or AI-generated people or animals
+anywhere on the site (objects and scenery, like the weather icons, are fine).
+
 After changing any of these areas, test each rule by signing in as a guest, a
 public user, a non-admin Tribunee, and an admin.
 

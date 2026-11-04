@@ -303,6 +303,11 @@ const Auth = {
 const $  = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
 
+/* A Tribunee's photo, only if they chose to show one (opt-in, Ammar,
+   Nov 2026). Everyone else is shown by their initials. Photos are plain,
+   small headshots, all drawn the same size and shape. */
+const tribuneePhoto = (t) => (t && t.photo && t.showPhoto === true) ? t.photo : '';
+
 const escapeHtml = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -1534,9 +1539,7 @@ const Editor = {
     }
 
     const tribuneeState = {
-      photo: t.photo || null,
-      photoAspect: parseAspect(t.photoAspect, 4/5),
-      photoFit: t.photoFit === 'letterbox' ? 'letterbox' : 'crop',
+      photo: tribuneePhoto(t) || null,
       bioEditor: null
     };
 
@@ -1559,35 +1562,10 @@ const Editor = {
         ${identityHint}
         <div style="display: flex; gap: 1.4rem; align-items: flex-start; margin-bottom: 1rem;">
           <div style="display: flex; flex-direction: column; gap: 0.8rem; flex-shrink: 0;">
-            <div class="tribunee-photo-picker ${tribuneeState.photo ? 'has-image' : ''}" id="tp-photo-picker" style="aspect-ratio: ${tribuneeState.photoAspect};">
+            <div class="tribunee-photo-picker ${tribuneeState.photo ? 'has-image' : ''}" id="tp-photo-picker" title="Add a photo (optional)">
               ${tribuneeState.photo
-                ? `<img src="${tribuneeState.photo}" alt="" /><button type="button" class="tp-clear" id="tp-photo-clear">×</button>`
+                ? `<img src="${tribuneeState.photo}" alt="" /><button type="button" class="tp-clear" id="tp-photo-clear" title="Remove the photo">×</button>`
                 : escapeHtml(initials(t.name || 'New'))}
-            </div>
-            <div class="afp-picker" id="tr-afp" style="width: 200px;">
-              <div class="afp-row">
-                <label>Aspect</label>
-                <div class="afp-pills">
-                  <button type="button" data-w="4" data-h="5">4:5</button>
-                  <button type="button" data-w="1" data-h="1">1:1</button>
-                  <button type="button" data-w="3" data-h="4">3:4</button>
-                  <button type="button" data-w="16" data-h="9">16:9</button>
-                  <button type="button" data-custom="1">Custom</button>
-                </div>
-                <div class="afp-custom-row" style="display:none">
-                  <input type="number" class="afp-w" min="0.1" step="any" value="4" />
-                  <span>:</span>
-                  <input type="number" class="afp-h" min="0.1" step="any" value="5" />
-                </div>
-              </div>
-              <div class="afp-row afp-fit">
-                <label>Fit</label>
-                <div class="afp-pills">
-                  <button type="button" data-fit="crop">Crop</button>
-                  <button type="button" data-fit="letterbox">Letterbox</button>
-                </div>
-              </div>
-              <div class="afp-hint">The About-page card always crops to 4:5 — your chosen aspect shows on your full profile page.</div>
             </div>
           </div>
           <div style="flex: 1;">
@@ -1597,7 +1575,11 @@ const Editor = {
               <div class="field"><label>Role</label><input type="text" id="tr-role" value="${escapeHtml(t.role || '')}" placeholder="e.g. Writer, Journalist" ${identityReadOnly} /></div>
               <div class="field"><label>Grade</label><input type="text" id="tr-grade" value="${escapeHtml(t.grade || '')}" placeholder="e.g. G8" ${identityReadOnly} /></div>
             </div>
-            <div class="field-hint">Click the portrait to upload a photo. If left empty, a placeholder with initials is used.</div>
+            <div class="field-hint tr-photo-hint">
+              <strong>A photo is optional.</strong> Without one, your initials are shown. If you add one, use a plain headshot:
+              face and shoulders, a simple background, no filters, edits or posed shots. Everyone’s photo is shown at the
+              same small size, in a circle. Click the circle to add one; × removes it.
+            </div>
           </div>
         </div>
         <div class="field">
@@ -1640,12 +1622,8 @@ const Editor = {
         });
       }
 
-      // Wire aspect + fit picker (preview = the photo box itself)
+      // Every photo is cropped the same way: a square, shown as a circle.
       const picker = $('#tp-photo-picker');
-      const pickerEl = $('#tr-afp');
-      if (pickerEl) {
-        wireAspectFitPicker(pickerEl, picker, tribuneeState, 'photoAspect', 'photoFit');
-      }
 
       // Photo upload
       picker.onclick = (e) => {
@@ -1657,9 +1635,7 @@ const Editor = {
           const file = ev.target.files[0];
           if (!file) return;
           try {
-            const cropped = await compressImageWithFit(
-              file, tribuneeState.photoFit, tribuneeState.photoAspect, 800, 0.85
-            );
+            const cropped = await compressImageWithFit(file, 'crop', 1, 400, 0.85);
             tribuneeState.photo = cropped;
             picker.classList.add('has-image');
             picker.innerHTML = `<img src="${cropped}" alt="" /><button type="button" class="tp-clear" id="tp-photo-clear">×</button>`;
@@ -1735,9 +1711,11 @@ const Editor = {
       t.editions = $$('.tr-editions input:checked').map(i => Number(i.value));
     }
     t.bio = t.bio || '';
+    // Adding a photo is the opt-in; removing it opts out.
     t.photo = state.photo || null;
-    t.photoAspect = parseAspect(state.photoAspect, 4/5);
-    t.photoFit = state.photoFit === 'letterbox' ? 'letterbox' : 'crop';
+    t.showPhoto = !!t.photo;
+    delete t.photoAspect;
+    delete t.photoFit;
 
     if (!t.name) { toast('Name is required', 'error'); return; }
     if (id) t.id = id;
@@ -3717,8 +3695,8 @@ Pages.article = {
     const norm = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
     const names = (a.author || '').split(/\s*(?:&|,|\band\b)\s*/).filter(Boolean);
     const writers = names.map(n => ({ name: n, t: tribunees.find(t => norm(t.name) === norm(n)) }));
-    const avatar = (w, cls) => w.t && w.t.photo
-      ? `<span class="${cls}"><img src="${w.t.photo}" alt="" /></span>`
+    const avatar = (w, cls) => tribuneePhoto(w.t)
+      ? `<span class="${cls}"><img src="${tribuneePhoto(w.t)}" alt="" /></span>`
       : `<span class="${cls}">${escapeHtml(initials(w.name))}</span>`;
     const nameLink = (w) => w.t
       ? `<a class="author" onclick="Router.go('tribunee/${w.t.id}')">${escapeHtml(w.name)}</a>`
@@ -3866,7 +3844,6 @@ Pages.tribunee = {
     }
     const isEditing = Editor.active;
     const canEdit   = isEditing && (await Auth.canEditTribunee(t));
-    const photoAspect = parseAspect(t.photoAspect, 4/5);
 
     // Credits: site articles from bylines; print numbers typed in by admins.
     const articles = await Credits.articlesBy(t);
@@ -3899,8 +3876,8 @@ Pages.tribunee = {
 
     root.innerHTML = `
       <div class="tribunee-profile">
-        <div class="tp-portrait" style="aspect-ratio: ${photoAspect};">
-          ${t.photo ? `<img src="${t.photo}" alt="${escapeHtml(t.name)}" />` : escapeHtml(initials(t.name))}
+        <div class="tp-portrait">
+          ${tribuneePhoto(t) ? `<img src="${tribuneePhoto(t)}" alt="${escapeHtml(t.name)}" />` : escapeHtml(initials(t.name))}
         </div>
         <div class="tp-content">
           <a class="tp-back" onclick="Router.go('about/tribunees')">← The Tribunees</a>
@@ -4442,7 +4419,7 @@ Pages.forum = {
     const e = (email || '').toLowerCase();
     const t = (e && people.find(x => (x.email || '').toLowerCase() === e))
       || people.find(x => (x.name || '').toLowerCase() === (name || '').toLowerCase());
-    return { t, name: (t && t.name) || name || 'Tribunee', role: t ? t.role : '', photo: t ? t.photo : '' };
+    return { t, name: (t && t.name) || name || 'Tribunee', role: t ? t.role : '', photo: tribuneePhoto(t) };
   },
   async _person(email, name) {
     return this._personFrom(await Store.list('tribunees'), email, name);
@@ -5135,19 +5112,9 @@ Pages.about = {
       return;
     }
 
-    const colors = [
-      ['#1c3658', '#c08e3a'], ['#2d4f7a', '#d8a956'], ['#0f2138', '#c08e3a'],
-      ['#1c3658', '#e8cf94'], ['#2d4f7a', '#c08e3a'], ['#1c3658', '#d8a956'],
-      ['#0f2138', '#e8cf94'], ['#2d4f7a', '#c08e3a']
-    ];
-    const card = (t, i) => {
-      const [c1, c2] = colors[i % colors.length];
-      const portraitInner = t.photo
-        ? `<img src="${t.photo}" alt="${escapeHtml(t.name)}" style="width:100%;height:100%;object-fit:cover;display:block;" />`
-        : escapeHtml(initials(t.name));
-      const portraitStyle = t.photo
-        ? ''
-        : `background: linear-gradient(135deg, ${c1} 0%, ${c2} 100%);`;
+    const card = (t) => {
+      const photo = tribuneePhoto(t);
+      const portraitInner = photo ? `<img src="${photo}" alt="${escapeHtml(t.name)}" />` : escapeHtml(initials(t.name));
       // Per-card edit permission: admin can edit anyone; non-admin tribunees can edit only their own profile.
       const isSelf = !!(t.email && t.email.toLowerCase() === currentEmail);
       const canEditCard = isEditing && (isAdmin || isSelf);
@@ -5168,7 +5135,7 @@ Pages.about = {
         <article class="tribunee-card" onclick="Router.go('tribunee/${t.id}')">
           ${canEditCard ? `<div class="edit-overlay"><button class="edit-icon-btn" onclick="event.stopPropagation(); Editor.editTribuneeById('${t.id}')">${Icons.edit}</button></div>` : ''}
           <div class="tribunee-head">
-            <div class="tribunee-portrait" style="${portraitStyle}">${portraitInner}</div>
+            <div class="tribunee-portrait">${portraitInner}</div>
             <div class="tribunee-id">
               <div class="tribunee-name">${escapeHtml(t.name)}</div>
               ${t.role ? `<div class="tribunee-role">${escapeHtml(t.role)}</div>` : ''}
@@ -5181,11 +5148,10 @@ Pages.about = {
     };
     // Grouped by division (SOP section 2). Someone with several roles sits
     // under the division of the first role that names one.
-    let n = 0;
     grid.innerHTML = groupByDivision(tribunees).map(g => `
       <div class="division-group">
         <div class="division-head"><h3>${escapeHtml(g.name)}</h3><span>${g.people.length} ${g.people.length === 1 ? 'Tribunee' : 'Tribunees'}</span></div>
-        <div class="tribunees-grid">${g.people.map(t => card(t, n++)).join('')}</div>
+        <div class="tribunees-grid">${g.people.map(t => card(t)).join('')}</div>
       </div>
     `).join('');
   }

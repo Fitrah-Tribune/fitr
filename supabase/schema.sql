@@ -191,7 +191,7 @@ declare
   owner_ text;
   data_  jsonb;
   c      public.fitr_records;
-  frozen_keys text[] := array['bio', 'photo', 'photoAspect', 'photoFit'];
+  frozen_keys text[] := array['bio', 'photo', 'showPhoto', 'photoAspect', 'photoFit'];
   wpm_   numeric;
   acc_   numeric;
   raw_   numeric;
