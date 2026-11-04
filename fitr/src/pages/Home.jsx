@@ -33,6 +33,7 @@ const html = `
         <h3>Weather · Ciseeng</h3>
         <span style="font-family: var(--ui); font-size: 0.7rem; color: var(--ink-muted); letter-spacing: 0.16em;">TODAY</span>
       </div>
+      <div id="home-weather-alerts"><!-- BMKG warnings, filled by JS --></div>
       <div class="weather-now" id="home-weather">
         <div class="weather-icon"></div>
         <div>

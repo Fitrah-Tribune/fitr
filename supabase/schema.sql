@@ -94,13 +94,14 @@ language sql immutable as $$
     when 'drafts'    then 'email'
     when 'tribunees' then 'email'
     when 'allowlist' then 'email'
+    when 'typing'    then 'email'
   end
 $$;
 
 create or replace function public.fitr_known(coll text) returns boolean
 language sql immutable as $$
   select coll in ('articles', 'editions', 'corrections', 'featured', 'newsTabs', 'threads',
-                  'tribunees', 'allowlist', 'cases', 'casemsgs', 'drafts')
+                  'tribunees', 'allowlist', 'cases', 'casemsgs', 'drafts', 'typing')
 $$;
 
 -- A stored row as the caller is allowed to see it: the JSON plus id and
@@ -127,6 +128,9 @@ begin
       if coalesce(r.data ->> 'category', 'general') <> 'announcement' and not public.fitr_is_fiwa() then return null; end if;
     when 'drafts' then
       if not mine then return null; end if;
+    when 'typing' then
+      -- The Student Challenge leaderboard is for FIWA accounts.
+      if not public.fitr_is_fiwa() then return null; end if;
     when 'allowlist' then
       if not (mine or admin) then return null; end if;
     when 'cases' then
@@ -145,7 +149,7 @@ begin
   -- Who may see the email.
   if field is not null and r.owner is not null and (
        mine
-       or (admin and r.coll in ('articles', 'threads', 'tribunees', 'allowlist', 'drafts'))
+       or (admin and r.coll in ('articles', 'threads', 'tribunees', 'allowlist', 'drafts', 'typing'))
        or (admin and r.coll = 'casemsgs' and r.data ->> 'side' = 'tribune')
      ) then
     out := out || jsonb_build_object(field, r.owner);
@@ -188,9 +192,18 @@ declare
   data_  jsonb;
   c      public.fitr_records;
   frozen_keys text[] := array['bio', 'photo', 'photoAspect', 'photoFit'];
+  wpm_   numeric;
+  acc_   numeric;
+  raw_   numeric;
 begin
   if not public.fitr_known(coll) then raise exception 'Unknown collection %', coll; end if;
   if me = '' then raise exception 'Please sign in first'; end if;
+
+  -- Typing scores: one record per person, named after their account.
+  if coll = 'typing' then
+    if not public.fitr_is_fiwa() then raise exception 'The Student Challenge is for FIWA accounts'; end if;
+    rid := 'typ-' || substr(md5(me), 1, 16);
+  end if;
 
   if rid is not null then
     select * into old from public.fitr_records r where r.coll = fitr_save.coll and r.id = rid for update;
@@ -290,6 +303,31 @@ begin
       else
         raise exception 'Unknown message side';
       end if;
+
+    when 'typing' then
+      -- Only plausible 30-second results, and only a person's best is kept.
+      begin
+        wpm_ := round((data_ ->> 'wpm')::numeric);
+        acc_ := round((data_ ->> 'acc')::numeric, 1);
+        raw_ := round((data_ ->> 'raw')::numeric);
+      exception when others then raise exception 'That score could not be saved';
+      end;
+      if wpm_ is null or acc_ is null or raw_ is null
+         or wpm_ < 0 or wpm_ > 250 or acc_ < 0 or acc_ > 100 or raw_ < wpm_ or raw_ > 300 then
+        raise exception 'That score could not be saved';
+      end if;
+      if exists_ and coalesce((old.data ->> 'wpm')::numeric, 0) >= wpm_ then
+        return public.fitr_get(coll, rid);
+      end if;
+      owner_ := me;
+      data_ := jsonb_build_object(
+        'wpm', wpm_, 'acc', acc_, 'raw', raw_, 'seconds', 30,
+        -- The name comes from the roster or the Google account, never the browser.
+        'name', coalesce(
+          (select t.data ->> 'name' from public.fitr_records t where t.coll = 'tribunees' and t.owner = me limit 1),
+          nullif(auth.jwt() -> 'user_metadata' ->> 'full_name', ''),
+          nullif(auth.jwt() -> 'user_metadata' ->> 'name', ''),
+          split_part(me, '@', 1)));
   end case;
 
   if exists_ then
@@ -323,6 +361,8 @@ begin
       if not (admin or (trib and old.owner = me)) then raise exception 'You can only delete your own posts'; end if;
     when 'drafts' then
       if old.owner is distinct from me then raise exception 'Not your draft'; end if;
+    when 'typing' then
+      if not admin then raise exception 'Only admins can remove scores'; end if;
     else
       -- Feedback notes and their messages are never deleted.
       raise exception 'That can''t be deleted';

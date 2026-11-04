@@ -54,7 +54,7 @@ fitr/
   handlers, and those need its functions to be global. Don't turn it into an
   ES module without fixing every inline handler first.
 - The engine exposes one object to React:
-  `window.FITR = { ready, mountChrome, renderTabs, renderUserArea, Router, Pages, Auth, Store, Editor, Modal, SignIn, toast }`.
+  `window.FITR = { ready, mountChrome, renderTabs, renderUserArea, Router, Pages, Auth, Store, Editor, Modal, SignIn, toast, Weather, WeatherIcons }`.
   React code uses `window.FITR.x`, never bare globals.
 - `FITR.ready` is a promise: data migrated, seeded, current user known.
 - `Layout.jsx` calls `FITR.mountChrome()` once. The engine fills
@@ -84,8 +84,42 @@ fitr/
 | `/article/:id` | `article` | `Article.jsx` |
 | `/tribunee/:id` | `tribunee` | `Tribunee.jsx` |
 | `/write`, `/write/:id` | `write` | `Write.jsx` (the Writer's desk; Tribunees only) |
+| `/more` | `more` | `More.jsx` (extras: the Student Challenge leads with its top 5, the weather sits in the side column; real React) |
+| `/more/typing`, `/more/typing?view=leaderboard` | `more` | `TypingTest.jsx` (the Student Challenge: Monkeytype in a frame; its leaderboard (crown) button opens the full FIWA leaderboard, top 50 then "Show more"; real React) |
 
 Note the one mismatch: URL `/feedback` → engine key `corrections`.
+
+`More.jsx` and `TypingTest.jsx` were written in React from the start: they
+use `src/lib/useReactPage.js` instead of `useLegacyPage`, and the engine
+has no `Pages.more` code (the hook registers a small stand-in so signing
+in or out redraws them).
+
+The typing test itself is Monkeytype's offline build,
+`public/typing/monkeytype.html` (GPL-3.0; `LICENSE-monkeytype.txt` beside
+it must stay). The Tribune's changes, all marked in its `<head>`:
+- a Content-Security-Policy that stops it contacting outside services
+  (analytics, error reports, Monkeytype's servers); only Google Fonts is
+  allowed, for the Tribune's fonts;
+- `fitr-skin.js`: before Monkeytype starts, fixes the test to time 30,
+  English and sets the Tribune colours as Monkeytype's custom theme (so the
+  result chart matches too); posts each result to the page; turns
+  Monkeytype's leaderboard button into a request for the Tribune's board;
+- `fitr-skin.css`: the Tribune colours and fonts, and hides what the
+  Student Challenge doesn't use: the logo, account/alerts/about links, the
+  mode bar, Monkeytype's footer links, the result's sign-in tip, the theme
+  group, and settings that change the test or the look (language, funbox,
+  layoutfluid, polyglot, repeat quotes, British English, lazy mode, font).
+  Everything else in Settings stays.
+Keep all three if the file is ever replaced.
+
+### Weather
+
+The home page's weather box and the More page's side column use BMKG data
+through the site's own Cloudflare functions: `functions/api/weather.js`
+(the forecast for Karihkil, Ciseeng) and `functions/api/weather-alerts.js`
+(BMKG's live warnings, or nowcasts, that cover FIWA). A warning shows as a
+banner coloured by its CAP severity: Extreme red, Severe orange, Moderate
+yellow, Minor grey. BMKG must be credited wherever its data is shown.
 
 ### Internal / External News
 
@@ -211,6 +245,14 @@ is mainly for the FIWA community.
 - "Log a public correction" from a note copies **nothing** from the note.
   The admin writes the public note from scratch. Keep it that way.
 
+**Student Challenge (typing test)**
+- Only FIWA accounts can take the test or see the leaderboard.
+- One score per person: their best 30-second result. The name shown comes
+  from the roster or the Google account, never from the browser.
+- Impossible scores (over 250 WPM) are refused. Only admins remove scores.
+- Only Monkeytype's "time 30, English" results count; other modes are
+  shown but not saved.
+
 **Corrections log:** public and permanent. Admins can edit/delete entries, in
 editing mode only.
 
@@ -236,7 +278,8 @@ public user, a non-admin Tribunee, and an admin.
 - Collections: `articles`, `editions`, `corrections`, `threads` (forum posts),
   `tribunees`, `allowlist`, `cases` (feedback notes), `casemsgs` (their
   messages), `drafts` (the Writer's desk's unpublished work, one per writer
-  per article), `featured` (front-page picks), `newsTabs` (categories).
+  per article), `featured` (front-page picks), `newsTabs` (categories),
+  `typing` (Student Challenge scores, one per person).
   (`comments` is legacy and wiped.) On Supabase they all live in one table,
   `fitr_records`, reached only through `fitr_list/get/save/remove`.
 - **The permission rules above are enforced in `supabase/schema.sql`.**

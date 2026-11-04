@@ -1,0 +1,73 @@
+/* Fitrah Tribune look for Monkeytype (loaded by monkeytype.html).
+   Colours and fonts are the Tribune's (src/fitr.css). What isn't part of
+   the Student Challenge is hidden: other test modes, languages, funboxes,
+   themes and fonts, accounts, alerts, and Monkeytype's own links. */
+
+:root {
+  --bg-color: #f5ecdb !important;          /* paper */
+  --main-color: #c08e3a !important;        /* gold */
+  --caret-color: #1c3658 !important;       /* navy */
+  --sub-color: #877f6e !important;         /* ink, muted */
+  --sub-alt-color: #ebdfc4 !important;     /* paper, deep */
+  --text-color: #1a1814 !important;        /* ink */
+  --error-color: #b2422e !important;
+  --error-extra-color: #8a3323 !important;
+  --colorful-error-color: #b2422e !important;
+  --colorful-error-extra-color: #8a3323 !important;
+  --font: 'Work Sans', system-ui, sans-serif !important;
+  --fitr-headline: 'Libre Baskerville', Georgia, serif;
+  --fitr-article: 'Times New Roman', Tinos, Times, serif;
+}
+html, body { background: #f5ecdb !important; }
+body, button, input, select, textarea, kbd { font-family: var(--font) !important; }
+
+/* The words people type read like the paper. */
+#words, #words .word, #words letter, #wordsInput, #memoryTimer {
+  font-family: var(--fitr-article) !important;
+}
+
+/* Result: the big numbers in the headline face. */
+#result .stats .group .bottom, #result .stats .wpm .bottom, #result .stats .acc .bottom {
+  font-family: var(--fitr-headline) !important;
+  font-weight: 700 !important;
+}
+#result .stats .group .top { letter-spacing: 0.08em; }
+
+/* Header: only the test, the leaderboard (which opens the Tribune's board,
+   see fitr-skin.js) and settings. */
+header [data-ui-element="logo"],
+nav [data-nav-item="about"],
+nav [data-nav-item="alerts"],
+nav [data-nav-item="login"],
+nav [data-nav-item="account"],
+nav [data-nav-item="profile"] { display: none !important; }
+
+/* Test page: one test only (time 30, English), so no mode picker. */
+[data-component="testconfig"],
+[data-component="testmodesnotice"],
+#mobileTestConfigButton, [data-ui-element="mobileTestConfigButton"] { display: none !important; }
+
+/* Footer: keep the key tips, drop Monkeytype's links, version and theme name. */
+footer > div:last-child { display: none !important; }
+
+/* Results: no account, sharing or quote buttons. */
+#result .loginTip, #result .ssWatermark { display: none !important; }
+
+/* Settings: everything except what would change the test, the look, or
+   needs a Monkeytype account. */
+[data-setting-key="language"],
+[data-setting-key="funbox"],
+[data-setting-key="customLayoutfluid"],
+[data-setting-key="customPolyglot"],
+[data-setting-key="repeatQuotes"],
+[data-setting-key="britishEnglish"],
+[data-setting-key="lazyMode"],
+[data-setting-key="fontFamily"],
+[data-setting-key="ads"],
+[data-setting-key="cookies"],
+#group_theme,
+.pageSettings a[href="#group_theme"],
+.pageSettings a[href$="/account-settings"] { display: none !important; }
+
+/* "Account settings have moved": there are no Monkeytype accounts here. */
+.pageSettings .fitr-hide { display: none !important; }
