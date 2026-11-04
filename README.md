@@ -1,8 +1,8 @@
 # Fitrah Tribune
 
-> A lighthouse in the storm of misinformation.
+> Documenting FIWA and Beyond.
 
-The official website of **Fitrah Tribune**, a student-run fortnightly newspaper
+The official website of **Fitrah Tribune**, a student-run semi-fortnightly (two to three weeks) newspaper
 at Fitrah Islamic World Academy, Ciseeng.
 
 ## Current Status
@@ -22,10 +22,12 @@ of turning a former 6,500-line HTML monster into something that future humans
 
 Progress is being made. One refactor at a time.
 
+Also, if you want to visit the website, check out [fitrahtribune.pages.dev](fitrahtribune.pages.dev) or the in-dev version at [development.fitrahtribune.pages.dev](development.fitrahtribune.pages.dev). If you're asking why fitrahtribune.pages.dev is uglier, that's because it's only for public releases, and technically the website isn't finished yet so... I guess you'll wait for it?
+
 ## License
 
 The **source code** in this repository is licensed under the
-[MIT License](LICENSE). Use it, change it, build your own school paper
+[GNU Affero General Public License v3.0](LICENSE). Use it, change it, build your own school paper
 with it.
 
 Everything else is not:
