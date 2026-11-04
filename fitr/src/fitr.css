@@ -3462,3 +3462,39 @@ footer.tribune-footer { margin-top: 0.5rem; }
   .desk-body .rte-toolbar { margin: 0; position: static; }
 }
 .desk-panel .pdf-import-row { flex-wrap: wrap; }
+
+/* ============ TRIBUNEE PHOTOS: SMALL, PLAIN, THE SAME FOR EVERYONE ============
+   Photos are opt-in (Ammar, Nov 2026). Without one, a Tribunee is shown by
+   their initials. Every avatar, photo or initials, is the same small circle:
+   no big solo portraits. */
+.tribunees-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.tribunee-head { flex-direction: row; align-items: center; gap: 0.8rem; }
+.tribunee-portrait {
+  width: 56px; height: 56px; flex: none; aspect-ratio: auto;
+  border-radius: 50%; font-size: 1.05rem;
+  background: var(--navy); color: var(--gold-soft);
+}
+.tribunee-portrait::after { content: none; }
+.tribunee-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.tribunee-profile { grid-template-columns: 120px 1fr; gap: 2rem; align-items: start; }
+.tp-portrait {
+  width: 112px; height: 112px; aspect-ratio: auto; border-radius: 50%;
+  font-size: 2rem; background: var(--navy); color: var(--gold-soft);
+}
+
+.tribunee-photo-picker {
+  width: 120px; height: 120px; aspect-ratio: auto; max-height: none;
+  border-radius: 50%; background: var(--navy); color: var(--gold-soft); font-size: 1.8rem;
+}
+.tribunee-photo-picker img { object-fit: cover; }
+.tribunee-photo-picker .tp-clear { top: 0.2rem; right: 0.2rem; }
+.tr-photo-hint { line-height: 1.5; }
+
+@media (max-width: 1024px) {
+  .tribunee-profile { grid-template-columns: 1fr; gap: 1.2rem; }
+  .tp-portrait { max-width: none; margin: 0; }
+}
+@media (max-width: 720px) {
+  .tribunees-grid { grid-template-columns: 1fr; }
+}

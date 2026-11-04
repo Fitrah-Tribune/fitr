@@ -183,7 +183,7 @@ declare
   owner_ text;
   data_  jsonb;
   c      public.fitr_records;
-  frozen_keys text[] := array['bio', 'photo', 'photoAspect', 'photoFit'];
+  frozen_keys text[] := array['bio', 'photo', 'showPhoto', 'photoAspect', 'photoFit'];
 begin
   if not public.fitr_known(coll) then raise exception 'Unknown collection %', coll; end if;
   if me = '' then raise exception 'Please sign in first'; end if;
