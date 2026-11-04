@@ -561,6 +561,7 @@ const SignIn = {
           <br>· <strong>Guest</strong> — read everything, no posting (default).
           <br>· <strong>Public account</strong> — any email; can read the forum and submit corrections.
           <br>· <strong>FIWA account</strong> — emails ending <strong>@fiwa.sch.id</strong> see additional reporting. Tribunees can post to the forum.
+          <br><br><strong>Demo:</strong> any password works. Sign in as <strong>demo.ammar@fiwa.sch.id</strong> (an admin) or <strong>demo.arza@fiwa.sch.id</strong> (a Tribunee); each roster member with a login is <strong>demo.&lt;first name&gt;@fiwa.sch.id</strong>.
         </div>
         <div class="field">
           <label for="signin-email">Email</label>
@@ -5282,13 +5283,15 @@ const groupByDivision = (people) => {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
-   · email: their @fiwa.sch.id address, or null if we don't have it yet.
-     Only people WITH an email go on the allowlist (and so can unlock
+   · login: a short name for the demo sign-in (demoEmail below), or null.
+     Only people with one go on the demo allowlist (and so can unlock
      editing mode). Someone without one still gets a card on the About page.
+     No real school emails here: this file is public. On Supabase the real
+     allowlist and emails live in people.sql, outside the repo (Nov 2026).
    · admin: true for accounts that can manage the team, archive, and cases.
    · order: About-page order — editors, then operations, then
      journalists/writers, then production.
@@ -5296,25 +5299,25 @@ const SCHEMA_VERSION = 13;
    ──────────────────────────────────────────────────────────────────── */
 const ROSTER = [
   // Editors
-  { name: 'Ammar Mufiid Johansyah',          email: 'ammar.mufiid@fiwa.sch.id',     role: 'Founder · Editor-in-Chief', grade: 'G9',  admin: true  },
-  { name: 'Khalifah Agidra Filard',          email: 'khalifah.agidra@fiwa.sch.id',  role: 'Format Editor',             grade: 'G11', admin: false },
-  { name: 'Muhammad Ananda Syamsuddin',      email: null,                           role: 'Fact-Checking Editor',      grade: 'G7',  admin: false },
+  { name: 'Ammar Mufiid Johansyah',          login: 'ammar',                        role: 'Founder · Editor-in-Chief', grade: 'G9',  admin: true  },
+  { name: 'Khalifah Agidra Filard',          login: 'khalifah',                     role: 'Format Editor',             grade: 'G11', admin: false },
+  { name: 'Muhammad Ananda Syamsuddin',      login: null,                           role: 'Fact-Checking Editor',      grade: 'G7',  admin: false },
   // Operations
-  { name: 'Fathan Assyauqi Hiliry',          email: 'fathan.assyauqi@fiwa.sch.id',  role: 'Administrator',             grade: 'G8',  admin: true  },
-  { name: 'Yahya Abdullah Mahmudi',          email: null,                           role: 'Coordinator',               grade: 'G8',  admin: false },
-  { name: 'Aldebaran Gibran Altaf',          email: 'aldebaran.gibran@fiwa.sch.id', role: 'IT & Coding · Writer',      grade: 'G8',  admin: true  },
-  { name: 'Muhammad Arza Zaydan Suralaga',   email: 'arza.zaydan1@fiwa.sch.id',     role: 'IT & Coding · Writer',      grade: 'G10', admin: false },
+  { name: 'Fathan Assyauqi Hiliry',          login: 'fathan',                       role: 'Administrator',             grade: 'G8',  admin: true  },
+  { name: 'Yahya Abdullah Mahmudi',          login: null,                           role: 'Coordinator',               grade: 'G8',  admin: false },
+  { name: 'Aldebaran Gibran Altaf',          login: 'aldebaran',                    role: 'IT & Coding · Writer',      grade: 'G8',  admin: true  },
+  { name: 'Muhammad Arza Zaydan Suralaga',   login: 'arza',                         role: 'IT & Coding · Writer',      grade: 'G10', admin: false },
   // Journalists and writers
-  { name: 'Akio Hideaka Takijoeddin',        email: 'akio.hideaka1@fiwa.sch.id',    role: 'Journalist',                grade: 'G9',  admin: false },
-  { name: 'Fathan Rasyid',                   email: null,                           role: 'Journalist',                grade: 'G7',  admin: false },
-  { name: 'Fathi Rizqi Ramadhan',            email: 'fathi.rizqi1@fiwa.sch.id',     role: 'Writer',                    grade: 'G12', admin: false },
-  { name: 'Muhammad Ziya Ibrahim',           email: null,                           role: 'Writer (Science)',          grade: 'G10', admin: false },
-  { name: 'Mohamad Zahran',                  email: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
-  { name: 'Kafa Althaf Habibi',              email: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
-  { name: 'Tubagus Attariza Rayyan Athaya',  email: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
-  { name: 'Yunus Mahdi Abdullah',            email: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
+  { name: 'Akio Hideaka Takijoeddin',        login: 'akio',                         role: 'Journalist',                grade: 'G9',  admin: false },
+  { name: 'Fathan Rasyid',                   login: null,                           role: 'Journalist',                grade: 'G7',  admin: false },
+  { name: 'Fathi Rizqi Ramadhan',            login: 'fathi',                        role: 'Writer',                    grade: 'G12', admin: false },
+  { name: 'Muhammad Ziya Ibrahim',           login: null,                           role: 'Writer (Science)',          grade: 'G10', admin: false },
+  { name: 'Mohamad Zahran',                  login: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
+  { name: 'Kafa Althaf Habibi',              login: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
+  { name: 'Tubagus Attariza Rayyan Athaya',  login: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
+  { name: 'Yunus Mahdi Abdullah',            login: null,                           role: 'Writer',                    grade: 'G7',  admin: false },
   // Production
-  { name: 'Muhammad Shahza Kentzhad Sakrade', email: 'shahza.muhammad1@fiwa.sch.id', role: 'Photographer',             grade: 'G10', admin: false }
+  { name: 'Muhammad Shahza Kentzhad Sakrade', login: 'shahza',                       role: 'Photographer',             grade: 'G10', admin: false }
 ].map((p, order) => ({ ...p, order }));
 
 /* Print credits, counted from bylines in Editions I to V (Oct 2026).
@@ -5355,13 +5358,17 @@ const withPrintCredits = (t) => {
 const tribuneeSlug = (name) => 'tri-' + name.toLowerCase().normalize('NFKD')
   .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+/* Demo sign-in address for a roster member, e.g. demo.ammar@fiwa.sch.id.
+   Made up on purpose: it only works in the demo (any password does). */
+const demoEmail = (p) => p.login ? `demo.${p.login}@fiwa.sch.id` : null;
+
 /* Tribunee and allowlist records built from ROSTER. */
 const rosterTribunee = (p) => {
   const t = { id: tribuneeSlug(p.name), name: p.name, role: p.role, grade: p.grade, order: p.order };
-  if (p.email) t.email = p.email;
+  if (p.login) t.email = demoEmail(p);
   return withPrintCredits(t);
 };
-const rosterAllowlist = () => ROSTER.filter(p => p.email).map(p => ({ email: p.email, admin: p.admin }));
+const rosterAllowlist = () => ROSTER.filter(p => p.login).map(p => ({ email: demoEmail(p), admin: p.admin }));
 
 // Default categories, each inside one section (decided by Ammar, Oct 2026).
 const DEFAULT_NEWS_TABS = [
@@ -5427,133 +5434,15 @@ async function migrateLegacyData() {
   const current = stored ? parseInt(stored, 10) : 0;
   if (current >= SCHEMA_VERSION) return;
 
-  if (current < 2) {
-    // ─── v1 → v2 migration ────────────────────────────────────────────────
-    // Rebuild the allowlist entirely — there is no user data on it to lose,
-    // and the legacy shape uses the wrong emails and the old "founder" flag.
-    const existingAllow = await Store.list('allowlist');
-    if (existingAllow.length > 0) {
-      for (const a of existingAllow) await Store.remove('allowlist', a.id);
-    }
-    // seedIfEmpty below will repopulate the allowlist from the canonical seed.
-
-    // For tribunees, preserve bios/photos but patch missing emails and
-    // insert any new members that weren't in the legacy roster.
-    const canonicalTribunees = [
-      { name: 'Ammar Mufiid Johansyah',  email: 'ammar.mufiid@fiwa.sch.id',      role: 'Founder · Graphics Designer',                  grade: 'G9',  order: 0 },
-      { name: 'Aldebaraan Gibran Altaf', email: 'aldebaran.gibran@fiwa.sch.id',  role: 'Lead Developer · IT',                          grade: 'G8',  order: 1 },
-      { name: 'Fathan Assyauqi Hiliry',  email: 'fathan.assyauqi@fiwa.sch.id',   role: 'Representative · Writer · EN/ID Translator',   grade: 'G8',  order: 2 },
-      { name: 'Muhammad Shahza',         email: 'shahza.muhammad1@fiwa.sch.id',  role: 'Photographer',                                 grade: 'G10',  order: 3 },
-      { name: 'Arza Zaydan',             email: 'arza.zaydan1@fiwa.sch.id',      role: 'Writer',                                       grade: 'G10',  order: 4 },
-      { name: 'Akio Hideaka',            email: 'akio.hideaka1@fiwa.sch.id',     role: 'Writer',                                       grade: 'G9',  order: 5 },
-      { name: 'Khalifah Agidra',         email: 'khalifah.agidra@fiwa.sch.id',   role: 'Writer',                                       grade: 'G11', order: 6 },
-      { name: 'Fathi Rizqi',             email: 'fathi.rizqi1@fiwa.sch.id',      role: 'Writer',                                       grade: 'G12', order: 7 },
-      { name: 'Naufal Rian',             email: 'naufal.rian1@fiwa.sch.id',      role: 'Writer',                                       grade: 'G12', order: 8 },
-      { name: 'Muhammad Razqa Abyan',    email: 'muhammad.razqa@fiwa.sch.id',    role: 'Writer',                                       grade: 'G8',  order: 9 }
-    ];
-    // Old defaults we're allowed to silently overwrite — any custom role
-    // edited by a tribunee themselves is left alone.
-    const OLD_FATHAN_ROLE = 'Writer · EN/ID Translator';
-
-    const existingTribunees = await Store.list('tribunees');
-    if (existingTribunees.length > 0) {
-      // 1. Patch existing records: attach email + bump Fathan's stale role.
-      for (const t of existingTribunees) {
-        const canon = canonicalTribunees.find(c => c.name === t.name);
-        let dirty = false;
-        if (canon && !t.email) {
-          t.email = canon.email;
-          dirty = true;
-        }
-        if (t.name === 'Fathan Assyauqi Hiliry' && t.role === OLD_FATHAN_ROLE) {
-          t.role = canon.role;
-          dirty = true;
-        }
-        if (dirty) await Store.save('tribunees', t);
-      }
-      // 2. Insert any canonical tribunees missing from the existing roster
-      //    (this picks up Shahza and Razqa for browsers that already had data).
-      const existingNames = new Set(existingTribunees.map(t => t.name));
-      for (const canon of canonicalTribunees) {
-        if (!existingNames.has(canon.name)) {
-          await Store.save('tribunees', canon);
-        }
-      }
-    }
-    // If existingTribunees was empty, seedIfEmpty below handles it cleanly.
-  }
-
-  // ─── v2 → v3 migration ────────────────────────────────────────────────
-  // The Forum is no longer a discussion board — it is a Tribune feed
-  // (announcements + general posts, no comments). Legacy threads and
-  // comments are demo scaffolding with nothing worth preserving, so they
-  // are wiped. Surviving posts would carry the wrong category anyway.
-  if (current < 3) {
-    for (const c of await Store.list('comments')) await Store.remove('comments', c.id);
-    for (const t of await Store.list('threads'))  await Store.remove('threads', t.id);
-  }
-
-  // ─── v3 → v4 migration (roster update, Oct 2026) ───────────────────────
-  // People are matched by email. Bios and photos are always kept. Name,
-  // role and grade are overwritten only if they still hold the value the
-  // v3 seed gave them, so anything a tribunee or admin edited stays put.
-  // Runs only on browsers that already have data; a fresh browser gets
-  // the new roster from seedIfEmpty below.
+  // ─── v1 → v4 (May to Oct 2026) ─────────────────────────────────────────
+  // Data this old is early demo scaffolding. The old steps matched people
+  // by their school emails, which no longer live in this file (Nov 2026),
+  // so the team and the allowlist are cleared and seedIfEmpty rebuilds
+  // them from ROSTER. The old forum threads and comments go too (the forum
+  // became a feed in v3).
   if (current < 4) {
-    const V3_SEED = {
-      'ammar.mufiid@fiwa.sch.id':     { name: 'Ammar Mufiid Johansyah',  role: 'Founder · Graphics Designer',                grade: 'G9'  },
-      'aldebaran.gibran@fiwa.sch.id': { name: 'Aldebaraan Gibran Altaf', role: 'Lead Developer · IT',                        grade: 'G8'  },
-      'fathan.assyauqi@fiwa.sch.id':  { name: 'Fathan Assyauqi Hiliry',  role: 'Representative · Writer · EN/ID Translator', grade: 'G8'  },
-      'shahza.muhammad1@fiwa.sch.id': { name: 'Muhammad Shahza',         role: 'Photographer',                               grade: 'G10' },
-      'arza.zaydan1@fiwa.sch.id':     { name: 'Arza Zaydan',             role: 'Writer',                                     grade: 'G10' },
-      'akio.hideaka1@fiwa.sch.id':    { name: 'Akio Hideaka',            role: 'Writer',                                     grade: 'G9'  },
-      'khalifah.agidra@fiwa.sch.id':  { name: 'Khalifah Agidra',         role: 'Writer',                                     grade: 'G11' },
-      'fathi.rizqi1@fiwa.sch.id':     { name: 'Fathi Rizqi',             role: 'Writer',                                     grade: 'G12' }
-    };
-    const REMOVED = ['naufal.rian1@fiwa.sch.id', 'muhammad.razqa@fiwa.sch.id'];
-    const emailOf = (x) => (x.email || '').toLowerCase();
-
-    // Allowlist: drop the people who left; make sure everyone on the
-    // roster with an email is on it, with the right admin flag.
-    const allow = await Store.list('allowlist');
-    if (allow.length > 0) {
-      for (const a of allow) {
-        if (REMOVED.includes(emailOf(a))) await Store.remove('allowlist', a.id);
-      }
-      for (const want of rosterAllowlist()) {
-        const have = allow.find(a => emailOf(a) === want.email);
-        if (!have) await Store.save('allowlist', want);
-        else if (!!have.admin !== want.admin) await Store.save('allowlist', { ...have, admin: want.admin });
-      }
-    }
-
-    // Tribunees.
-    const people = await Store.list('tribunees');
-    if (people.length > 0) {
-      for (const t of people) {
-        if (REMOVED.includes(emailOf(t))) await Store.remove('tribunees', t.id);
-      }
-      for (const p of ROSTER) {
-        if (p.email) {
-          const t = people.find(x => emailOf(x) === p.email);
-          if (!t) { await Store.save('tribunees', rosterTribunee(p)); continue; }
-          const old = V3_SEED[p.email] || {};
-          if (t.name  === old.name)  t.name  = p.name;
-          if (t.role  === old.role)  t.role  = p.role;
-          if (t.grade === old.grade) t.grade = p.grade;
-          t.order = p.order;
-          await Store.save('tribunees', t);   // bio, photo, aspect/fit untouched
-        } else if (!people.some(x => x.name === p.name)) {
-          await Store.save('tribunees', rosterTribunee(p));
-        }
-      }
-    }
-
-    // News categories: seed the four defaults once, only if there are none.
-    if ((await Store.list('newsTabs')).length === 0) {
-      for (const { label, section } of DEFAULT_NEWS_TABS) {
-        await Store.save('newsTabs', { label, section, subtabs: [] });
-      }
+    for (const coll of ['allowlist', 'tribunees', 'comments', 'threads']) {
+      for (const x of await Store.list(coll)) await Store.remove(coll, x.id);
     }
   }
 
@@ -5564,11 +5453,10 @@ async function migrateLegacyData() {
   // The record itself (bio, photo, edits) moves across unchanged.
   if (current < 5) {
     const people = await Store.list('tribunees');
-    const emailOf = (x) => (x.email || '').toLowerCase();
     for (const p of ROSTER) {
       const id = tribuneeSlug(p.name);
       if (people.some(x => x.id === id)) continue;
-      const t = people.find(x => (p.email && emailOf(x) === p.email)) || people.find(x => x.name === p.name);
+      const t = people.find(x => x.name === p.name);
       if (!t) continue;
       await Store.remove('tribunees', t.id);
       t.id = id;
@@ -5673,10 +5561,26 @@ async function migrateLegacyData() {
   // The printed Editions I–V, readable on the site.
   if (current < 12) await seedEditions();
 
-  // ─── v12 → v13 migration (FIWA-only, Nov 2026) ─────────────────────────
+  // ─── v12 → v13 migration (no school emails in the code, Nov 2026) ──────
+  // The demo used to sign people in with their real @fiwa.sch.id
+  // addresses. It now uses made-up demo addresses (demoEmail below), so
+  // the demo allowlist is rebuilt and each roster card gets its demo
+  // address. Bios, photos and edits are kept.
+  if (current < 13) {
+    for (const a of await Store.list('allowlist')) await Store.remove('allowlist', a.id);
+    for (const a of rosterAllowlist()) await Store.save('allowlist', a);
+    for (const t of await Store.list('tribunees')) {
+      const p = ROSTER.find(r => r.name === t.name);
+      if (!p) continue;   // added by an admin in this browser: left as is
+      if (p.login) t.email = demoEmail(p); else delete t.email;
+      await Store.save('tribunees', t);
+    }
+  }
+
+  // ─── v13 → v14 migration (FIWA-only, Nov 2026) ─────────────────────────
   // Internal News is always FIWA-only, and the edition files moved out of
   // the public site into the private "editions" bucket.
-  if (current < 13) {
+  if (current < 14) {
     for (const a of await Store.list('articles')) {
       if (a.section !== 'external' && a.visibility !== 'fiwa') { a.visibility = 'fiwa'; await Store.save('articles', a); }
     }
@@ -5704,7 +5608,7 @@ async function seedIfEmpty() {
   // Allowlist — at least one tribunee email so the editor role is reachable
   const allowlist = await Store.list('allowlist');
   if (allowlist.length === 0) {
-    /* Built from ROSTER (top of this section): everyone with an email.
+    /* Built from ROSTER (top of this section): everyone with a demo login.
        An email here, paired with a FIWA-tier sign-in, unlocks editing mode.
        admin: true accounts can also add/remove tribunees, edit other
        tribunees' profiles, manage archive editions, and act on cases.

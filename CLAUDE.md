@@ -322,8 +322,11 @@ public user, a non-admin Tribunee, and an admin.
 - The Supabase URL and publishable/anon key are safe to commit. The secret
   or service_role key must never be committed, nor `people.sql`
   (the allowlist and emails; it lives in the project files).
-- The engine's demo roster (`ROSTER`) still holds students' school emails.
-  Remove them once the site runs on Supabase.
+- No real school emails in the code: this repo and the engine are public.
+  The demo roster (`ROSTER`) gives each member a made-up demo login,
+  `demo.<name>@fiwa.sch.id` (e.g. `demo.ammar` is an admin, `demo.arza` a
+  Tribunee); any password works in the demo. The real allowlist lives only
+  in `people.sql` (Nov 2026).
 
 ---
 
