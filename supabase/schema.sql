@@ -104,6 +104,13 @@ language sql immutable as $$
                   'tribunees', 'allowlist', 'cases', 'casemsgs', 'drafts', 'typing')
 $$;
 
+-- An article anyone may read: External News that an editor set to Public.
+-- Internal News is always FIWA-only (Nov 2026).
+create or replace function public.fitr_article_public(d jsonb) returns boolean
+language sql immutable as $$
+  select coalesce(d ->> 'section', '') = 'external' and coalesce(d ->> 'visibility', '') = 'public'
+$$;
+
 -- A stored row as the caller is allowed to see it: the JSON plus id and
 -- timestamps (in milliseconds, like Date.now()), plus the email only for
 -- those allowed. Returns null if the caller may not see the row at all.
@@ -120,12 +127,27 @@ declare
 begin
   -- Who may see the row at all.
   case r.coll
+    -- FIWA-only (Ammar, Nov 2026, after the Mudir's concern about the
+    -- public seeing FIWA's internal matters). Guests and non-FIWA accounts
+    -- see only External News stories an editor made Public, the corrections
+    -- to those stories, the About page (tribunees) and the categories.
     when 'articles' then
-      if coalesce(r.data ->> 'visibility', 'public') = 'fiwa' and not public.fitr_is_fiwa() then return null; end if;
-    when 'threads' then
-      -- FIWA-first: announcements are public, the rest of the feed is for
-      -- FIWA accounts (the mudir's advice, Oct 2026).
-      if coalesce(r.data ->> 'category', 'general') <> 'announcement' and not public.fitr_is_fiwa() then return null; end if;
+      if not public.fitr_article_public(r.data) and not public.fitr_is_fiwa() then return null; end if;
+    when 'threads', 'editions' then
+      -- The forum feed (announcements too) and the printed editions.
+      if not public.fitr_is_fiwa() then return null; end if;
+    when 'corrections' then
+      -- Public only when the story it fixes is public.
+      if not public.fitr_is_fiwa() then
+        select * into c from public.fitr_records where coll = 'articles' and id = r.data ->> 'articleId';
+        if not found or not public.fitr_article_public(c.data) then return null; end if;
+      end if;
+    when 'featured' then
+      -- Front-page picks: only the ones a guest can open.
+      if not public.fitr_is_fiwa() then
+        select * into c from public.fitr_records where coll = 'articles' and id = r.data ->> 'articleId';
+        if not found or not public.fitr_article_public(c.data) then return null; end if;
+      end if;
     when 'drafts' then
       if not mine then return null; end if;
     when 'typing' then
@@ -232,6 +254,10 @@ begin
   case coll
     when 'articles', 'featured', 'newsTabs' then
       if not trib then raise exception 'Only Tribunees can do that'; end if;
+      -- Internal News is always FIWA-only: no editor can make it public.
+      if coll = 'articles' and coalesce(data_ ->> 'section', '') <> 'external' then
+        data_ := data_ || '{"visibility": "fiwa"}'::jsonb;
+      end if;
 
     when 'editions' then
       if not admin then raise exception 'Only admins can manage editions'; end if;
@@ -392,7 +418,51 @@ values ('media', 'media', true, 15728640,
 on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
+--  The printed editions (PDFs and front pages) are in the private
+--  "editions" bucket (Nov 2026): only FIWA accounts can read them, through
+--  short-lived links; only admins upload or replace them. Records keep
+--  "private:<file name>".
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('editions', 'editions', false, 52428800, array['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "fitr editions: FIWA reads" on storage.objects;
+create policy "fitr editions: FIWA reads" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'editions' and public.fitr_is_fiwa());
+drop policy if exists "fitr editions: admins upload" on storage.objects;
+create policy "fitr editions: admins upload" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'editions' and public.fitr_is_admin());
+drop policy if exists "fitr editions: admins replace" on storage.objects;
+create policy "fitr editions: admins replace" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'editions' and public.fitr_is_admin());
+drop policy if exists "fitr editions: admins remove" on storage.objects;
+create policy "fitr editions: admins remove" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'editions' and public.fitr_is_admin());
+
 drop policy if exists "fitr media: Tribunees upload" on storage.objects;
 create policy "fitr media: Tribunees upload" on storage.objects
   for insert to authenticated
   with check (bucket_id = 'media' and public.fitr_is_tribunee());
+
+-- =====================================================================
+--  ONE-OFF DATA FIX (Nov 2026, FIWA-only): safe to re-run.
+--  Internal News stories become FIWA-only, and the five editions point at
+--  their files in the private "editions" bucket (upload edition-1.pdf …
+--  edition-5.jpg there first; see README).
+-- =====================================================================
+update public.fitr_records set data = data || '{"visibility": "fiwa"}'::jsonb
+where coll = 'articles' and coalesce(data ->> 'section', '') <> 'external'
+  and coalesce(data ->> 'visibility', '') <> 'fiwa';
+
+update public.fitr_records
+set data = data
+  || case when data ->> 'pdf' ~ '^/editions/edition-[0-9]+[.]pdf$'
+          then jsonb_build_object('pdf', 'private:' || substring(data ->> 'pdf' from '^/editions/(.*)$')) else '{}'::jsonb end
+  || case when data ->> 'cover' ~ '^/editions/edition-[0-9]+[.]jpg$'
+          then jsonb_build_object('cover', 'private:' || substring(data ->> 'cover' from '^/editions/(.*)$')) else '{}'::jsonb end
+where coll = 'editions';
