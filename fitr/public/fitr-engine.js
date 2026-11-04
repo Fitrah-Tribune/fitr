@@ -393,7 +393,8 @@ const ROUTE_PATHS = {
   about:       '/about',
   article:     '/article',
   tribunee:    '/tribunee',
-  write:       '/write'
+  write:       '/write',
+  more:        '/more'
 };
 
 const Router = {
@@ -446,6 +447,7 @@ const Icons = {
   forum:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
   pencil:  `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   about:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>`,
+  extras:  `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><path d="M16.75 13.5v6.5M13.5 16.75H20"/></svg>`,
   view_list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><rect x="3" y="5" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="11" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="3" y="17" width="2.5" height="2.5" fill="currentColor" stroke="none"/></svg>`,
   view_grid: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5"/><rect x="13.5" y="4" width="6.5" height="6.5"/><rect x="4" y="13.5" width="6.5" height="6.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5"/></svg>`,
   // Small action icons, drawn like the tab icons (24 grid, 2px round strokes).
@@ -468,7 +470,8 @@ const NAV_TABS = [
   { id: 'archive',     label: 'Editions',    icon: 'archive' },
   { id: 'forum',       label: 'Forum',       icon: 'forum' },
   { id: 'corrections', label: 'Feedback & Corrections', icon: 'pencil' },
-  { id: 'about',       label: 'About',       icon: 'about' }
+  { id: 'about',       label: 'About',       icon: 'about' },
+  { id: 'more',        label: 'More',        icon: 'extras' }
 ];
 
 /* The browser tab's title. Article, profile and edition pages name what
@@ -476,7 +479,7 @@ const NAV_TABS = [
 const SITE_TITLE = 'Fitrah Tribune — Documenting FIWA And Beyond';
 const PAGE_TITLES = {
   news: 'News', archive: 'Editions', forum: 'Forum', corrections: 'Feedback & Corrections',
-  about: 'About', write: 'Writer’s desk', article: 'Article', tribunee: 'The Tribunees'
+  about: 'About', more: 'More', write: 'Writer’s desk', article: 'Article', tribunee: 'The Tribunees'
 };
 function setTitle(name) {
   document.title = name ? `${name} · Fitrah Tribune` : SITE_TITLE;
@@ -3381,15 +3384,15 @@ const Weather = {
   // avoids browser cross-site limits; BMKG directly is the fallback.
   SOURCES: ['/api/weather', 'https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.01.33.2006'],
   KEEP_MS: 30 * 60 * 1000,
+  steps: json => ((json.data && json.data[0] && json.data[0].cuaca) || []).flat(),
+  when: s => s.utc_datetime
+    ? Date.parse(s.utc_datetime.replace(' ', 'T') + 'Z')
+    : Date.parse(String(s.local_datetime).replace(' ', 'T') + '+07:00'),
   // BMKG gives 3-hourly steps; take the one nearest to now.
   nearest(json) {
-    const steps = ((json.data && json.data[0] && json.data[0].cuaca) || []).flat();
-    const when = s => s.utc_datetime
-      ? Date.parse(s.utc_datetime.replace(' ', 'T') + 'Z')
-      : Date.parse(String(s.local_datetime).replace(' ', 'T') + '+07:00');
     let best = null;
-    for (const s of steps) {
-      const d = Math.abs(when(s) - Date.now());
+    for (const s of this.steps(json)) {
+      const d = Math.abs(this.when(s) - Date.now());
       if (!best || d < best.d) best = { s, d };
     }
     return best && best.s;
@@ -3411,7 +3414,78 @@ const Weather = {
     }
     throw new Error('weather unavailable');
   },
+  // The next few 3-hourly steps from now (the More page's forecast row).
+  async upcoming(count = 4) {
+    let steps = null;
+    try {
+      const kept = JSON.parse(sessionStorage.getItem('fitrah:weather-bmkg-steps') || 'null');
+      if (kept && Date.now() - kept.at < this.KEEP_MS) steps = kept.data;
+    } catch { /* storage unavailable: just fetch */ }
+    for (const url of steps ? [] : this.SOURCES) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const list = this.steps(await res.json()).map(s => ({
+          utc_datetime: s.utc_datetime, local_datetime: s.local_datetime, t: s.t,
+          weather: s.weather, weather_desc_en: s.weather_desc_en, weather_desc: s.weather_desc
+        }));
+        if (!list.length) continue;
+        steps = list;
+        try { sessionStorage.setItem('fitrah:weather-bmkg-steps', JSON.stringify({ at: Date.now(), data: steps })); } catch { /* ignore */ }
+        break;
+      } catch { /* try the next source */ }
+    }
+    if (!steps) throw new Error('weather unavailable');
+    const from = Date.now() - 90 * 60 * 1000;
+    return steps.filter(s => this.when(s) >= from).sort((a, b) => this.when(a) - this.when(b)).slice(0, count);
+  },
+  // BMKG's live warnings (nowcasts) that cover FIWA, from the site's own
+  // /api/weather-alerts (functions/api/weather-alerts.js). Empty when there
+  // are none, or when BMKG can't be reached.
+  async alerts() {
+    try {
+      const kept = JSON.parse(sessionStorage.getItem('fitrah:weather-alerts') || 'null');
+      if (kept && Date.now() - kept.at < 5 * 60 * 1000) return kept.data;
+    } catch { /* storage unavailable: just fetch */ }
+    try {
+      const res = await fetch('/api/weather-alerts');
+      if (!res.ok) return [];
+      const data = ((await res.json()).alerts || []).filter(a => !a.expires || Date.parse(a.expires) > Date.now());
+      try { sessionStorage.setItem('fitrah:weather-alerts', JSON.stringify({ at: Date.now(), data })); } catch { /* ignore */ }
+      return data;
+    } catch { return []; }
+  },
+  // CAP severity → the warning's colour and name on the site.
+  LEVELS: {
+    Extreme:  { cls: 'red',    label: 'Red warning' },
+    Severe:   { cls: 'orange', label: 'Orange warning' },
+    Moderate: { cls: 'yellow', label: 'Yellow warning' },
+    Minor:    { cls: 'grey',   label: 'Weather advisory' }
+  },
+  level(a) { return this.LEVELS[a.severity] || this.LEVELS.Minor; },
+  until(a) {
+    const t = Date.parse(a.expires);
+    if (!Number.isFinite(t)) return '';
+    return new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
+  },
+  alertHtml(a) {
+    const lv = this.level(a), until = this.until(a);
+    const safeUrl = /^https:\/\/[^/]*bmkg\.go\.id\//.test(a.web || '') ? a.web : 'https://www.bmkg.go.id/peringatan-dini';
+    return `<div class="wx-alert ${lv.cls}" role="alert">
+      <div class="wx-alert-head"><span class="wx-alert-level">${lv.label}</span>${until ? `<span class="wx-alert-until">until ${until} WIB</span>` : ''}</div>
+      <div class="wx-alert-title">${escapeHtml(a.event || a.headline || 'Weather warning')}</div>
+      ${a.headline && a.event && a.headline !== a.event ? `<div class="wx-alert-text">${escapeHtml(a.headline)}</div>` : ''}
+      <a class="wx-alert-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener">Details from BMKG</a>
+    </div>`;
+  },
+  async renderAlerts() {
+    const box = $('#home-weather-alerts');
+    if (!box) return;
+    const list = await this.alerts();
+    box.innerHTML = list.slice(0, 2).map(a => this.alertHtml(a)).join('');
+  },
   async render() {
+    this.renderAlerts();
     const box = $('#home-weather');
     if (!box) return;
     try {
@@ -5677,5 +5751,5 @@ async function mountChrome() {
 /* The only door between the engine and React. */
 window.FITR = {
   ready, mountChrome, renderTabs, renderUserArea, setTitle,
-  Router, Pages, Auth, Store, Editor, Modal, SignIn, toast
+  Router, Pages, Auth, Store, Editor, Modal, SignIn, toast, Weather, WeatherIcons
 };

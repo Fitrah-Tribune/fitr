@@ -10,6 +10,8 @@ import About from './pages/About'
 import Article from './pages/Article'
 import Tribunee from './pages/Tribunee'
 import Write from './pages/Write'
+import More from './pages/More'
+import TypingTest from './pages/TypingTest'
 import NotFound from './pages/NotFound'
 
 /* Lets the engine's Router.go('forum') drive React Router. */
@@ -42,6 +44,8 @@ export default function App() {
           <Route path="tribunee/:id" element={<Tribunee />} />
           <Route path="write" element={<Write />} />
           <Route path="write/:id" element={<Write />} />
+          <Route path="more" element={<More />} />
+          <Route path="more/typing" element={<TypingTest />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
