@@ -22,7 +22,7 @@ of turning a former 6,500-line HTML monster into something that future humans
 
 Progress is being made. One refactor at a time.
 
-Also, if you want to visit the website, check out [fitrahtribune.pages.dev](fitrahtribune.pages.dev) or the in-dev version at [development.fitrahtribune.pages.dev](development.fitrahtribune.pages.dev). If you're asking why fitrahtribune.pages.dev is uglier, that's because it's only for public releases, and technically the website isn't finished yet so... I guess you'll wait for it?
+Also, if you want to visit the website, check out [fitrahtribune.pages.dev](fitrahtribune.pages.dev) or the in-dev version at [development.fitrahtribune.pages.dev](development.fitrahtribune.pages.dev). If you're asking why fitrahtribune.pages.dev is uglier, that's because it's only for public releases, and technically the website isn't finished yet so... I guess you'll have to wait for it to be released.
 
 ## License
 
