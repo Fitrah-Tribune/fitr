@@ -3228,9 +3228,14 @@ Pages.home = {
     const isEditing = Editor.active;
     const articles = await listVisibleArticles();
     const featured = (await Store.list('featured')).sort((a, b) => a.order - b.order);
-    const featArticles = featured
+    let featArticles = featured
       .map(f => articles.find(a => a.id === f.articleId))
       .filter(Boolean);
+    // Guests can't open FIWA-only picks, so when none of the picks is
+    // public they get the newest public stories on the front page instead.
+    if (featArticles.length === 0 && !Auth.isFiwa()) {
+      featArticles = [...articles].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 3);
+    }
 
     // Featured area
     const fa = $('#home-featured-area');
