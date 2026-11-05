@@ -160,12 +160,31 @@ const supabaseDriver = {
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
       .map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
     const ext = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'application/pdf': 'pdf' }[type] || type.split('/')[1];
-    const path = `${coll}/${hash}.${ext}`;
-    const bucket = this.client.storage.from('media');
+    // Edition PDFs and covers go to the private "editions" bucket, which
+    // only FIWA accounts can read (Nov 2026); the record keeps
+    // "private:<file>" and fileUrl() turns it into a short-lived link.
+    const priv = coll === 'editions';
+    const path = priv ? `${hash}.${ext}` : `${coll}/${hash}.${ext}`;
+    const bucket = this.client.storage.from(priv ? 'editions' : 'media');
     const { error } = await bucket.upload(path, new Blob([bytes], { type }), { contentType: type, upsert: false });
     // Already uploaded (same content) is fine: the link is the same.
     if (error && !/exists|duplicate/i.test(error.message)) throw new Error('Upload failed: ' + error.message);
-    return bucket.getPublicUrl(path).data.publicUrl;
+    return priv ? `private:${path}` : bucket.getPublicUrl(path).data.publicUrl;
+  },
+
+  /* A link for a stored file. "private:<file>" is in the private editions
+     bucket: the database hands out a link that works for an hour, and only
+     to FIWA accounts. Anything else is already a link. */
+  _signed: new Map(),
+  async fileUrl(path) {
+    if (!path || !path.startsWith('private:')) return path || null;
+    const file = path.slice('private:'.length);
+    const hit = this._signed.get(file);
+    if (hit && hit.until > Date.now()) return hit.url;
+    const { data, error } = await this.client.storage.from('editions').createSignedUrl(file, 3600);
+    if (error || !data) return null;
+    this._signed.set(file, { url: data.signedUrl, until: Date.now() + 50 * 60 * 1000 });
+    return data.signedUrl;
   },
 
   /* Google sign-in leaves the site and comes back signed in, so this
@@ -181,6 +200,7 @@ const supabaseDriver = {
   async signOut() {
     await this.client.auth.signOut();
     this._cache.clear();
+    this._signed.clear();
   },
   async getCurrentUser() {
     const { data } = await this.client.auth.getSession();
@@ -211,7 +231,13 @@ const Store = {
   async signIn(email, pw)    { return (await pickDriver).signIn(email, pw); },
   async signOut()            { return (await pickDriver).signOut(); },
   async getCurrentUser()     { return (await pickDriver).getCurrentUser(); },
-  async isRemote()           { return (this.remote = (await pickDriver) === supabaseDriver); }
+  async isRemote()           { return (this.remote = (await pickDriver) === supabaseDriver); },
+  // The demo has no private files, so a "private:" path gives nothing there.
+  async fileUrl(path) {
+    const d = await pickDriver;
+    if (d.fileUrl) return d.fileUrl(path);
+    return path && !path.startsWith('private:') ? path : null;
+  }
 };
 
 /* =====================================================================
@@ -782,6 +808,7 @@ const Editor = {
                   <option value="public" ${a.visibility === 'public' || (isEditing && a.visibility !== 'fiwa') ? 'selected' : ''}>Public</option>
                   <option value="fiwa" ${a.visibility === 'fiwa' || (!isEditing && a.visibility !== 'public') ? 'selected' : ''}>FIWA only</option>
                 </select>
+                <div class="field-hint" id="art-visibility-hint">Internal News is always FIWA only.</div>
               </div>
               <div class="field">
                 <label>Language</label>
@@ -897,7 +924,16 @@ const Editor = {
         fits.map(t => `<option value="${t.id}" ${keep === t.id ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
     };
     refreshTabs();
-    sectionSelect.onchange = () => { refreshTabs(); drawKicker(); };
+    // Internal News is always FIWA-only: the Public choice is turned off.
+    const visSelect = $('#art-visibility');
+    const lockVisibility = () => {
+      const internal = sectionSelect.value !== 'external';
+      if (internal) visSelect.value = 'fiwa';
+      visSelect.querySelector('option[value="public"]').disabled = internal;
+      $('#art-visibility-hint').style.display = internal ? '' : 'none';
+    };
+    lockVisibility();
+    sectionSelect.onchange = () => { refreshTabs(); lockVisibility(); drawKicker(); };
     tabSelect.onchange = drawKicker;
     $('#art-visibility').onchange = drawKicker;
 
@@ -1083,7 +1119,7 @@ const Editor = {
     item.section = $('#art-section').value;
     item.tab = $('#art-tab').value;
     item.subtab = '';
-    item.visibility = $('#art-visibility').value;
+    item.visibility = item.section === 'external' ? $('#art-visibility').value : 'fiwa';
     item.lang = $('#art-lang').value;
     item.coverImage = state.coverImage || null;
     item.coverAspect = parseAspect(state.coverAspect, 16/9);
@@ -1221,8 +1257,8 @@ const Editor = {
     return `
         <div class="field">
           <label>PDF of the edition</label>
-          <input type="text" id="ed-pdf" value="${escapeHtml(e.pdf || '')}" placeholder="/editions/edition-6.pdf" />
-          <div class="field-hint">Where the PDF lives: a file in the website's <code>public/editions/</code> folder, or a full https:// link. Readers read it page by page here and can download it.</div>
+          <input type="text" id="ed-pdf" value="${escapeHtml(e.pdf || '')}" placeholder="private:edition-6.pdf" />
+          <div class="field-hint">Upload the PDF to the private <code>editions</code> bucket in Supabase, then write <code>private:</code> and its file name, e.g. <code>private:edition-6.pdf</code>. Only FIWA accounts can open it. FIWA readers read it page by page here and can download it.</div>
         </div>
         <div class="field">
           <label>What's on each page (optional)</label>
@@ -1300,15 +1336,15 @@ const Editor = {
       : {};
 
     const pdf = ($('#ed-pdf')?.value || '').trim();
-    if (pdf && !/^(\/|https:\/\/)/.test(pdf)) {
-      toast('The PDF must be a site path starting with / or an https:// link', 'error');
+    if (pdf && !/^(private:[\w.-]+$|https:\/\/)/.test(pdf)) {
+      toast('The PDF must be private:<file name> (in the editions bucket) or an https:// link', 'error');
       return;
     }
     const contents = ($('#ed-contents')?.value || '').split('\n').map(l => l.trim()).filter(Boolean);
     // Count the pages from the PDF itself when it changes.
     let pages = pdf === existing.pdf ? existing.pages || 0 : 0;
     if (pdf && !pages && window.pdfjsLib) {
-      try { pages = (await pdfjsLib.getDocument(pdf).promise).numPages; }
+      try { pages = (await pdfjsLib.getDocument(await Store.fileUrl(pdf)).promise).numPages; }
       catch (err) { toast('Saved, but the PDF could not be opened. Check its address.', 'error'); }
     }
 
@@ -1892,17 +1928,24 @@ const NEWS_SECTIONS = [
 ];
 const sectionLabel = (id) => NEWS_SECTIONS.find(x => x.id === id)?.label || '';
 
-/* Kicker line on cards and article pages: "Internal News · Sports · Football". */
+/* Who can read a story (Ammar, Nov 2026, after the Mudir's concern about
+   the public seeing FIWA's internal matters). Internal News is always
+   FIWA-only. An External News story is public only when an editor sets it
+   to Public. The database enforces the same rule (supabase/schema.sql). */
+const isPublicArticle = (a) => !!a && a.section === 'external' && a.visibility === 'public';
+
+/* Kicker line on cards and article pages: "Internal News · Sports · Football".
+   Internal News is always FIWA-only, so only External News says so. */
 function articleKicker(a, { fiwaLabel = 'FIWA' } = {}) {
   const parts = [sectionLabel(a.section), a.tabLabel].filter(Boolean);
-  if (a.visibility === 'fiwa') parts.push(fiwaLabel);
+  if (a.section === 'external' && a.visibility !== 'public') parts.push(fiwaLabel);
   return parts.join(' · ') || 'News';
 }
 
 async function listVisibleArticles(filter = null) {
   const all = await Store.list('articles');
   const isFiwa = Auth.isFiwa();
-  const visible = all.filter(a => isFiwa || a.visibility !== 'fiwa');
+  const visible = all.filter(a => isFiwa || isPublicArticle(a));
   const tabs = await Store.list('newsTabs');
   visible.forEach(a => {
     a.tabLabel = tabs.find(t => t.id === a.tab)?.label || '';
@@ -3186,9 +3229,14 @@ Pages.home = {
     const isEditing = Editor.active;
     const articles = await listVisibleArticles();
     const featured = (await Store.list('featured')).sort((a, b) => a.order - b.order);
-    const featArticles = featured
+    let featArticles = featured
       .map(f => articles.find(a => a.id === f.articleId))
       .filter(Boolean);
+    // Guests can't open FIWA-only picks, so when none of the picks is
+    // public they get the newest public stories on the front page instead.
+    if (featArticles.length === 0 && !Auth.isFiwa()) {
+      featArticles = [...articles].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 3);
+    }
 
     // Featured area
     const fa = $('#home-featured-area');
@@ -3265,10 +3313,13 @@ Pages.home = {
     Weather.render();
 
     // Forum preview — latest posts from the feed
-    const posts = (await Store.list('threads')).filter(p => Auth.isFiwa() || p.category === 'announcement')
-      .sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
+    // The forum is for FIWA accounts (Nov 2026); the database enforces it.
+    const posts = Auth.isFiwa() ? (await Store.list('threads'))
+      .sort((a, b) => b.createdAt - a.createdAt).slice(0, 4) : [];
     const fp = $('#home-forum-preview');
-    if (posts.length === 0) {
+    if (!Auth.isFiwa()) {
+      fp.innerHTML = `<p style="font-family: var(--article); font-style: italic; font-size: 1.05rem; color: var(--ink-soft); padding: 1rem 0;">The Tribune’s feed is for the FIWA community. Sign in with your @fiwa.sch.id account to see it.</p>`;
+    } else if (posts.length === 0) {
       fp.innerHTML = `<p style="font-family: var(--article); font-style: italic; font-size: 1.05rem; color: var(--ink-soft); padding: 1rem 0;">Nothing posted yet. Announcements and notices from the Tribune will appear here.</p>`;
     } else {
       fp.innerHTML = posts.map(p => {
@@ -3591,7 +3642,10 @@ Pages.news = {
     `;
 
     const grid = $('#news-grid');
-    if (articles.length === 0) {
+    if (sec === 'internal' && !Auth.isFiwa() && !this.state.search) {
+      // Internal News is for the FIWA community (Nov 2026).
+      grid.innerHTML = `<p class="forum-fiwa-note">Internal News is for the FIWA community. Sign in with your <strong>@fiwa.sch.id</strong> account to read it.</p>`;
+    } else if (articles.length === 0) {
       grid.innerHTML = `
         <div class="empty-state">
           ${Icons.empty}
@@ -3681,7 +3735,7 @@ Pages.article = {
       root.innerHTML = `<div class="empty-state">${Icons.empty}<h3>Article not found</h3><p>It may have been removed or never existed.</p></div>`;
       return;
     }
-    if (a.visibility === 'fiwa' && !Auth.isFiwa()) {
+    if (!isPublicArticle(a) && !Auth.isFiwa()) {
       root.innerHTML = `<div class="empty-state">${Icons.empty}<h3>Article not found</h3></div>`;
       return;
     }
@@ -3918,9 +3972,18 @@ const Editions = {
   },
   href: (e) => `/archive/${e.number}`,
   linkAttrs: (e) => `href="/archive/${e.number}" onclick="event.preventDefault(); Router.go('archive/${e.number}')"`,
+  // Edition files live in the private bucket; swap each "private:" path
+  // for a link that works (only FIWA accounts get one).
   async list() {
-    return (await Store.list('editions')).sort((a, b) => b.number - a.number);
+    const eds = (await Store.list('editions')).sort((a, b) => b.number - a.number);
+    return Promise.all(eds.map(async e => ({
+      ...e,
+      pdf: await Store.fileUrl(e.pdf),
+      cover: await Store.fileUrl(e.cover),
+      coverImage: await Store.fileUrl(e.coverImage)
+    })));
   },
+  fiwaNote: `<p class="forum-fiwa-note">The printed editions are for the FIWA community. Sign in with your <strong>@fiwa.sch.id</strong> account to read them.</p>`,
   // The front page: an uploaded cover, the shipped cover, or page 1 of the
   // PDF (drawn by Editions.drawPdfCovers after the page renders).
   cover(e, cls = '') {
@@ -3969,7 +4032,7 @@ Pages.archive = {
 
     const canEdit = Editor.active && await Auth.isAdmin();
     const root = $('#archive-area');
-    const editions = await Editions.list();
+    const editions = Auth.isFiwa() ? await Editions.list() : [];
     const head = `
       <div class="section-head">
         <h2>Editions</h2>
@@ -3978,6 +4041,7 @@ Pages.archive = {
       </div>
       <p class="ed-intro">Each edition stays exactly as we printed it. When we find a mistake later, we don’t quietly change the paper: the fix is listed in our <a href="/feedback" onclick="event.preventDefault(); Router.go('corrections')">Corrections log</a>.</p>`;
 
+    if (!Auth.isFiwa()) { root.innerHTML = head + Editions.fiwaNote; return; }
     if (editions.length === 0) {
       root.innerHTML = head + `
         <div class="empty-state">
@@ -4033,6 +4097,13 @@ Pages.archive = {
   async renderEdition(n) {
     const root = $('#archive-area');
     const canEdit = Editor.active && await Auth.isAdmin();
+    if (!Auth.isFiwa()) {
+      EditionReader.close();
+      root.innerHTML = `
+        <a class="ed-back" href="/archive" onclick="event.preventDefault(); Router.go('archive')">← All editions</a>
+        ${Editions.fiwaNote}`;
+      return;
+    }
     const editions = await Editions.list();
     const e = editions.find(x => Number(x.number) === n);
     if (e) setTitle(Editions.label(n));
@@ -4333,9 +4404,10 @@ Pages.forum = {
       b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
 
-    // FIWA-first (mudir's advice, Oct 2026): announcements are public;
-    // the rest of the feed is for FIWA accounts. The database enforces it.
-    let posts = (await Store.list('threads')).filter(p => Auth.isFiwa() || p.category === 'announcement');
+    // The whole feed is for FIWA accounts (Ammar, Nov 2026, after the
+    // Mudir's concern about the public seeing FIWA's internal matters).
+    // The database enforces it.
+    let posts = Auth.isFiwa() ? await Store.list('threads') : [];
     if (tab === 'announcement') posts = posts.filter(p => p.category === 'announcement');
     else if (tab === 'general') posts = posts.filter(p => p.category !== 'announcement');
     // Newest first; the pinned announcement sits on top (not on General).
@@ -4344,10 +4416,10 @@ Pages.forum = {
     if (pinned) posts = [pinned, ...posts.filter(p => p !== pinned)];
 
     const list = $('#forum-post-list');
-    const fiwaNote = Auth.isFiwa() || tab === 'announcement' ? '' : `
-      <p class="forum-fiwa-note">The rest of the feed is for the FIWA community. Sign in with your <strong>@fiwa.sch.id</strong> account to see it.</p>`;
+    const fiwaNote = Auth.isFiwa() ? '' : `
+      <p class="forum-fiwa-note">The Tribune’s feed is for the FIWA community. Sign in with your <strong>@fiwa.sch.id</strong> account to see it.</p>`;
+    if (fiwaNote) { list.innerHTML = fiwaNote; return; }
     if (posts.length === 0) {
-      if (fiwaNote && tab === 'general') { list.innerHTML = fiwaNote; return; }
       const emptyCopy = tab === 'announcement'
         ? 'No announcements have been posted yet.'
         : tab === 'general'
@@ -5057,7 +5129,14 @@ Pages.corrections = {
     const isEditing = Editor.active;
     const isAdmin   = await Auth.isAdmin();
     const canEdit   = isEditing && isAdmin;
-    const list = (await Store.list('corrections')).sort((a, b) => b.createdAt - a.createdAt);
+    // A correction is public only when the story it fixes is public, so the
+    // log never shows guests anything about FIWA's internal news or the
+    // printed editions (Nov 2026). The database enforces the same.
+    let list = (await Store.list('corrections')).sort((a, b) => b.createdAt - a.createdAt);
+    if (!Auth.isFiwa()) {
+      const open = new Set((await listVisibleArticles()).map(a => a.id));
+      list = list.filter(c => c.articleId && open.has(c.articleId));
+    }
     const el = $('#corrections-list');
     if (!el) return;
     if (list.length === 0) {
@@ -5204,7 +5283,7 @@ const groupByDivision = (people) => {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -5304,8 +5383,9 @@ const DEFAULT_NEWS_TABS = [
 const EXTERNAL_NEWS_TABS = ['Indonesia', 'World'];
 
 /* ─── PRINTED EDITIONS I–V ─────────────────────────────────────────────
-   The web copies live in public/editions/ (PDF + front-page JPG), shrunk
-   for the web. Pages that were never printed are left out: a blank
+   The web copies (PDF + front-page JPG, shrunk for the web) live in the
+   private Supabase "editions" bucket, readable only by FIWA accounts
+   (Nov 2026), so the demo shows no pages. Pages that were never printed are left out: a blank
    background page in I, and in III the draft Gaza page and a blank page.
    Decks are the cover lines printed on each front page. */
 const EDITION_SEED = [
@@ -5329,7 +5409,7 @@ const EDITION_SEED = [
     title: 'Missiles, Medals, Water Plants and Transformers?!',
     desc: 'Houthi strikes, Nobel Prizes, the water treatment plant moved and improved, a new electric transformer, and the search for the next SOFWA SMA leader.',
     contents: ['Front page', 'Internal News: Building H', 'Internal News: water treatment plant', 'Internal News: a new transformer', 'Internal News: weather', 'Internal News: new rooms & a lab', 'Student achievements: WICE & MUN', 'Fitrah Tribune: what we do', 'External News: Houthi attacks', 'External News: Nobel Prizes', 'External News: Nobel Prizes & a major weather event', 'External News: the Super El Niño', 'External News: ammonia & space', 'External News: motorsport', 'The Houthi story, continued'] }
-].map(e => ({ ...e, pdf: `/editions/edition-${e.number}.pdf`, cover: `/editions/edition-${e.number}.jpg` }));
+].map(e => ({ ...e, pdf: `private:edition-${e.number}.pdf`, cover: `private:edition-${e.number}.jpg` }));
 
 // Adds any of Editions I–V the browser doesn't have. An edition an admin
 // already archived keeps its own words; it only gains the PDF and pages.
@@ -5497,6 +5577,23 @@ async function migrateLegacyData() {
     }
   }
 
+  // ─── v13 → v14 migration (FIWA-only, Nov 2026) ─────────────────────────
+  // Internal News is always FIWA-only, and the edition files moved out of
+  // the public site into the private "editions" bucket.
+  if (current < 14) {
+    for (const a of await Store.list('articles')) {
+      if (a.section !== 'external' && a.visibility !== 'fiwa') { a.visibility = 'fiwa'; await Store.save('articles', a); }
+    }
+    for (const e of await Store.list('editions')) {
+      let dirty = false;
+      for (const k of ['pdf', 'cover']) {
+        const m = typeof e[k] === 'string' && e[k].match(/^\/editions\/(edition-\d+\.(?:pdf|jpg))$/);
+        if (m) { e[k] = 'private:' + m[1]; dirty = true; }
+      }
+      if (dirty) await Store.save('editions', e);
+    }
+  }
+
   localStorage.setItem('fitrah:schemaVersion', String(SCHEMA_VERSION));
 }
 
@@ -5548,7 +5645,7 @@ async function seedDemoArticles() {
       ...article,
       tab: tabs.find(t => t.label === tabLabel && t.section === article.section)?.id || '',
       subtab: '',
-      visibility: 'public',
+      visibility: article.section === 'external' ? 'public' : 'fiwa',
       lang: 'en',
       coverAspect: 16 / 9,
       coverFit: 'crop',
@@ -5588,7 +5685,7 @@ async function seedDemoPlaceholders() {
       edition: 5,
       tab: tabFor(tabLabel, article.section),
       subtab: '',
-      visibility: 'public',
+      visibility: article.section === 'external' ? 'public' : 'fiwa',
       lang: 'en',
       createdAt: published - (10 + i) * 60000,
     });

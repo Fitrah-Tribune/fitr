@@ -5,7 +5,7 @@ them it falls back to the in-browser demo, where any password works.
 
 | File | What it is |
 |---|---|
-| `schema.sql` | The table, the permission rules, and the photo bucket. |
+| `schema.sql` | The table, the permission rules, the photo bucket and the private editions bucket. |
 | `seed-content.sql` | What the site shows today: 5 editions, the news categories, the Edition 5 articles, the front-page picks and the Tribunee roster. No emails. |
 | `people.sql` | **Not in this repo.** The allowlist and each profile's email. It's in the project files (`website/supabase/people.sql`). Never commit it. |
 
@@ -27,6 +27,16 @@ stored unless they ticked "show my name".
 Photos picked in the editors are uploaded to the public `media` bucket. The
 record keeps only the link.
 
+The printed editions (PDFs and front pages) are in the **private**
+`editions` bucket. Only FIWA accounts can open them, through links that
+work for an hour. An edition record keeps `private:<file name>`, e.g.
+`private:edition-5.pdf`. They are not in the repo or on the public site.
+
+**Who sees what** (Nov 2026): guests and non-FIWA accounts see only the
+About page, External News stories an editor made Public, and the
+corrections to those stories. Internal News (always), the forum feed
+(announcements too) and the editions are for FIWA accounts only.
+
 ## One-time setup
 
 1. **Create the project.** Go to supabase.com, then New project. Pick the
@@ -36,6 +46,11 @@ record keeps only the link.
 2. **Create the tables.** In the dashboard, open SQL Editor, then New query.
    Paste in all of `schema.sql` and click Run. Then do the same for
    `seed-content.sql`, and then for `people.sql` from the project files.
+
+   Then upload the editions: open Storage, then the `editions` bucket
+   (`schema.sql` made it), and upload the ten files from the project files
+   folder `website/editions-private/` (`edition-1.pdf`, `edition-1.jpg`, …
+   `edition-5.jpg`) at the top of the bucket, with those exact names.
 
 3. **Turn on Google sign-in.**
    - In Google Cloud Console, go to APIs & Services, then Credentials, then
@@ -78,8 +93,9 @@ record keeps only the link.
      never put it in the site, Cloudflare, or the repo.
 
 6. **Check it.** Test as each tier:
-   - A guest reads everything.
-   - A Gmail account can send a feedback note.
+   - A guest sees the About page, public External News and the corrections
+     log, but no Internal News, forum posts or editions.
+   - A Gmail account can send a feedback note, and sees what a guest sees.
    - Khalifah's school account can post to the forum but not reply to notes.
    - An admin can reply to and close notes.
 

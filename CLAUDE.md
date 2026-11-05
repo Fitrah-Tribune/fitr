@@ -211,15 +211,26 @@ forum, feedback, corrections, or profiles must keep all of them. Enforce them
 Tribunee and admin come from the `allowlist` collection
 (`Auth.isTribunee()`, `Auth.isAdmin()`). Admins: Ammar, Aldebaraan, Fathan.
 
-**FIWA-first (the mudir's advice, Oct 2026; "see how it goes"):** the site
-is mainly for the FIWA community.
-- New articles default to **FIWA only**; an editor makes a story Public on
-  purpose. FIWA-only stories are hidden from guests and non-FIWA accounts.
-- Forum **announcements** are public; every other post is FIWA-only.
+**FIWA-only (decided by Ammar, Nov 2026, after the Mudir's concern about
+the public seeing FIWA's internal matters):** the site is for the FIWA
+community. Guests and non-FIWA accounts see only the About page, External
+News stories an editor made Public, and the corrections to those stories.
+- **Internal News is always FIWA-only.** The database saves every Internal
+  story as FIWA-only, so no editor can make one public. A story with no
+  section counts as Internal.
+- External News defaults to **FIWA only**; an editor makes a story Public
+  on purpose (`isPublicArticle(a)` in the engine).
+- The **forum** (announcements too) and the **printed editions** are
+  FIWA-only. The edition PDFs and front pages are in the private
+  `editions` bucket, never in `public/` or the repo.
+- A correction is public only when the story it fixes is public; front-page
+  picks likewise.
 - Feedback stays open to any signed-in account (notes are private anyway).
+- Not yet covered: photos in articles are in the public `media` bucket,
+  reachable by anyone who has the link.
 
 **Forum (a feed, not a discussion board)**
-- Only Tribunees can post. Guests and public users read announcements only.
+- Only Tribunees can post. Only FIWA accounts read it.
 - **Announcement** posts: admins only. **General** posts: any Tribunee.
 - Delete: admins delete anything; a Tribunee deletes only their own.
 - Pin: admins only, one announcement at a time.
@@ -253,7 +264,7 @@ is mainly for the FIWA community.
 - Only Monkeytype's "time 30, English" results count; other modes are
   shown but not saved.
 
-**Corrections log:** public and permanent. Admins can edit/delete entries, in
+**Corrections log:** permanent; public for public stories (above). Admins can edit/delete entries, in
 editing mode only.
 
 **Profiles:** admins edit anyone, and only admins set name, role, grade and
