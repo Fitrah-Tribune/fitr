@@ -9,7 +9,7 @@ import { TEST_SECONDS, PAGE_SIZE, counts, listScores, findMine, submitScore, rem
 // accounts can take it or see the board (also enforced in
 // supabase/schema.sql).
 export default function TypingTest() {
-  const { ready, version } = useReactPage('more', 'The Tribune Typing Test')
+  const { ready, version } = useReactPage('more', 'Typing Test')
   const F = window.FITR
   const fiwa = ready && F.Auth.isFiwa()
 
@@ -61,8 +61,8 @@ export default function TypingTest() {
     <section className="page active" id="page-more">
       <Link to="/more" className="typing-back">← More</Link>
       <div className="section-head">
-        <h2>The Tribune Typing Test</h2>
-        <span className="sub">— Student Challenge</span>
+        <h2>Typing Test</h2>
+        <span className="sub">— Edition VI’s Student Challenge, the third we’ve held and the first on the website</span>
       </div>
 
       {!ready ? null : !fiwa ? <Locked /> : (

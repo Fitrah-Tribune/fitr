@@ -5198,15 +5198,15 @@ Pages.about = {
       // Per-card edit permission: admin can edit anyone; non-admin tribunees can edit only their own profile.
       const isSelf = !!(t.email && t.email.toLowerCase() === currentEmail);
       const canEditCard = isEditing && (isAdmin || isSelf);
-      // The bio's first paragraph only, clamped to two lines by CSS.
+      // The bio's first line only (Ammar, 18 Nov): a line ends at a line
+      // break or at the end of a paragraph, whichever comes first.
       const bioText = (() => {
         if (!t.bio) return '';
         const tmp = inertBody(t.bio);
-        for (const b of tmp.querySelectorAll('p, blockquote, h2, h3, h4, li')) {
-          const txt = (b.textContent || '').replace(/\s+/g, ' ').trim();
-          if (txt) return txt;
-        }
-        return (tmp.textContent || '').trim().split(/\n\s*\n/)[0].replace(/\s+/g, ' ');
+        tmp.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+        tmp.querySelectorAll('p, div, blockquote, h1, h2, h3, h4, li').forEach(b => b.append('\n'));
+        const line = (tmp.textContent || '').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).find(Boolean);
+        return line || '';
       })();
       const articleTotal = Credits.articleCount(t, articles.filter(a => Credits.wrote(t, a)));
       const meta = [t.grade, articleTotal ? `${articleTotal} ${articleTotal === 1 ? 'article' : 'articles'}` : '']

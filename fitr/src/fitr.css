@@ -2828,9 +2828,6 @@ body.editing [data-editable]:hover {
   padding: 0.4rem 1rem;
   margin: 0.9rem 0;
 }
-/* The bio editor shows bios as they appear on the profile: Work Sans. */
-#tr-bio-editor .rte-editor,
-#tr-bio-editor .rte-editor blockquote { font-family: var(--ui); }
 .rte-editor ul, .rte-editor ol { padding-left: 1.5rem; margin-bottom: 0.8rem; }
 .rte-editor p:has(> img.rte-image) { text-align: center; }
 .rte-editor img.rte-image {
@@ -3327,9 +3324,13 @@ footer.tribune-footer { margin-top: 0.5rem; }
   .tabs-inner { padding: 0 0.4rem; flex-wrap: wrap; gap: 0; }
   .tabs-list { order: 2; width: 100%; justify-content: space-between; overflow-x: auto; }
   .tab-btn { padding: 0.75rem 0.35rem; font-size: 0.7rem; letter-spacing: 0.04em; }
-  /* Phone nav: six tabs as a 3×2 grid, so nothing hides off-screen. */
+  /* Phone nav: seven tabs in two rows of a 4-column grid, so nothing hides
+     off-screen and More doesn't sit alone on a third row. The long
+     "Feedback & Corrections" tab takes two columns. */
   .tabs-inner { display: flex; }
-  .tabs-list { display: grid; grid-template-columns: repeat(3, 1fr); overflow: visible; }
+  .tabs-list { display: grid; grid-template-columns: repeat(4, 1fr); overflow: visible; }
+  .tab-btn[data-page="corrections"] { grid-column: span 2; }
+  .tab-btn { padding-left: 0.2rem; padding-right: 0.2rem; letter-spacing: 0.06em; }
   .tab-btn { justify-content: center; min-height: 44px; letter-spacing: 0.1em; }
   .tab-btn.active::after { bottom: 0.4rem; left: 25%; right: 25%; }
   #page-home .featured-main .feat-title { font-size: 1.6rem; }
@@ -3525,9 +3526,10 @@ footer.tribune-footer { margin-top: 0.5rem; }
 .more-card-art { display: flex; align-items: center; justify-content: center; }
 .more-keys { width: 62%; height: auto; }
 .more-keys rect { fill: none; stroke: var(--gold-soft); stroke-width: 1.6; }
-.more-keys rect.bar { fill: var(--gold); stroke: none; opacity: 0.8; }
+.more-keys rect.on { stroke: var(--gold); stroke-width: 1.8; }
+.more-keys rect.bar { fill: none; stroke: var(--gold); opacity: 0.8; }
 .more-keys text {
-  font-family: var(--ui); font-size: 15px; font-weight: 600;
+  font-family: var(--headline); font-size: 13px; font-weight: 700;
   fill: var(--paper-lift); text-anchor: middle;
 }
 
@@ -3659,3 +3661,26 @@ footer.tribune-footer { margin-top: 0.5rem; }
 /* Forum: shown to guests and non-FIWA accounts under the announcements. */
 .forum-fiwa-note { font-family: var(--article); font-style: italic; font-size: 1.05rem; color: var(--ink-soft); margin: 1.25rem 0 0; padding: 0.9rem 1rem; border-left: 3px solid var(--gold); background: var(--paper-deep); }
 .forum-fiwa-note strong { font-style: normal; color: var(--navy); }
+
+/* ── One set of text spacing for every writing box (Ammar, 18 Nov) ──
+   The Writer's desk, the forum post box, the bio editor and the feedback
+   boxes all space lines and paragraphs the same way, and so do the places
+   that show what was written (article page, forum feed, profile bio).
+   Sizes still differ by place; spacing is in em, so it scales with them. */
+.rte-shell .rte-editor,
+.article-body, .fp-text, .tp-bio,
+.fc-form textarea.fc-body, #inbox-reply, .note-msg p {
+  line-height: 1.7;
+  letter-spacing: 0.005em;
+  word-spacing: 0.02em;
+}
+.rte-shell .rte-editor p, .article-body p, .fp-text p, .tp-bio p { margin: 0 0 0.9em; }
+.rte-shell .rte-editor h2, .article-body h2, .fp-text h2, .tp-bio h2 { margin: 1.5em 0 0.5em; }
+.rte-shell .rte-editor h3, .article-body h3, .fp-text h3, .tp-bio h3 { margin: 1.3em 0 0.45em; }
+.rte-shell .rte-editor blockquote, .article-body blockquote, .fp-text blockquote, .tp-bio blockquote { margin: 1em 0; }
+.rte-shell .rte-editor ul, .rte-shell .rte-editor ol, .article-body ul, .article-body ol,
+.fp-text ul, .fp-text ol, .tp-bio ul, .tp-bio ol { margin: 0 0 0.9em; }
+.rte-shell .rte-editor li, .article-body li, .fp-text li, .tp-bio li { margin-bottom: 0.3em; }
+.rte-shell .rte-editor > :first-child, .article-body > :first-child,
+.fp-text > :first-child, .tp-bio > :first-child { margin-top: 0; }
+.rte-shell .rte-editor > :last-child, .fp-text > :last-child, .tp-bio > :last-child { margin-bottom: 0; }

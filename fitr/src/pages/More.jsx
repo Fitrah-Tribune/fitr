@@ -50,11 +50,12 @@ function ChallengeLead({ ready, version }) {
       <Link to="/more/typing" className="feat-img more-card-art more-lead-art" aria-hidden="true" tabIndex={-1}>
         <KeysArt />
       </Link>
-      <div className="more-kicker">Student Challenge</div>
-      <h3 className="more-lead-title"><Link to="/more/typing">How fast can FIWA type?</Link></h3>
+      <div className="more-kicker">Edition VI · Student Challenge No. 3</div>
+      <h3 className="more-lead-title"><Link to="/more/typing">Typing Test</Link></h3>
       <p className="more-lead-deck">
-        {TEST_SECONDS} seconds, plain English, one best score each. The Tribune Typing
-        Test is open to every FIWA account.
+        Our third Student Challenge, and the first one held on the website. Type
+        plain English for {TEST_SECONDS} seconds; your best score goes on the board.
+        Open to every FIWA account.
       </p>
       <div className="more-lead-row">
         <Link to="/more/typing" className="btn-navy">Take the test</Link>
@@ -159,19 +160,24 @@ function WeatherAlert({ a }) {
 
 /* A few keys, drawn in the site's line style. */
 function KeysArt() {
-  const keys = [
-    [0, 0, 'F'], [1, 0, 'I'], [2, 0, 'T'], [3, 0, 'R'],
-    [0.5, 1, 'W'], [1.5, 1, 'P'], [2.5, 1, 'M']
+  // A plain keyboard, three staggered rows and a space bar, with the
+  // challenge's edition and number on the keys (Edition VI, No. 3).
+  const rows = [
+    { y: 0, x0: 0, n: 7 }, { y: 1, x0: 0.4, n: 6 }, { y: 2, x0: 0.9, n: 5 },
   ]
+  const labels = { '0-0': 'E', '0-1': 'D', '0-3': 'V', '0-4': 'I', '2-1': 'N', '2-2': 'o', '2-3': '3' }
   return (
-    <svg viewBox="0 0 200 110" className="more-keys">
-      {keys.map(([x, y, k]) => (
-        <g key={k} transform={`translate(${22 + x * 40} ${16 + y * 42})`}>
-          <rect width="34" height="34" rx="4" />
-          <text x="17" y="23">{k}</text>
-        </g>
-      ))}
-      <rect x="42" y="100" width="116" height="6" rx="3" className="bar" />
+    <svg viewBox="0 0 220 128" className="more-keys">
+      {rows.flatMap((r, ri) => Array.from({ length: r.n }, (_, i) => {
+        const k = labels[`${ri}-${i}`]
+        return (
+          <g key={`${ri}-${i}`} transform={`translate(${12 + (r.x0 + i) * 28.5} ${8 + r.y * 30})`}>
+            <rect width="25" height="25" rx="3.5" className={k ? 'on' : ''} />
+            {k && <text x="12.5" y="17.5">{k}</text>}
+          </g>
+        )
+      }))}
+      <rect x="55" y="100" width="110" height="18" rx="3.5" className="bar" />
     </svg>
   )
 }
