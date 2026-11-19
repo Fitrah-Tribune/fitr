@@ -455,7 +455,6 @@ const ROUTE_PATHS = {
   archive:     '/archive',
   forum:       '/forum',
   corrections: '/feedback',
-  chat:        '/chat',
   changes:     '/whats-new',
   about:       '/about',
   article:     '/article',
@@ -497,6 +496,9 @@ const Router = {
     if (page === 'about' && id === 'standards') go('.standards-block');
     if (page === 'about' && id === 'tribunees') go('#tribunees-grid-area');
     if (page === 'corrections' && id === 'submit') {
+      // In the Newsroom the reader's form is folded away; open it first.
+      const own = document.getElementById('nr-own');
+      if (own) own.open = true;
       go('#fc-submit-block', 'center');
       setTimeout(() => $('#fc-body')?.focus(), 520);
     }
@@ -511,6 +513,7 @@ const Icons = {
   home:    `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V11z"/></svg>`,
   news:    `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="7" y1="9" x2="13" y2="9"/><line x1="7" y1="13" x2="17" y2="13"/><line x1="7" y1="17" x2="17" y2="17"/></svg>`,
   archive: `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5"/><path d="M5 9v11h14V9"/><line x1="10" y1="13" x2="14" y2="13"/></svg>`,
+  newsroom: `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h11a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H8l-4 3v-3H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M18 8h3a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-1v3l-4-3h-5a1 1 0 0 1-1-1v-1"/></svg>`,
   forum:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
   pencil:  `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   about:   `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>`,
@@ -546,7 +549,7 @@ const NAV_TABS = [
 const SITE_TITLE = 'Fitrah Tribune — Documenting FIWA And Beyond';
 const PAGE_TITLES = {
   news: 'News', archive: 'Editions', forum: 'Forum', corrections: 'Feedback & Corrections',
-  about: 'About', more: 'More', write: 'Writer’s desk', article: 'Article', tribunee: 'The Tribunees', chat: 'Newsroom chat', changes: 'What’s new'
+  about: 'About', more: 'More', write: 'Writer’s desk', article: 'Article', tribunee: 'The Tribunees', changes: 'What’s new'
 };
 function setTitle(name) {
   document.title = name ? `${name} · Fitrah Tribune` : SITE_TITLE;
@@ -555,9 +558,16 @@ function setTitle(name) {
 // Pages without their own tab light up the tab they belong to.
 const TAB_FOR_PAGE = { article: 'news', tribunee: 'about' };
 
+// For the Tribunees and supervisors, Feedback & Corrections is the Newsroom
+// (Nov 2026): the same tab and URL, holding the chat, the editors' inbox
+// and the public record. Readers still see Feedback & Corrections.
+const NEWSROOM_TAB = { id: 'corrections', label: 'Newsroom', icon: 'newsroom' };
+
 async function renderTabs() {
   const current = TAB_FOR_PAGE[Router.current] || Router.current;
-  $('#tabs-list').innerHTML = NAV_TABS.map(t => `
+  const room = await Auth.isNewsroom();
+  const tabs = room ? NAV_TABS.map(t => t.id === 'corrections' ? NEWSROOM_TAB : t) : NAV_TABS;
+  $('#tabs-list').innerHTML = tabs.map(t => `
     <button class="tab-btn ${current === t.id ? 'active' : ''}" data-page="${t.id}" onclick="Router.go('${t.id}')">
       ${Icons[t.icon]}<span>${t.label}</span>
     </button>
@@ -567,7 +577,6 @@ async function renderTabs() {
 async function renderUserArea() {
   const user = Auth.current();
   const isTribunee = await Auth.isTribunee();
-  const isNewsroom = await Auth.isNewsroom();
   const title = await Auth.title();
   const slot = $('#tabs-user');
 
@@ -579,7 +588,6 @@ async function renderUserArea() {
   } else {
     const editingActive = Editor.active;
     slot.innerHTML = `
-      ${isNewsroom ? `<button class="btn-ghost btn-chat" style="display:inline-flex" onclick="Router.go('chat')">Chat</button>` : ''}
       ${isTribunee ? `<button class="btn-ghost btn-write" style="display:inline-flex" onclick="Router.go('write')">Write</button>` : ''}
       ${isTribunee ? `<button class="btn-ghost ${editingActive ? 'editing-active' : ''}" style="display:inline-flex" onclick="Editor.toggle(${!editingActive})">${editingActive ? 'Exit editing' : 'Editing mode'}</button>` : ''}
       <span class="tier-badge ${user.tier}${title && title !== 'Admin' ? ' titled' : ''}">${title && title !== 'Admin' ? escapeHtml(title) : user.tier === 'fiwa' ? 'FIWA' : 'Public'}</span>
@@ -588,6 +596,9 @@ async function renderUserArea() {
       <button class="btn-signout" onclick="SignIn.signOut()">Sign out</button>
     `;
   }
+  // Signing in or out can turn Feedback & Corrections into the Newsroom.
+  await renderTabs();
+  window.dispatchEvent(new Event('fitr:user'));
 }
 
 /* =====================================================================
@@ -4770,6 +4781,7 @@ Pages.corrections = {
   _preset: null,
 
   async render() {
+    if (document.querySelector('#page-corrections.newsroom')) setTitle('Newsroom');
     await this.renderSubmit();
     await this.renderMyCases();
     await this.renderInbox();
@@ -5439,8 +5451,8 @@ const CHANGELOG_SEED = [
   "id": "chg-2026-11-19-chat",
   "date": "2026-11-19",
   "audience": "tribunees",
-  "title": "The Newsroom chat",
-  "body": "A chat for the team, opened from the Chat button at the top of the page.\n\nThe Principal, the CAE and our advisor can read everything in it, including removed messages. Messages can’t be edited; you can remove your own."
+  "title": "The Newsroom tab and its chat",
+  "body": "For Tribunees and supervisors, the Feedback & Corrections tab is now the Newsroom: the team chat, the editors’ inbox and the public record in one place. Your own “send a note” form is folded away at the bottom.\n\nThe Principal, the CAE and our advisor can read everything in it, including removed messages. Messages can’t be edited; you can remove your own."
  },
  {
   "id": "chg-2026-11-19-bios",

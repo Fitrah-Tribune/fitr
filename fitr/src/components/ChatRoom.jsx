@@ -1,54 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import useReactPage from '../lib/useReactPage'
 
-// Route: /chat
 // The Newsroom chat (Nov 2026): one room for the Tribunees, read by the
-// supervisors (the Principal, the CAE and the advisor). Messages can't be
-// edited. A removed message stays on record: supervisors and admins still
-// see what it said; everyone else sees only that it was removed.
-// The rules live in supabase/schema.sql (collection "chat").
+// supervisors (the Principal, the CAE and the advisor). It sits at the top
+// of the Newsroom tab (Feedback.jsx); /chat sends people there.
+// Messages can't be edited. A removed message stays on record: supervisors
+// and admins still see what it said; everyone else sees only that it was
+// removed. The rules live in supabase/schema.sql (collection "chat").
 
 const MAX = 1000
 const POLL_MS = 8000
 
-export default function Chat() {
-  const { ready, version } = useReactPage('chat', 'Newsroom chat')
-  const [who, setWho] = useState(null)
-
-  useEffect(() => {
-    if (!ready) return
-    let live = true
-    const { Auth } = window.FITR
-    Promise.all([Auth.isNewsroom(), Auth.isSupervisor(), Auth.isAdmin(), Auth.title()])
-      .then(([room, sup, admin, title]) => {
-        if (live) setWho({ room, sup, admin, title, email: (Auth.current().email || '').toLowerCase(), name: Auth.current().name })
-      })
-    return () => { live = false }
-  }, [ready, version])
-
-  return (
-    <section className="page active" id="page-chat">
-      <div className="section-head">
-        <h2>Newsroom chat</h2>
-        <span className="sub">— for the Tribunees</span>
-      </div>
-      {!who ? null : !who.room ? <Locked /> : <Room who={who} />}
-    </section>
-  )
-}
-
-function Locked() {
-  const F = window.FITR
-  return (
-    <div className="empty-state chat-locked">
-      <h3>For Tribunees</h3>
-      <p>The Newsroom chat is where the Tribunees plan their stories. It’s open to the team and the people who supervise it.</p>
-      {F.Auth.isGuest() && <button className="btn-navy" onClick={() => F.SignIn.open()}>Sign in</button>}
-    </div>
-  )
-}
-
-function Room({ who }) {
+export default function ChatRoom({ who }) {
   const [msgs, setMsgs] = useState(null)
   const [error, setError] = useState('')
   const [text, setText] = useState('')

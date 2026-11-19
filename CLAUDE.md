@@ -79,19 +79,19 @@ fitr/
 | `/news` | `news` | `News.jsx` |
 | `/archive`, `/archive/:number` | `archive` | `Archive.jsx` (Editions: the shelf, and one edition's reader) |
 | `/forum`, `/forum/:postId` | `forum` | `Forum.jsx` |
-| `/feedback`, `/feedback/submit` | `corrections` | `Feedback.jsx` |
+| `/feedback`, `/feedback/submit` | `corrections` | `Feedback.jsx` (readers: Feedback & Corrections; Tribunees and supervisors: the Newsroom tab, with the team chat (`components/ChatRoom.jsx`, real React) above the editors' inbox, their own note form folded away, and the public record) |
 | `/about`, `/about/standards`, `/about/tribunees` | `about` | `About.jsx` |
 | `/article/:id` | `article` | `Article.jsx` |
 | `/tribunee/:id` | `tribunee` | `Tribunee.jsx` |
 | `/write`, `/write/:id` | `write` | `Write.jsx` (the Writer's desk; Tribunees only) |
 | `/more` | `more` | `More.jsx` (extras: the Student Challenge leads with its top 5, the weather sits in the side column; real React) |
-| `/chat` | `chat` | `Chat.jsx` (the Newsroom chat: Tribunees and supervisors; opened from the Chat button in the top band; real React) |
+| `/chat` | — | redirects to `/feedback` (the Newsroom) |
 | `/whats-new` | `changes` | `Changes.jsx` (the change log, by rank; linked in the footer; real React) |
 | `/more/typing`, `/more/typing?view=leaderboard` | `more` | `TypingTest.jsx` (the Student Challenge: Monkeytype in a frame; its leaderboard (crown) button opens the full FIWA leaderboard, top 50 then "Show more"; real React) |
 
-Note the one mismatch: URL `/feedback` → engine key `corrections`.
+Note the one mismatch: URL `/feedback` → engine key `corrections`. The tab's label depends on who is signed in (`NEWSROOM_TAB` in the engine); `renderUserArea()` redraws the tabs and fires a `fitr:user` event so `Feedback.jsx` swaps versions on sign-in or out.
 
-`More.jsx`, `TypingTest.jsx`, `Chat.jsx` and `Changes.jsx` were written in React from the start: they
+`More.jsx`, `TypingTest.jsx` and `Changes.jsx` were written in React from the start: they
 use `src/lib/useReactPage.js` instead of `useLegacyPage`, and the engine
 has no `Pages.more` code (the hook registers a small stand-in so signing
 in or out redraws them).

@@ -3693,9 +3693,23 @@ footer.tribune-footer { margin-top: 0.5rem; }
 .tp-bio > :last-child, #tr-bio-editor .rte-shell .rte-editor > :last-child { margin-bottom: 0; }
 
 /* ── Supervisors' named role in the top band (Nov 2026) ── */
-.tier-badge.titled { background: var(--paper-lift); color: var(--navy-deep); font-weight: 600; }
+.tier-badge.titled { background: transparent; color: var(--gold-bright); border: 1px solid var(--gold); font-weight: 600; }
 
-/* ── Newsroom chat (/chat) ── */
+/* ── The Newsroom tab (Feedback & Corrections, for the team) ── */
+.newsroom .nr-chat .chat { max-width: none; }
+.newsroom .nr-chat .chat-list { height: min(52vh, 480px); }
+.nr-hint { font-family: var(--article); font-size: 1rem; color: var(--ink-soft); margin: -0.4rem 0 1rem; }
+.nr-own { margin: 0 0 2.4rem; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.nr-own > summary {
+  cursor: pointer; list-style: none; padding: 0.85rem 0;
+  font-family: var(--ui); font-size: 0.9rem; font-weight: 500; color: var(--navy);
+}
+.nr-own > summary::-webkit-details-marker { display: none; }
+.nr-own > summary::before { content: '+'; display: inline-block; width: 1.2em; color: var(--gold); font-weight: 700; }
+.nr-own[open] > summary::before { content: '−'; }
+.nr-own[open] > .fc-layout { padding-bottom: 1rem; }
+
+/* ── Newsroom chat ── */
 .chat { max-width: 760px; margin: 0 auto; }
 .chat-note {
   font-family: var(--article); font-size: 1.02rem; color: var(--ink-soft);
