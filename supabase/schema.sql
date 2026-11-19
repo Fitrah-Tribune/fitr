@@ -182,6 +182,13 @@ begin
     when 'typing' then
       -- The Student Challenge leaderboard is for FIWA accounts.
       if not public.fitr_is_fiwa() then return null; end if;
+      -- Tribunees take part but don't count towards the final ranking
+      -- (Ammar, Nov 2026): the board shows them in grey. Worked out from the
+      -- allowlist on every read, never stored or sent by the browser.
+      out := out || jsonb_build_object('tribunee', exists (
+        select 1 from public.fitr_records a
+        where a.coll = 'allowlist' and a.owner = r.owner
+          and not coalesce((a.data ->> 'supervisor')::boolean, false)));
     when 'allowlist' then
       if not (mine or admin) then return null; end if;
     when 'cases' then
@@ -352,18 +359,24 @@ begin
         if public.fitr_final_status(old.data ->> 'status') and public.fitr_final_status(data_ ->> 'status') then
           raise exception 'This note is closed. Reopen it first.';
         end if;
-        -- Admins act on the note; they don't rewrite what the reader chose.
-        data_ := data_ || jsonb_build_object('showName', old.data -> 'showName');
-        if old.data ? 'submitterName' then data_ := data_ || jsonb_build_object('submitterName', old.data -> 'submitterName');
-        else data_ := data_ - 'submitterName'; end if;
+        -- Admins act on the note; they don't rewrite who sent it.
+        data_ := data_ || jsonb_build_object('submitterName', old.data -> 'submitterName');
       else
         -- The sender only "touches" their open note when adding to it.
         if old.owner is distinct from me then raise exception 'This is not your note'; end if;
         if public.fitr_final_status(old.data ->> 'status') then raise exception 'This note is closed'; end if;
         data_ := old.data;
       end if;
-      -- The sender decides whether the editors see their name.
-      if not coalesce((data_ ->> 'showName')::boolean, false) then data_ := data_ - 'submitterName'; end if;
+      -- No anonymous notes (Ammar, Nov 2026: they invite spam). The editors
+      -- always see who wrote in; the name comes from the account, never the
+      -- browser. It is still never published.
+      if not exists_ then
+        data_ := (data_ - 'showName') || jsonb_build_object('submitterName', coalesce(
+          (select t.data ->> 'name' from public.fitr_records t where t.coll = 'tribunees' and t.owner = me limit 1),
+          (select a.data ->> 'name' from public.fitr_records a where a.coll = 'allowlist' and a.owner = me limit 1),
+          nullif(auth.jwt() -> 'user_metadata' ->> 'full_name', ''),
+          split_part(me, '@', 1)));
+      end if;
 
     when 'casemsgs' then
       if exists_ then raise exception 'Messages can''t be edited'; end if;
@@ -374,7 +387,7 @@ begin
         if not admin then raise exception 'Only admins can reply to notes'; end if;
       elsif data_ ->> 'side' = 'reader' then
         if c.owner is distinct from me then raise exception 'This is not your note'; end if;
-        if not coalesce((c.data ->> 'showName')::boolean, false) then data_ := data_ - 'author'; end if;
+        data_ := data_ || jsonb_build_object('author', c.data ->> 'submitterName');
       else
         raise exception 'Unknown message side';
       end if;

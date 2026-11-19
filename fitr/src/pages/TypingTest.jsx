@@ -49,9 +49,9 @@ export default function TypingTest() {
       const before = findMine(await listScores())
       const kept = await submitScore(result, before)
       const list = await loadBoard()
-      const rank = list.findIndex(r => r.id === kept.id) + 1
+      const row = list.find(r => r.id === kept.id)
       const best = !before || result.wpm > Number(before.wpm)
-      setSave({ state: 'done', best, kept, rank, wpm: result.wpm })
+      setSave({ state: 'done', best, kept, rank: row?.place, tribunee: !!row?.tribunee, wpm: result.wpm })
     } catch (e) {
       setSave({ state: 'error', message: e.message })
     }
@@ -149,6 +149,9 @@ function SaveNote({ save, onOpenBoard }) {
   const text = save.state === 'saving' ? 'Saving to the leaderboard…'
     : save.state === 'skipped' ? `That was a “${save.testType}” test, so it doesn’t count. Switch to time 30, English for the leaderboard.`
       : save.state === 'error' ? `Couldn’t save this score: ${save.message}`
+        : save.tribunee ? (save.best
+          ? `${save.wpm} wpm: a new personal best! Tribunees don’t count towards the final ranking, so you’re on the board in grey.`
+          : `${save.wpm} wpm. Your best is still ${save.kept.wpm} wpm, shown in grey: Tribunees don’t count towards the final ranking.`)
         : save.best ? `${save.wpm} wpm: a new personal best! You’re #${save.rank} on the leaderboard.`
           : `${save.wpm} wpm. Your best is still ${save.kept.wpm} wpm (#${save.rank} on the leaderboard).`
   return <p className="tr-save">{text} {save.state === 'done' && board}</p>
@@ -159,14 +162,15 @@ function Leaderboard({ board, admin, onRemove }) {
   const [shown, setShown] = useState(PAGE_SIZE)
   const list = board.list
   const mine = findMine(list)
-  const myRank = mine ? list.indexOf(mine) + 1 : 0
+  const myAt = mine ? list.indexOf(mine) + 1 : 0
+  const anyTeam = list.some(r => r.tribunee)
   const rows = list.slice(0, shown)
   const date = (ms) => ms ? new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''
 
-  const row = (r, rank) => (
-    <tr key={r.id} className={r === mine ? 'me' : ''}>
-      <td className="lb-rank">{rank}</td>
-      <td className="lb-name">{r.name || 'FIWA student'}{r === mine && <span className="lb-you">You</span>}</td>
+  const row = (r) => (
+    <tr key={r.id} className={(r === mine ? 'me' : '') + (r.tribunee ? ' trib' : '') + (r.place && r.place <= 3 ? ' podium' : '')}>
+      <td className="lb-rank">{r.place || ''}</td>
+      <td className="lb-name">{r.name || 'FIWA student'}{r.tribunee && <span className="lb-trib">Tribunee</span>}{r === mine && <span className="lb-you">You</span>}</td>
       <td className="lb-wpm">{r.wpm}</td>
       <td className="lb-acc">{r.acc}%</td>
       <td className="lb-date">{date(r.updatedAt)}</td>
@@ -189,11 +193,11 @@ function Leaderboard({ board, admin, onRemove }) {
                   <tr><th>#</th><th>Name</th><th>WPM</th><th>Accuracy</th><th className="lb-date">Date</th>{admin && <th />}</tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => row(r, i + 1))}
-                  {mine && myRank > shown && (
+                  {rows.map(r => row(r))}
+                  {mine && myAt > shown && (
                     <>
                       <tr className="lb-gap"><td colSpan={admin ? 6 : 5}>⋯</td></tr>
-                      {row(mine, myRank)}
+                      {row(mine)}
                     </>
                   )}
                 </tbody>
@@ -204,7 +208,10 @@ function Leaderboard({ board, admin, onRemove }) {
           Show more ({list.length - shown} more)
         </button>
       )}
-      <p className="lb-note">Each person’s best {TEST_SECONDS}-second result counts.</p>
+      <p className="lb-note">
+        Each person’s best {TEST_SECONDS}-second result counts.
+        {anyTeam && ' Tribunees can take part too, but they don’t count towards the final ranking: they’re shown in grey where their speed puts them.'}
+      </p>
     </div>
   )
 }

@@ -1571,7 +1571,6 @@ a.fp-name:hover { color: var(--navy); text-decoration: underline; }
   font-size: 0.84rem;
   line-height: 1.45;
   color: var(--ink-muted);
-  cursor: pointer;
 }
 .fc-showname input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--navy); flex: none; }
 .fc-showname b { color: var(--ink); font-weight: 600; }
@@ -3632,10 +3631,19 @@ footer.tribune-footer { margin-top: 0.5rem; }
 }
 .lb-table td { padding: 0.55rem 0.5rem; border-top: 1px solid var(--rule-soft); font-variant-numeric: tabular-nums; }
 .lb-rank { width: 2.6rem; color: var(--ink-muted); }
-.lb-table tbody tr:nth-child(-n+3) .lb-rank { color: var(--gold); font-weight: 700; }
+.lb-table tbody tr.podium .lb-rank { color: var(--gold); font-weight: 700; }
 .lb-wpm { font-weight: 700; color: var(--navy-deep); }
 .lb-date { color: var(--ink-muted); }
 .lb-table tr.me td { background: rgba(232, 207, 148, 0.35); }
+/* Tribunees take part but don't count towards the final ranking (Nov 2026). */
+.lb-table tr.trib td, .more-top-row.trib .n, .more-top-row.trib .w { color: var(--ink-muted); }
+.lb-table tr.trib td.lb-wpm, .more-top-row.trib .w { font-weight: 500; }
+.lb-trib {
+  display: inline-block; margin-left: 0.45rem; padding: 0.05rem 0.4rem; border: 1px solid var(--rule);
+  border-radius: 2px; font-family: var(--ui); font-size: 0.6rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); vertical-align: 0.15em;
+}
+.more-top-foot { font-family: var(--ui); font-size: 0.75rem; color: var(--ink-muted); margin: 0.5rem 0 0; }
 .lb-you {
   margin-left: 0.5rem; font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--gold); font-weight: 700;

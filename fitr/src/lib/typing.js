@@ -20,15 +20,39 @@ export const counts = (testType) => String(testType || '').replace(/\s+/g, '') =
 
 const F = () => window.FITR
 
+/* Sorted fastest first. Tribunees take part but don't count towards the
+   final ranking (Ammar, Nov 2026): they keep their place by speed, shown
+   in grey, with no number, and the students' places skip them. On
+   Supabase the database marks each Tribunee's score (from the allowlist);
+   in the demo it is worked out here. */
 export function rankScores(list) {
-  return list
+  const sorted = list
     .filter(r => Number.isFinite(Number(r.wpm)))
     .sort((a, b) => (b.wpm - a.wpm) || (b.acc - a.acc) || ((a.updatedAt || 0) - (b.updatedAt || 0)))
+  let place = 0
+  return sorted.map(r => ({ ...r, place: r.tribunee ? null : ++place }))
+}
+
+/* The first `n` students, with any Tribunees who sit between them. */
+export function topScores(list, n) {
+  const out = []
+  for (const r of list) {
+    if (r.place && r.place > n) break
+    out.push(r)
+  }
+  return out
 }
 
 export async function listScores() {
-  if (!F().Auth.isFiwa()) return []
-  return rankScores(await F().Store.list('typing'))
+  const { Auth, Store } = F()
+  if (!Auth.isFiwa()) return []
+  let list = await Store.list('typing')
+  if (!Store.remote) {
+    const team = new Set((await Store.list('allowlist'))
+      .filter(a => !a.supervisor).map(a => (a.email || '').toLowerCase()))
+    list = list.map(r => ({ ...r, tribunee: team.has((r.email || '').toLowerCase()) }))
+  }
+  return rankScores(list)
 }
 
 /* The signed-in person's own record, if any. On Supabase only your own

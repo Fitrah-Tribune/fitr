@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import useReactPage from '../lib/useReactPage'
-import { TEST_SECONDS, PREVIEW_SIZE, listScores, findMine } from '../lib/typing'
+import { TEST_SECONDS, PREVIEW_SIZE, listScores, findMine, topScores } from '../lib/typing'
 
 // Route: /more
 // Extras from the Tribune. The Student Challenge leads, like a front-page
@@ -76,13 +76,18 @@ function ChallengeLead({ ready, version }) {
         ) : board.loading ? <p className="more-top-note">Loading…</p>
           : board.error ? <p className="more-top-note">The leaderboard couldn’t load: {board.error}</p>
             : !count ? <p className="more-top-note">No scores yet. Be the first on the board.</p>
-              : list.slice(0, PREVIEW_SIZE).map((r, i) => (
-                <div key={r.id} className={'more-top-row' + (r === mine ? ' me' : '')}>
-                  <span className="r">{i + 1}</span>
-                  <span className="n">{r.name || 'FIWA student'}{r === mine && <span className="lb-you">You</span>}</span>
-                  <span className="w">{r.wpm}<small> wpm</small></span>
-                </div>
-              ))}
+              : <>
+                {topScores(list, PREVIEW_SIZE).map(r => (
+                  <div key={r.id} className={'more-top-row' + (r === mine ? ' me' : '') + (r.tribunee ? ' trib' : '')}>
+                    <span className="r">{r.place || ''}</span>
+                    <span className="n">{r.name || 'FIWA student'}{r.tribunee && <span className="lb-trib">Tribunee</span>}{r === mine && <span className="lb-you">You</span>}</span>
+                    <span className="w">{r.wpm}<small> wpm</small></span>
+                  </div>
+                ))}
+                {topScores(list, PREVIEW_SIZE).some(r => r.tribunee) && (
+                  <p className="more-top-foot">Tribunees in grey don’t count towards the final ranking.</p>
+                )}
+              </>}
       </div>
     </article>
   )

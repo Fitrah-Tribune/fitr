@@ -4761,12 +4761,12 @@ const Cases = {
   },
 
   /* One message in a ticket's chat. `team` shows the inbox view: which
-     admin replied, and the sender's name only if they chose to share it. */
+     admin replied, and who sent the note (no anonymous notes, Nov 2026). */
   msg(m, c, team) {
     const editors = m.side === 'tribune';
     let who;
     if (editors) who = `Fitrah Tribune Editors${team && m.author ? ` <span class="msg-by">· ${escapeHtml(m.author)}</span>` : ''}`;
-    else if (team) who = c.showName ? escapeHtml(c.submitterName || 'Reader') : 'Name not shared';
+    else if (team) who = escapeHtml(c.submitterName || 'Reader');
     else who = 'You';
     return `
       <div class="note-msg ${editors ? 'editors' : 'reader'}">
@@ -4838,10 +4838,7 @@ Pages.corrections = {
         </select>
         <label class="fc-q" for="fc-body">Your note</label>
         <textarea class="fc-body" id="fc-body" maxlength="3000" placeholder="${placeholder}"></textarea>
-        <label class="fc-showname">
-          <input type="checkbox" id="fc-showname" />
-          <span><b>Let the editors see my name</b><br>Leave this off and the editors see only the reference. Either way, your name is never published.</span>
-        </label>
+        <p class="fc-showname"><span><b>The editors see your name</b><br>So they know who to reply to. Your name is never published.</span></p>
         <div class="fc-submit-foot">
           <span class="fc-submit-note">You’ll get a reference like <b>FTR-7KQ2</b>. The editors reply under your note, and you can add to it until it’s closed.</span>
           <button class="btn-navy" onclick="Pages.corrections.submitCase()">Send to the editors</button>
@@ -4855,12 +4852,10 @@ Pages.corrections = {
     // Keep what's been typed while switching.
     const body = $('#fc-body')?.value || '';
     const art = $('#fc-article')?.value || '';
-    const show = $('#fc-showname')?.checked;
     this.state.kind = k;
     this.state.articleId = art;
     this.renderSubmit().then(() => {
       $('#fc-body').value = body;
-      $('#fc-showname').checked = !!show;
     });
   },
 
@@ -4875,7 +4870,6 @@ Pages.corrections = {
       kind: NOTE_KINDS[this.state.kind] ? this.state.kind : 'other',
       articleId: article ? article.id : '',
       articleTitle: article ? article.title : '',
-      showName: !!$('#fc-showname').checked,
       status: 'received',
       submitterName:  Auth.current().name,
       submitterEmail: Auth.current().email
@@ -5006,9 +5000,7 @@ Pages.corrections = {
     const msgs = await Cases.messagesFor(c.id);
     const when = new Date(c.createdAt);
     const stamp = `${when.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, ${when.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
-    const from = c.showName
-      ? `From <b>${escapeHtml(c.submitterName || '')}</b>`
-      : `From <b>Name not shared</b> · the sender chose to stay anonymous`;
+    const from = `From <b>${escapeHtml(c.submitterName || 'Reader')}</b>`;
 
     let action;
     if (!open) {
@@ -5340,7 +5332,7 @@ const groupByDivision = (people) => {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -5474,6 +5466,20 @@ const CHANGELOG_SEED = [
   "audience": "staff",
   "title": "A change log, shown by rank",
   "body": "Admins add entries on this page and choose who sees each one: everyone, FIWA accounts, Tribunees, or supervisors and admins."
+ },
+ {
+  "id": "chg-2026-11-19-notes",
+  "date": "2026-11-19",
+  "audience": "everyone",
+  "title": "Notes to the editors show your name",
+  "body": "The editors now always see who sent a note, so they know who to reply to. Your name is still never published: not your name, not your words, not the fact that you wrote in."
+ },
+ {
+  "id": "chg-2026-11-19-tribunees-typing",
+  "date": "2026-11-19",
+  "audience": "fiwa",
+  "title": "Tribunees in the Typing Test",
+  "body": "Tribunees can take the Typing Test too, but they don’t count towards the final ranking. They’re shown in grey where their speed puts them, and the students’ places skip them."
  }
 ];
 
@@ -5716,6 +5722,12 @@ async function migrateLegacyData() {
   if (current < 15) {
     const have = new Set((await Store.list('allowlist')).map(a => (a.email || '').toLowerCase()));
     for (const a of rosterAllowlist()) if (a.supervisor && !have.has(a.email)) await Store.save('allowlist', a);
+    const logged = new Set((await Store.list('changes')).map(c => c.id));
+    for (const c of CHANGELOG_SEED) if (!logged.has(c.id)) await Store.save('changes', { ...c });
+  }
+
+  // ─── v15 → v16 (Nov 2026): change-log entries added since v15 ──────────
+  if (current < 16) {
     const logged = new Set((await Store.list('changes')).map(c => c.id));
     for (const c of CHANGELOG_SEED) if (!logged.has(c.id)) await Store.save('changes', { ...c });
   }

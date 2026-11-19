@@ -167,11 +167,10 @@ check('guest sees no notes', lst(GUEST,'cases')==[] and lst(GUEST,'casemsgs')==[
 check('FIWA non-Tribunee sees no inbox', [c['id'] for c in lst(FIWA,'cases')]==[])
 inbox = {c['id']:c for c in lst(KHAL,'cases')}
 check('Tribunee reads inbox', set(inbox)=={case['id'],case2['id']})
-check('hidden name never reaches editors', 'submitterName' not in inbox[case['id']] and 'submitterEmail' not in inbox[case['id']], inbox[case['id']])
-check('shared name reaches editors (no email)', inbox[case2['id']].get('submitterName')=='Shown Person' and 'submitterEmail' not in inbox[case2['id']])
+check('no anonymous notes: editors see the name, from the account (no email)', inbox[case['id']].get('submitterName')=='sam' and 'submitterEmail' not in inbox[case['id']] and 'showName' not in inbox[case['id']], inbox[case['id']])
+check('the browser cannot choose the sender\'s name', inbox[case2['id']].get('submitterName')=='someone')
 m = [m for m in lst(KHAL,'casemsgs') if m['caseId']==case['id']]
-check('hidden name stripped from reader message', m and 'author' not in m[0] and 'authorEmail' not in m[0], m)
-check('admin also cannot see hidden name', all('submitterName' not in c for c in lst(ADMIN,'cases') if c['id']==case['id']))
+check('reader message carries the sender\'s account name, no email', m and m[0].get('author')=='sam' and 'authorEmail' not in m[0], m)
 check('Tribunee cannot reply', not save(KHAL,'casemsgs',{'caseId':case['id'],'body':'x','side':'tribune','author':'Khalifah'})[0])
 check('Tribunee cannot set status', not save(KHAL,'cases',{**inbox[case['id']],'status':'corrected'})[0])
 check('sender cannot set status', not (save(PUB,'cases',{**case,'status':'corrected'})[0] and [c for c in lst(PUB,'cases')][0]['status']=='corrected'))
@@ -185,7 +184,7 @@ check('team sees which admin replied', tm and tm[0].get('author')=='Ammar', tm)
 c_admin = [c for c in lst(ADMIN,'cases') if c['id']==case['id']][0]
 ok,out = save(ADMIN,'cases',{**c_admin,'status':'corrected','closedAt':1,'closedBy':'Ammar','showName':True})
 check('admin closes note', ok and json.loads(out)['status']=='corrected', out)
-check('admin cannot flip the sender\'s name choice', 'submitterName' not in json.loads(out) and json.loads(out).get('showName') is False, out)
+check('admin cannot change who sent the note', json.loads(out).get('submitterName')=='sam', out)
 check('closed: sender cannot add', not save(PUB,'casemsgs',{'caseId':case['id'],'body':'more','side':'reader'})[0])
 check('closed: admin cannot reply', not save(ADMIN,'casemsgs',{'caseId':case['id'],'body':'more','side':'tribune'})[0])
 c_admin = [c for c in lst(ADMIN,'cases') if c['id']==case['id']][0]
@@ -234,6 +233,9 @@ check('admin sees emails on the board', all('email' in r for r in lst(ADMIN,'typ
 sid = rec.get('id')
 check('student cannot remove a score', not rm(FIWA,'typing',sid)[0])
 check('Tribunee cannot remove a score', not rm(KHAL,'typing',sid)[0])
+check('student score not marked Tribunee', all(r['tribunee'] is False for r in board if r['name']!='Khalifah'), board)
+check('Tribunee score marked Tribunee, from the allowlist', [r['tribunee'] for r in board if r['name']=='Khalifah']==[True], board)
+check('browser cannot mark itself a Tribunee', save(FIWA,'typing',{'wpm':90,'acc':99,'raw':95,'tribunee':True})[0] and [r['tribunee'] for r in lst(KHAL,'typing') if r['name']!='Khalifah']==[False])
 check('admin removes a score', rm(ADMIN,'typing',sid)[0] and len(lst(ADMIN,'typing'))==1)
 
 # Supervisors (Nov 2026): the Principal, the CAE, the advisor
@@ -254,7 +256,7 @@ raw("""insert into public.fitr_records(coll,id,owner,data) values
  ('casemsgs','cm-sup','sam@gmail.com','{"caseId":"case-sup","side":"reader","body":"a tip"}')""")
 check('supervisor reads the editors\' inbox', any(c['id']=='case-sup' for c in lst(SUP,'cases')) and any(m['id']=='cm-sup' for m in lst(SUP,'casemsgs')))
 check('supervisor cannot reply to notes', not save(SUP,'casemsgs',{'caseId':'case-sup','side':'tribune','body':'hi'})[0])
-check('supervisor does not see the sender\'s hidden name or email', all('submitterEmail' not in c and 'submitterName' not in c for c in lst(SUP,'cases') if c['id']=='case-sup'))
+check('supervisor does not see the sender\'s email', all('submitterEmail' not in c for c in lst(SUP,'cases') if c['id']=='case-sup'))
 
 # Newsroom chat
 check('guest cannot write in the chat', not save(GUEST,'chat',{'body':'hi'})[0])

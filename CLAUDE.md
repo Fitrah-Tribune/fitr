@@ -259,8 +259,8 @@ News stories an editor made Public, and the corrections to those stories.
   Answered). A
   final status closes the note, and a closed note is **frozen**: nobody can
   add to it, admins included. Only an admin can reopen it.
-- The sender decides whether the editors see their name (off by default;
-  the inbox then shows "Name not shared").
+- No anonymous notes (Ammar, Nov 2026: they invite spam). The editors
+  always see the sender's name, set from the account by the database.
 - **Note content is never public.** Not the name, not the words, not the
   fact that someone wrote in.
 - "Log a public correction" from a note copies **nothing** from the note.
@@ -268,6 +268,10 @@ News stories an editor made Public, and the corrections to those stories.
 
 **Student Challenge (typing test)**
 - Only FIWA accounts can take the test or see the leaderboard.
+- Tribunees can take part but don't count towards the final ranking
+  (Ammar, Nov 2026): they appear in grey where their WPM puts them, with no
+  place number, and students' places skip them. The database marks their
+  scores (`tribunee`, from the allowlist), never the browser.
 - One score per person: their best 30-second result. The name shown comes
   from the roster or the Google account, never from the browser.
 - Impossible scores (over 250 WPM) are refused. Only admins remove scores.
