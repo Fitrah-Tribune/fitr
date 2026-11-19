@@ -236,4 +236,74 @@ check('student cannot remove a score', not rm(FIWA,'typing',sid)[0])
 check('Tribunee cannot remove a score', not rm(KHAL,'typing',sid)[0])
 check('admin removes a score', rm(ADMIN,'typing',sid)[0] and len(lst(ADMIN,'typing'))==1)
 
+# Supervisors (Nov 2026): the Principal, the CAE, the advisor
+SUP='principal@fiwa.sch.id'
+raw("""insert into public.fitr_records(coll,id,owner,data) values
+ ('allowlist','al-sup','principal@fiwa.sch.id','{"supervisor":true,"admin":true,"title":"Principal","name":"Ustadz Zul"}')""")
+ok,out = q(SUP,"select public.fitr_is_tribunee()::text || ',' || public.fitr_is_admin()::text || ',' || public.fitr_is_supervisor()::text || ',' || public.fitr_title()")
+check('supervisor is neither Tribunee nor admin, even with admin set', out=='false,false,true,Principal', out)
+ok,out = q(KHAL,"select public.fitr_is_supervisor()::text || ',' || public.fitr_title()")
+check('a Tribunee is not a supervisor', out=='false,', out)
+ok,out = q(ADMIN,"select public.fitr_title()")
+check('an admin\'s title is Admin', out=='Admin', out)
+check('supervisor cannot publish', not save(SUP,'articles',{'title':'x','section':'external'})[0])
+check('supervisor cannot post to the forum', not save(SUP,'threads',{'body':'x','category':'general'})[0])
+check('supervisor cannot change the allowlist', not save(SUP,'allowlist',{'email':'x@fiwa.sch.id','admin':True})[0])
+raw("""insert into public.fitr_records(coll,id,owner,data) values
+ ('cases','case-sup','sam@gmail.com','{"kind":"tip","status":"received","showName":false}'),
+ ('casemsgs','cm-sup','sam@gmail.com','{"caseId":"case-sup","side":"reader","body":"a tip"}')""")
+check('supervisor reads the editors\' inbox', any(c['id']=='case-sup' for c in lst(SUP,'cases')) and any(m['id']=='cm-sup' for m in lst(SUP,'casemsgs')))
+check('supervisor cannot reply to notes', not save(SUP,'casemsgs',{'caseId':'case-sup','side':'tribune','body':'hi'})[0])
+check('supervisor does not see the sender\'s hidden name or email', all('submitterEmail' not in c and 'submitterName' not in c for c in lst(SUP,'cases') if c['id']=='case-sup'))
+
+# Newsroom chat
+check('guest cannot write in the chat', not save(GUEST,'chat',{'body':'hi'})[0])
+check('public user cannot write in the chat', not save(PUB,'chat',{'body':'hi'})[0])
+check('FIWA non-Tribunee cannot write in the chat', not save(FIWA,'chat',{'body':'hi'})[0])
+ok,out = save(KHAL,'chat',{'body':'Layout is done','author':'Fake Name','title':'Principal','supervisor':True})
+m1 = json.loads(out) if ok else {}
+check('Tribunee writes in the chat', ok, out)
+check('chat name and role come from the account', m1.get('author')=='Khalifah' and m1.get('title')=='' and m1.get('supervisor') is False, m1)
+ok,out = save(SUP,'chat',{'body':'Please keep it polite.'})
+m2 = json.loads(out) if ok else {}
+check('supervisor writes in the chat with their title', ok and m2.get('title')=='Principal' and m2.get('author')=='Ustadz Zul', out)
+check('empty message refused', not save(KHAL,'chat',{'body':'   '})[0])
+check('overlong message refused', not save(KHAL,'chat',{'body':'x'*1001})[0])
+check('guest cannot read the chat', lst(GUEST,'chat')==[])
+check('public user cannot read the chat', lst(PUB,'chat')==[])
+check('FIWA non-Tribunee cannot read the chat', lst(FIWA,'chat')==[])
+check('Tribunee reads the chat', len(lst(KHAL,'chat'))==2)
+check('supervisor reads the chat', len(lst(SUP,'chat'))==2)
+check('other people\'s emails hidden in the chat', all('authorEmail' not in m for m in lst(KHAL,'chat') if m['id']!=m1.get('id')))
+check('messages cannot be edited', not save(KHAL,'chat',{**m1,'body':'changed'})[0])
+check('Tribunee cannot remove someone else\'s message', not save(KHAL,'chat',{**m2,'removed':True})[0])
+check('nobody hard-deletes a chat message', not rm(ADMIN,'chat',m1['id'])[0] and not rm(SUP,'chat',m1['id'])[0])
+ok,out = save(SUP,'chat',{**m1,'removed':True})
+check('supervisor removes a message', ok and json.loads(out).get('removed') is True and json.loads(out).get('removedTitle')=='Principal', out)
+k = [m for m in lst(KHAL,'chat') if m['id']==m1['id']][0]
+check('Tribunees see only that it was removed', k.get('removed') is True and 'body' not in k, k)
+sv = [m for m in lst(SUP,'chat') if m['id']==m1['id']][0]
+check('supervisor still sees what it said', sv.get('body')=='Layout is done', sv)
+ad = [m for m in lst(ADMIN,'chat') if m['id']==m1['id']][0]
+check('admin still sees what it said', ad.get('body')=='Layout is done', ad)
+ok,out = save(KHAL,'chat',{'body':'oops'}); m3 = json.loads(out)
+check('Tribunee removes own message', save(KHAL,'chat',{**m3,'removed':True})[0])
+
+# Change log
+check('Tribunee cannot write the change log', not save(KHAL,'changes',{'title':'x','audience':'everyone'})[0])
+check('supervisor cannot write the change log', not save(SUP,'changes',{'title':'x','audience':'everyone'})[0])
+check('unknown audience refused', not save(ADMIN,'changes',{'title':'x','audience':'secret'})[0])
+for aud in ['everyone','fiwa','tribunees','staff']:
+    ok,out = save(ADMIN,'changes',{'id':'chg-'+aud,'title':aud,'audience':aud})
+    check(f'admin writes a "{aud}" entry', ok, out)
+seen = lambda who: sorted(c['audience'] for c in lst(who,'changes'))
+check('guest sees everyone entries', seen(GUEST)==['everyone'], seen(GUEST))
+check('public user sees everyone entries', seen(PUB)==['everyone'], seen(PUB))
+check('FIWA sees everyone + fiwa', seen(FIWA)==['everyone','fiwa'], seen(FIWA))
+check('Tribunee sees up to tribunees', seen(KHAL)==['everyone','fiwa','tribunees'], seen(KHAL))
+check('supervisor sees every entry', seen(SUP)==['everyone','fiwa','staff','tribunees'], seen(SUP))
+check('admin sees every entry', seen(ADMIN)==['everyone','fiwa','staff','tribunees'], seen(ADMIN))
+check('Tribunee cannot delete an entry', not rm(KHAL,'changes','chg-fiwa')[0])
+check('admin deletes an entry', rm(ADMIN,'changes','chg-fiwa')[0])
+
 print(f'\n{fails} failed'); sys.exit(1 if fails else 0)

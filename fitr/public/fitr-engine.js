@@ -231,6 +231,13 @@ const Store = {
   async signIn(email, pw)    { return (await pickDriver).signIn(email, pw); },
   async signOut()            { return (await pickDriver).signOut(); },
   async getCurrentUser()     { return (await pickDriver).getCurrentUser(); },
+  // A list read straight from the database, skipping the short cache
+  // (the Newsroom chat polls with this).
+  async fresh(coll) {
+    const d = await pickDriver;
+    if (d._forget) d._forget(coll);
+    return d.list(coll);
+  },
   async isRemote()           { return (this.remote = (await pickDriver) === supabaseDriver); },
   // The demo has no private files, so a "private:" path gives nothing there.
   async fileUrl(path) {
@@ -276,7 +283,11 @@ const Auth = {
     if (!user || !user.email) return user;
     const email = user.email.toLowerCase();
     const t = (await Store.list('tribunees')).find(x => (x.email || '').toLowerCase() === email);
-    return t && t.name ? { ...user, name: t.name } : user;
+    if (t && t.name) return { ...user, name: t.name };
+    // A supervisor has no roster card; their name is on the allowlist.
+    const a = email.endsWith('@fiwa.sch.id')
+      ? (await Store.list('allowlist')).find(x => (x.email || '').toLowerCase() === email) : null;
+    return a && a.name ? { ...user, name: a.name } : user;
   },
 
   isGuest()    { return this.current().tier === 'guest'; },
@@ -284,18 +295,44 @@ const Auth = {
   isFiwa()     { return this.current().tier === 'fiwa'; },
   canPost()    { return !this.isGuest(); },
 
-  async isTribunee() {
-    if (!this.isFiwa()) return false;
+  // The caller's allowlist entry, or null. Supervisors (the Principal,
+  // the CAE, the advisor) are on the allowlist with supervisor: true and a
+  // title; they are not Tribunees or admins (Nov 2026).
+  async _entry() {
+    if (!this.isFiwa()) return null;
     const list = await Store.list('allowlist');
     const email = (this.current().email || '').toLowerCase();
-    return list.some(a => (a.email || '').toLowerCase() === email);
+    return list.find(a => (a.email || '').toLowerCase() === email) || null;
+  },
+
+  async isTribunee() {
+    const a = await this._entry();
+    return !!a && !a.supervisor;
   },
 
   async isAdmin() {
-    if (!this.isFiwa()) return false;
-    const list = await Store.list('allowlist');
-    const email = (this.current().email || '').toLowerCase();
-    return list.some(a => (a.email || '').toLowerCase() === email && a.admin);
+    const a = await this._entry();
+    return !!a && !a.supervisor && !!a.admin;
+  },
+
+  // Reads everything the team reads and can remove chat messages.
+  async isSupervisor() {
+    const a = await this._entry();
+    return !!a && !!a.supervisor;
+  },
+
+  // A supervisor or a Tribunee: who may use the Newsroom chat.
+  async isNewsroom() {
+    const a = await this._entry();
+    return !!a;
+  },
+
+  // The named role shown beside a name: a supervisor's title, else "Admin" or "".
+  async title() {
+    const a = await this._entry();
+    if (!a) return '';
+    if (a.supervisor) return a.title || 'Supervisor';
+    return a.admin ? 'Admin' : '';
   },
 
   /* Returns true if the current user can edit the given tribunee record:
@@ -316,8 +353,10 @@ const Auth = {
     if (!body) return;
     const isTrib  = await this.isTribunee();
     const isAdm   = await this.isAdmin();
+    const isSup   = await this.isSupervisor();
     body.classList.toggle('is-tribunee', isTrib);
     body.classList.toggle('is-admin',    isAdm);
+    body.classList.toggle('is-supervisor', isSup);
     body.dataset.userEmail = (this.current().email || '').toLowerCase();
   }
 };
@@ -416,6 +455,8 @@ const ROUTE_PATHS = {
   archive:     '/archive',
   forum:       '/forum',
   corrections: '/feedback',
+  chat:        '/chat',
+  changes:     '/whats-new',
   about:       '/about',
   article:     '/article',
   tribunee:    '/tribunee',
@@ -505,7 +546,7 @@ const NAV_TABS = [
 const SITE_TITLE = 'Fitrah Tribune — Documenting FIWA And Beyond';
 const PAGE_TITLES = {
   news: 'News', archive: 'Editions', forum: 'Forum', corrections: 'Feedback & Corrections',
-  about: 'About', more: 'More', write: 'Writer’s desk', article: 'Article', tribunee: 'The Tribunees'
+  about: 'About', more: 'More', write: 'Writer’s desk', article: 'Article', tribunee: 'The Tribunees', chat: 'Newsroom chat', changes: 'What’s new'
 };
 function setTitle(name) {
   document.title = name ? `${name} · Fitrah Tribune` : SITE_TITLE;
@@ -526,6 +567,8 @@ async function renderTabs() {
 async function renderUserArea() {
   const user = Auth.current();
   const isTribunee = await Auth.isTribunee();
+  const isNewsroom = await Auth.isNewsroom();
+  const title = await Auth.title();
   const slot = $('#tabs-user');
 
   if (Auth.isGuest()) {
@@ -536,9 +579,10 @@ async function renderUserArea() {
   } else {
     const editingActive = Editor.active;
     slot.innerHTML = `
+      ${isNewsroom ? `<button class="btn-ghost btn-chat" style="display:inline-flex" onclick="Router.go('chat')">Chat</button>` : ''}
       ${isTribunee ? `<button class="btn-ghost btn-write" style="display:inline-flex" onclick="Router.go('write')">Write</button>` : ''}
       ${isTribunee ? `<button class="btn-ghost ${editingActive ? 'editing-active' : ''}" style="display:inline-flex" onclick="Editor.toggle(${!editingActive})">${editingActive ? 'Exit editing' : 'Editing mode'}</button>` : ''}
-      <span class="tier-badge ${user.tier}">${user.tier === 'fiwa' ? 'FIWA' : 'Public'}</span>
+      <span class="tier-badge ${user.tier}${title && title !== 'Admin' ? ' titled' : ''}">${title && title !== 'Admin' ? escapeHtml(title) : user.tier === 'fiwa' ? 'FIWA' : 'Public'}</span>
       <span class="user-name">${escapeHtml(user.name)}</span>
       <div class="user-avatar">${initials(user.name)}</div>
       <button class="btn-signout" onclick="SignIn.signOut()">Sign out</button>
@@ -4686,7 +4730,8 @@ const Cases = {
   },
 
   async canSubmit()    { return !Auth.isGuest(); },
-  async canViewInbox() { return await Auth.isTribunee(); },
+  // The team and the supervisors read the inbox; only admins act on it.
+  async canViewInbox() { return (await Auth.isTribunee()) || (await Auth.isSupervisor()); },
   async canReply()     { return await Auth.isAdmin(); },
   async canClose()     { return await Auth.isAdmin(); },
 
@@ -5283,7 +5328,7 @@ const groupByDivision = (people) => {
    any role text customised by the tribunees themselves are preserved.
    ===================================================================== */
 
-const SCHEMA_VERSION = 14;
+const SCHEMA_VERSION = 15;
 
 /* ─── THE ROSTER — EDIT THIS LIST as tribunees join or leave ───────────
    One list for both the first-time seed and the migrations.
@@ -5368,7 +5413,67 @@ const rosterTribunee = (p) => {
   if (p.login) t.email = demoEmail(p);
   return withPrintCredits(t);
 };
-const rosterAllowlist = () => ROSTER.filter(p => p.login).map(p => ({ email: demoEmail(p), admin: p.admin }));
+const rosterAllowlist = () => [
+  ...ROSTER.filter(p => p.login).map(p => ({ email: demoEmail(p), admin: p.admin })),
+  ...SUPERVISORS.map(p => ({ email: demoEmail(p), supervisor: true, title: p.title, name: p.name }))
+];
+
+/* The first change-log entries (What's new), Nov 2026. The same entries
+   are in supabase/seed-content.sql. */
+const CHANGELOG_SEED = [
+ {
+  "id": "chg-2026-11-19-typing",
+  "date": "2026-11-19",
+  "audience": "everyone",
+  "title": "Edition VI’s Typing Test",
+  "body": "The Student Challenge is back as a 30-second Typing Test: our third Student Challenge, and the first held on the website. Find it under More."
+ },
+ {
+  "id": "chg-2026-11-19-reading",
+  "date": "2026-11-19",
+  "audience": "everyone",
+  "title": "Easier reading on phones",
+  "body": "The menu now fits in two rows on a phone, and paragraphs in stories, forum posts and bios are spaced the same way everywhere."
+ },
+ {
+  "id": "chg-2026-11-19-chat",
+  "date": "2026-11-19",
+  "audience": "tribunees",
+  "title": "The Newsroom chat",
+  "body": "A chat for the team, opened from the Chat button at the top of the page.\n\nThe Principal, the CAE and our advisor can read everything in it, including removed messages. Messages can’t be edited; you can remove your own."
+ },
+ {
+  "id": "chg-2026-11-19-bios",
+  "date": "2026-11-19",
+  "audience": "tribunees",
+  "title": "Shorter bios on the About page",
+  "body": "Each card on the About page shows only the first line of your bio. The full bio is on your profile."
+ },
+ {
+  "id": "chg-2026-11-19-supervisors",
+  "date": "2026-11-19",
+  "audience": "staff",
+  "title": "Supervisor accounts",
+  "body": "The Principal, the CAE and the advisor sign in under their own named roles. They read the forum, the editors’ inbox, the Newsroom chat and every entry in this log, and can remove chat messages. They can’t publish or change the site."
+ },
+ {
+  "id": "chg-2026-11-19-log",
+  "date": "2026-11-19",
+  "audience": "staff",
+  "title": "A change log, shown by rank",
+  "body": "Admins add entries on this page and choose who sees each one: everyone, FIWA accounts, Tribunees, or supervisors and admins."
+ }
+];
+
+/* The supervisors (Nov 2026): they read everything the team reads (the
+   forum, the editors' inbox, the Newsroom chat, every change-log entry)
+   and can remove chat messages, under their own named role. Demo logins
+   only; their real accounts go in people.sql. */
+const SUPERVISORS = [
+  { name: 'Demo Principal', title: 'Principal', login: 'principal' },
+  { name: 'Demo CAE',       title: 'CAE',       login: 'cae' },
+  { name: 'Demo Advisor',   title: 'Advisor',   login: 'advisor' },
+];
 
 // Default categories, each inside one section (decided by Ammar, Oct 2026).
 const DEFAULT_NEWS_TABS = [
@@ -5592,6 +5697,15 @@ async function migrateLegacyData() {
       }
       if (dirty) await Store.save('editions', e);
     }
+  }
+
+  // ─── v14 → v15 migration (supervisors, Nov 2026) ──────────────────────
+  // The demo supervisors join the allowlist.
+  if (current < 15) {
+    const have = new Set((await Store.list('allowlist')).map(a => (a.email || '').toLowerCase()));
+    for (const a of rosterAllowlist()) if (a.supervisor && !have.has(a.email)) await Store.save('allowlist', a);
+    const logged = new Set((await Store.list('changes')).map(c => c.id));
+    for (const c of CHANGELOG_SEED) if (!logged.has(c.id)) await Store.save('changes', { ...c });
   }
 
   localStorage.setItem('fitrah:schemaVersion', String(SCHEMA_VERSION));

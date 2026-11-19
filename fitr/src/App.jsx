@@ -12,6 +12,8 @@ import Tribunee from './pages/Tribunee'
 import Write from './pages/Write'
 import More from './pages/More'
 import TypingTest from './pages/TypingTest'
+import Chat from './pages/Chat'
+import Changes from './pages/Changes'
 import NotFound from './pages/NotFound'
 
 /* Lets the engine's Router.go('forum') drive React Router. */
@@ -46,6 +48,8 @@ export default function App() {
           <Route path="write/:id" element={<Write />} />
           <Route path="more" element={<More />} />
           <Route path="more/typing" element={<TypingTest />} />
+          <Route path="chat" element={<Chat />} />
+          <Route path="whats-new" element={<Changes />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

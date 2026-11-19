@@ -76,6 +76,7 @@ export default function Layout() {
               <li><Link to="/about">Our Mission</Link></li>
               <li><Link to="/about/standards">Editorial Standards</Link></li>
               <li><Link to="/about/tribunees">The Tribunees</Link></li>
+              <li><Link to="/whats-new">What’s new</Link></li>
             </ul>
           </div>
         </div>

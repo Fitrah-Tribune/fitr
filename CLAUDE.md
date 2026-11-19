@@ -85,11 +85,13 @@ fitr/
 | `/tribunee/:id` | `tribunee` | `Tribunee.jsx` |
 | `/write`, `/write/:id` | `write` | `Write.jsx` (the Writer's desk; Tribunees only) |
 | `/more` | `more` | `More.jsx` (extras: the Student Challenge leads with its top 5, the weather sits in the side column; real React) |
+| `/chat` | `chat` | `Chat.jsx` (the Newsroom chat: Tribunees and supervisors; opened from the Chat button in the top band; real React) |
+| `/whats-new` | `changes` | `Changes.jsx` (the change log, by rank; linked in the footer; real React) |
 | `/more/typing`, `/more/typing?view=leaderboard` | `more` | `TypingTest.jsx` (the Student Challenge: Monkeytype in a frame; its leaderboard (crown) button opens the full FIWA leaderboard, top 50 then "Show more"; real React) |
 
 Note the one mismatch: URL `/feedback` → engine key `corrections`.
 
-`More.jsx` and `TypingTest.jsx` were written in React from the start: they
+`More.jsx`, `TypingTest.jsx`, `Chat.jsx` and `Changes.jsx` were written in React from the start: they
 use `src/lib/useReactPage.js` instead of `useLegacyPage`, and the engine
 has no `Pages.more` code (the hook registers a small stand-in so signing
 in or out redraws them).
@@ -211,6 +213,14 @@ forum, feedback, corrections, or profiles must keep all of them. Enforce them
 Tribunee and admin come from the `allowlist` collection
 (`Auth.isTribunee()`, `Auth.isAdmin()`). Admins: Ammar, Aldebaraan, Fathan.
 
+**Supervisors (decided by Ammar, Nov 2026):** the Principal, the CAE and
+the advisor. An allowlist entry with `supervisor: true`, a `title` (their
+named role, shown beside their name) and a `name`. They read everything
+the team reads (the forum, the editors' inbox, the Newsroom chat, every
+change-log entry) and can remove chat messages. They are not Tribunees or
+admins: they don't publish, post, reply to notes or change the site
+(`Auth.isSupervisor()`, `Auth.title()`).
+
 **FIWA-only (decided by Ammar, Nov 2026, after the Mudir's concern about
 the public seeing FIWA's internal matters):** the site is for the FIWA
 community. Guests and non-FIWA accounts see only the About page, External
@@ -264,6 +274,22 @@ News stories an editor made Public, and the corrections to those stories.
 - Only Monkeytype's "time 30, English" results count; other modes are
   shown but not saved.
 
+**Newsroom chat** (`chat`)
+- Only Tribunees and supervisors read or write it. The name and named role
+  on a message come from the account, never the browser.
+- Messages can't be edited or deleted. A Tribunee can *remove* their own;
+  supervisors and admins can remove any. A removed message stays on
+  record: supervisors and admins still see what it said, everyone else
+  sees only "Message removed by …".
+- Opening hours (for the chat and the whole site, following the school's
+  rules) are planned but not set yet (Ammar, Nov 2026: after talking to
+  the Principal).
+
+**Change log** (`changes`): admins write entries, each for one audience:
+everyone, FIWA accounts, Tribunees, or supervisors & admins. Each rank
+sees its own entries and the ones below it. Every website update gets
+entries here (and in `seed-content.sql`).
+
 **Corrections log:** permanent; public for public stories (above). Admins can edit/delete entries, in
 editing mode only.
 
@@ -300,7 +326,8 @@ public user, a non-admin Tribunee, and an admin.
   `tribunees`, `allowlist`, `cases` (feedback notes), `casemsgs` (their
   messages), `drafts` (the Writer's desk's unpublished work, one per writer
   per article), `featured` (front-page picks), `newsTabs` (categories),
-  `typing` (Student Challenge scores, one per person).
+  `typing` (Student Challenge scores, one per person), `chat` (Newsroom
+  chat messages), `changes` (the change log).
   (`comments` is legacy and wiped.) On Supabase they all live in one table,
   `fitr_records`, reached only through `fitr_list/get/save/remove`.
 - **The permission rules above are enforced in `supabase/schema.sql`.**
