@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import Home from './pages/Home'
 import News from './pages/News'
@@ -12,6 +12,7 @@ import Tribunee from './pages/Tribunee'
 import Write from './pages/Write'
 import More from './pages/More'
 import TypingTest from './pages/TypingTest'
+import Changes from './pages/Changes'
 import NotFound from './pages/NotFound'
 
 /* Lets the engine's Router.go('forum') drive React Router. */
@@ -46,6 +47,9 @@ export default function App() {
           <Route path="write/:id" element={<Write />} />
           <Route path="more" element={<More />} />
           <Route path="more/typing" element={<TypingTest />} />
+          {/* The chat lives in the Newsroom tab (Feedback & Corrections for readers). */}
+          <Route path="chat" element={<Navigate to="/feedback" replace />} />
+          <Route path="whats-new" element={<Changes />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

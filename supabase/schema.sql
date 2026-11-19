@@ -58,21 +58,47 @@ language sql stable as $$
   select public.fitr_email() like '%@fiwa.sch.id'
 $$;
 
--- A Tribunee: a FIWA account on the allowlist.
+-- A Tribunee: a FIWA account on the allowlist (supervisors aside).
 create or replace function public.fitr_is_tribunee() returns boolean
 language sql stable security definer set search_path = public as $$
   select public.fitr_is_fiwa() and exists (
     select 1 from public.fitr_records
-    where coll = 'allowlist' and owner = public.fitr_email())
+    where coll = 'allowlist' and owner = public.fitr_email()
+      and not coalesce((data ->> 'supervisor')::boolean, false))
 $$;
 
--- An admin: an allowlist entry with "admin": true.
+-- A supervisor (Nov 2026): the Principal, the CAE and the Tribune's
+-- advisor. An allowlist entry with "supervisor": true and a "title" (their
+-- named role, e.g. "Principal"). They read everything the team reads (the
+-- forum, the editors' inbox, the Newsroom chat, every change-log entry)
+-- and can remove chat messages; they don't publish or run the site.
+create or replace function public.fitr_is_supervisor() returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.fitr_is_fiwa() and exists (
+    select 1 from public.fitr_records
+    where coll = 'allowlist' and owner = public.fitr_email()
+      and coalesce((data ->> 'supervisor')::boolean, false))
+$$;
+
+-- The caller's named role: a supervisor's title, else "Admin" or "".
+create or replace function public.fitr_title() returns text
+language sql stable security definer set search_path = public as $$
+  select coalesce((
+    select case when coalesce((data ->> 'supervisor')::boolean, false) then coalesce(nullif(data ->> 'title', ''), 'Supervisor')
+                when coalesce((data ->> 'admin')::boolean, false) then 'Admin' else '' end
+    from public.fitr_records
+    where coll = 'allowlist' and owner = public.fitr_email() and public.fitr_is_fiwa()
+    limit 1), '')
+$$;
+
+-- An admin: an allowlist entry with "admin": true (never a supervisor).
 create or replace function public.fitr_is_admin() returns boolean
 language sql stable security definer set search_path = public as $$
   select public.fitr_is_fiwa() and exists (
     select 1 from public.fitr_records
     where coll = 'allowlist' and owner = public.fitr_email()
-      and coalesce((data ->> 'admin')::boolean, false))
+      and coalesce((data ->> 'admin')::boolean, false)
+      and not coalesce((data ->> 'supervisor')::boolean, false))
 $$;
 
 -- ── Helpers ───────────────────────────────────────────────────────────
@@ -95,13 +121,15 @@ language sql immutable as $$
     when 'tribunees' then 'email'
     when 'allowlist' then 'email'
     when 'typing'    then 'email'
+    when 'chat'      then 'authorEmail'
   end
 $$;
 
 create or replace function public.fitr_known(coll text) returns boolean
 language sql immutable as $$
   select coll in ('articles', 'editions', 'corrections', 'featured', 'newsTabs', 'threads',
-                  'tribunees', 'allowlist', 'cases', 'casemsgs', 'drafts', 'typing')
+                  'tribunees', 'allowlist', 'cases', 'casemsgs', 'drafts', 'typing',
+                  'chat', 'changes')
 $$;
 
 -- An article anyone may read: External News that an editor set to Public.
@@ -120,6 +148,7 @@ declare
   me       text    := public.fitr_email();
   trib     boolean := public.fitr_is_tribunee();
   admin    boolean := public.fitr_is_admin();
+  sup      boolean := public.fitr_is_supervisor();
   mine     boolean := r.owner is not null and r.owner = me;
   out      jsonb   := r.data;
   c        public.fitr_records;
@@ -153,17 +182,43 @@ begin
     when 'typing' then
       -- The Student Challenge leaderboard is for FIWA accounts.
       if not public.fitr_is_fiwa() then return null; end if;
+      -- Tribunees take part but don't count towards the final ranking
+      -- (Ammar, Nov 2026): the board shows them in grey. Worked out from the
+      -- allowlist on every read, never stored or sent by the browser.
+      out := out || jsonb_build_object('tribunee', exists (
+        select 1 from public.fitr_records a
+        where a.coll = 'allowlist' and a.owner = r.owner
+          and not coalesce((a.data ->> 'supervisor')::boolean, false)));
     when 'allowlist' then
       if not (mine or admin) then return null; end if;
     when 'cases' then
-      if not (mine or trib) then return null; end if;
+      -- Supervisors read the editors' inbox like the team does.
+      if not (mine or trib or sup) then return null; end if;
     when 'casemsgs' then
       select * into c from public.fitr_records where coll = 'cases' and id = r.data ->> 'caseId';
       if not found then return null; end if;
-      if not ((c.owner is not null and c.owner = me) or trib) then return null; end if;
+      if not ((c.owner is not null and c.owner = me) or trib or sup) then return null; end if;
       -- Editors' replies show as "Fitrah Tribune Editors" to the reader;
       -- only the team sees which admin wrote one.
-      if r.data ->> 'side' = 'tribune' and not trib then out := out - 'author'; end if;
+      if r.data ->> 'side' = 'tribune' and not (trib or sup) then out := out - 'author'; end if;
+    when 'chat' then
+      -- The Newsroom chat: Tribunees and supervisors only. A removed
+      -- message stays on record: supervisors and admins still see what it
+      -- said; everyone else sees only that it was removed.
+      if not (trib or sup) then return null; end if;
+      if coalesce((r.data ->> 'removed')::boolean, false) and not (sup or admin) then
+        out := out - 'body';
+      end if;
+    when 'changes' then
+      -- The change log: each entry is for one audience, and each rank sees
+      -- its own entries and the ones below it.
+      case coalesce(r.data ->> 'audience', 'everyone')
+        when 'everyone'  then null;
+        when 'fiwa'      then if not public.fitr_is_fiwa() then return null; end if;
+        when 'tribunees' then if not (trib or sup) then return null; end if;
+        when 'staff'     then if not (admin or sup) then return null; end if;
+        else return null;
+      end case;
     else
       if not public.fitr_known(r.coll) then return null; end if;
   end case;
@@ -171,7 +226,7 @@ begin
   -- Who may see the email.
   if field is not null and r.owner is not null and (
        mine
-       or (admin and r.coll in ('articles', 'threads', 'tribunees', 'allowlist', 'drafts', 'typing'))
+       or (admin and r.coll in ('articles', 'threads', 'tribunees', 'allowlist', 'drafts', 'typing', 'chat'))
        or (admin and r.coll = 'casemsgs' and r.data ->> 'side' = 'tribune')
      ) then
     out := out || jsonb_build_object(field, r.owner);
@@ -206,6 +261,7 @@ declare
   me     text    := public.fitr_email();
   trib   boolean := public.fitr_is_tribunee();
   admin  boolean := public.fitr_is_admin();
+  sup    boolean := public.fitr_is_supervisor();
   field  text    := public.fitr_email_field(coll);
   rid    text    := nullif(item ->> 'id', '');
   old    public.fitr_records;
@@ -303,18 +359,24 @@ begin
         if public.fitr_final_status(old.data ->> 'status') and public.fitr_final_status(data_ ->> 'status') then
           raise exception 'This note is closed. Reopen it first.';
         end if;
-        -- Admins act on the note; they don't rewrite what the reader chose.
-        data_ := data_ || jsonb_build_object('showName', old.data -> 'showName');
-        if old.data ? 'submitterName' then data_ := data_ || jsonb_build_object('submitterName', old.data -> 'submitterName');
-        else data_ := data_ - 'submitterName'; end if;
+        -- Admins act on the note; they don't rewrite who sent it.
+        data_ := data_ || jsonb_build_object('submitterName', old.data -> 'submitterName');
       else
         -- The sender only "touches" their open note when adding to it.
         if old.owner is distinct from me then raise exception 'This is not your note'; end if;
         if public.fitr_final_status(old.data ->> 'status') then raise exception 'This note is closed'; end if;
         data_ := old.data;
       end if;
-      -- The sender decides whether the editors see their name.
-      if not coalesce((data_ ->> 'showName')::boolean, false) then data_ := data_ - 'submitterName'; end if;
+      -- No anonymous notes (Ammar, Nov 2026: they invite spam). The editors
+      -- always see who wrote in; the name comes from the account, never the
+      -- browser. It is still never published.
+      if not exists_ then
+        data_ := (data_ - 'showName') || jsonb_build_object('submitterName', coalesce(
+          (select t.data ->> 'name' from public.fitr_records t where t.coll = 'tribunees' and t.owner = me limit 1),
+          (select a.data ->> 'name' from public.fitr_records a where a.coll = 'allowlist' and a.owner = me limit 1),
+          nullif(auth.jwt() -> 'user_metadata' ->> 'full_name', ''),
+          split_part(me, '@', 1)));
+      end if;
 
     when 'casemsgs' then
       if exists_ then raise exception 'Messages can''t be edited'; end if;
@@ -325,9 +387,47 @@ begin
         if not admin then raise exception 'Only admins can reply to notes'; end if;
       elsif data_ ->> 'side' = 'reader' then
         if c.owner is distinct from me then raise exception 'This is not your note'; end if;
-        if not coalesce((c.data ->> 'showName')::boolean, false) then data_ := data_ - 'author'; end if;
+        data_ := data_ || jsonb_build_object('author', c.data ->> 'submitterName');
       else
         raise exception 'Unknown message side';
+      end if;
+
+    when 'chat' then
+      if not exists_ then
+        -- Tribunees and supervisors write; the name and role come from the
+        -- account, never the browser. Messages can't be edited.
+        if not (trib or sup) then raise exception 'The Newsroom chat is for Tribunees'; end if;
+        if length(trim(coalesce(data_ ->> 'body', ''))) = 0 then raise exception 'Write a message first'; end if;
+        if length(data_ ->> 'body') > 1000 then raise exception 'Keep messages under 1000 characters'; end if;
+        data_ := jsonb_build_object(
+          'body', data_ ->> 'body',
+          'author', coalesce(
+            (select t.data ->> 'name' from public.fitr_records t where t.coll = 'tribunees' and t.owner = me limit 1),
+            (select a.data ->> 'name' from public.fitr_records a where a.coll = 'allowlist' and a.owner = me limit 1),
+            nullif(auth.jwt() -> 'user_metadata' ->> 'full_name', ''),
+            split_part(me, '@', 1)),
+          'title', public.fitr_title(),
+          'supervisor', sup);
+      else
+        -- The only change is removing a message: supervisors and admins
+        -- remove any, a Tribunee only their own. It stays on record.
+        if not coalesce((data_ ->> 'removed')::boolean, false) then raise exception 'Messages can''t be edited'; end if;
+        if not (sup or admin or (trib and old.owner = me)) then raise exception 'You can only remove your own messages'; end if;
+        if coalesce((old.data ->> 'removed')::boolean, false) then return public.fitr_get(coll, rid); end if;
+        data_ := old.data || jsonb_build_object(
+          'removed', true,
+          'removedAt', (extract(epoch from now()) * 1000)::bigint,
+          'removedBy', coalesce(
+            (select t.data ->> 'name' from public.fitr_records t where t.coll = 'tribunees' and t.owner = me limit 1),
+            (select a.data ->> 'name' from public.fitr_records a where a.coll = 'allowlist' and a.owner = me limit 1),
+            split_part(me, '@', 1)),
+          'removedTitle', public.fitr_title());
+      end if;
+
+    when 'changes' then
+      if not admin then raise exception 'Only admins can write the change log'; end if;
+      if coalesce(data_ ->> 'audience', 'everyone') not in ('everyone', 'fiwa', 'tribunees', 'staff') then
+        raise exception 'Unknown audience';
       end if;
 
     when 'typing' then
@@ -380,7 +480,7 @@ begin
   case coll
     when 'articles', 'featured', 'newsTabs' then
       if not trib then raise exception 'Only Tribunees can do that'; end if;
-    when 'editions', 'corrections', 'tribunees', 'allowlist' then
+    when 'editions', 'corrections', 'tribunees', 'allowlist', 'changes' then
       if not admin then raise exception 'Only admins can do that'; end if;
     when 'threads' then
       -- Admins delete anything; a Tribunee deletes only their own posts.
@@ -390,7 +490,7 @@ begin
     when 'typing' then
       if not admin then raise exception 'Only admins can remove scores'; end if;
     else
-      -- Feedback notes and their messages are never deleted.
+      -- Feedback notes, their messages and chat messages are never deleted.
       raise exception 'That can''t be deleted';
   end case;
 
@@ -401,7 +501,7 @@ end $$;
 revoke all on function public.fitr_view(public.fitr_records) from public, anon, authenticated;
 grant execute on function public.fitr_list(text), public.fitr_get(text, text),
   public.fitr_save(text, jsonb), public.fitr_remove(text, text),
-  public.fitr_is_tribunee(), public.fitr_is_admin()
+  public.fitr_is_tribunee(), public.fitr_is_admin(), public.fitr_is_supervisor()
   to anon, authenticated;
 
 -- =====================================================================

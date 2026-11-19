@@ -116,6 +116,24 @@ corrections to those stories. Internal News (always), the forum feed
   To make someone an admin, set `{"admin": true}`. To remove someone's
   access, delete their `allowlist` row in the Table Editor.
 
+- **Adding a supervisor** (the Principal, the CAE, the advisor): they get
+  an allowlist row with `"supervisor": true`, their named role as `title`,
+  and their name (they have no Tribunee profile):
+
+  ```sql
+  insert into public.fitr_records (coll, id, owner, data)
+  values ('allowlist', 'al-principal', 'their.email@fiwa.sch.id',
+          '{"supervisor": true, "title": "Principal", "name": "Their full name"}');
+  ```
+
+  A supervisor reads the forum, the editors' inbox, the Newsroom chat and
+  every change-log entry, and can remove chat messages. They can't publish,
+  post, reply to notes or change the site, even if `admin` is set too.
+
+- **The change log** (What's new, `/whats-new`): admins add entries on the
+  page and pick who sees each one. New entries that come with an update are
+  in `seed-content.sql`; re-running it adds them and keeps everything else.
+
 - **Changing a rule:** edit the function in `schema.sql`, update CLAUDE.md
   to match, and run the whole file again. Every statement in it can be
   re-run safely.
