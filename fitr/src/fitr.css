@@ -3684,3 +3684,10 @@ footer.tribune-footer { margin-top: 0.5rem; }
 .rte-shell .rte-editor > :first-child, .article-body > :first-child,
 .fp-text > :first-child, .tp-bio > :first-child { margin-top: 0; }
 .rte-shell .rte-editor > :last-child, .fp-text > :last-child, .tp-bio > :last-child { margin-bottom: 0; }
+/* Bios are short, so their paragraphs sit closer than an article's
+   (Ammar, 19 Nov: the profile bio's gaps looked too big). The bio editor
+   matches the profile, so what a Tribunee types is what readers see. */
+.tp-bio, #tr-bio-editor .rte-shell .rte-editor { line-height: 1.55; }
+#tr-bio-editor .rte-shell .rte-editor { --rte-base: 1.1rem; font-size: 1.1rem; }
+.tp-bio p, #tr-bio-editor .rte-shell .rte-editor p { margin: 0 0 0.5em; }
+.tp-bio > :last-child, #tr-bio-editor .rte-shell .rte-editor > :last-child { margin-bottom: 0; }
