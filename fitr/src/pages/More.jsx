@@ -50,12 +50,12 @@ function ChallengeLead({ ready, version }) {
       <Link to="/more/typing" className="feat-img more-card-art more-lead-art" aria-hidden="true" tabIndex={-1}>
         <KeysArt />
       </Link>
-      <div className="more-kicker">Edition VI · Student Challenge No. 3</div>
+      <div className="more-kicker">Current Student Challenge</div>
       <h3 className="more-lead-title"><Link to="/more/typing">Typing Test</Link></h3>
       <p className="more-lead-deck">
-        Our third Student Challenge, and the first one held on the website. Type
-        plain English for {TEST_SECONDS} seconds; your best score goes on the board.
-        Open to every FIWA account.
+        Our third Student Challenge, and the first one held on the newly-made website!
+        Mode is plain english for {TEST_SECONDS} Seconds, and the challenge is open for
+        every FIWA account! Goodluck, may the fastest typer win!
       </p>
       <div className="more-lead-row">
         <Link to="/more/typing" className="btn-navy">Take the test</Link>

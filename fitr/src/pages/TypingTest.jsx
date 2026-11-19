@@ -62,7 +62,7 @@ export default function TypingTest() {
       <Link to="/more" className="typing-back">← More</Link>
       <div className="section-head">
         <h2>Typing Test</h2>
-        <span className="sub">— Edition VI’s Student Challenge, the third we’ve held and the first on the website</span>
+        <span className="sub">— Now i wonder who suggested and made this.....</span>
       </div>
 
       {!ready ? null : !fiwa ? <Locked /> : (
